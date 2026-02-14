@@ -1,6 +1,7 @@
 import hashlib
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -84,11 +85,14 @@ def create_project(payload: schemas.ProjectCreate, db: Session = Depends(get_db)
 
 
 @router.get("/projects", response_model=list[schemas.ProjectOut])
-def list_projects(org_id: str | None = None, db: Session = Depends(get_db)) -> list[Project]:
+def list_projects(
+    org_id: uuid.UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[Project]:
     query = db.query(Project).filter(Project.deleted_at.is_(None))
     if org_id:
         query = query.filter(Project.org_id == org_id)
-    return query.all()
+    return query.order_by(Project.created_at.desc()).all()
 
 
 @router.post("/notes", response_model=schemas.NoteOut, status_code=status.HTTP_201_CREATED)
@@ -97,32 +101,37 @@ def create_note(payload: schemas.NoteCreate, db: Session = Depends(get_db)) -> N
     if not project or project.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    note = NoteEntry(
-        project_id=payload.project_id,
-        title=payload.title,
-        entry_date=payload.entry_date,
-        created_by=payload.created_by,
-    )
-    db.add(note)
-    db.flush()
+    try:
+        note = NoteEntry(
+            project_id=payload.project_id,
+            title=payload.title,
+            entry_date=payload.entry_date,
+            created_by=payload.created_by,
+        )
+        db.add(note)
+        db.flush()
 
-    content_hash = _sha256_hex(payload.content_md)
-    chain_hash = _build_chain_hash(None, content_hash)
-    revision = NoteRevision(
-        note_id=note.id,
-        rev_no=1,
-        content_md=payload.content_md,
-        content_json=payload.content_json,
-        prev_hash=None,
-        content_hash=content_hash,
-        chain_hash=chain_hash,
-        created_by=payload.created_by,
-    )
-    db.add(revision)
-    db.flush()
+        content_hash = _sha256_hex(payload.content_md)
+        chain_hash = _build_chain_hash(None, content_hash)
+        revision = NoteRevision(
+            note_id=note.id,
+            rev_no=1,
+            content_md=payload.content_md,
+            content_json=payload.content_json,
+            prev_hash=None,
+            content_hash=content_hash,
+            chain_hash=chain_hash,
+            created_by=payload.created_by,
+        )
+        db.add(revision)
+        db.flush()
 
-    note.current_revision_id = revision.id
-    db.commit()
+        note.current_revision_id = revision.id
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     db.refresh(note)
     return note
 
@@ -132,7 +141,11 @@ def create_note(payload: schemas.NoteCreate, db: Session = Depends(get_db)) -> N
     response_model=schemas.NoteRevisionOut,
     status_code=status.HTTP_201_CREATED,
 )
-def create_note_revision(note_id: str, payload: schemas.NoteRevisionCreate, db: Session = Depends(get_db)) -> NoteRevision:
+def create_note_revision(
+    note_id: uuid.UUID,
+    payload: schemas.NoteRevisionCreate,
+    db: Session = Depends(get_db),
+) -> NoteRevision:
     note = db.get(NoteEntry, note_id)
     if not note or note.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Note not found")
@@ -146,31 +159,50 @@ def create_note_revision(note_id: str, payload: schemas.NoteRevisionCreate, db: 
     if not last_revision:
         raise HTTPException(status_code=400, detail="Note has no baseline revision")
 
-    content_hash = _sha256_hex(payload.content_md)
-    chain_hash = _build_chain_hash(last_revision.chain_hash, content_hash)
+    try:
+        content_hash = _sha256_hex(payload.content_md)
+        chain_hash = _build_chain_hash(last_revision.chain_hash, content_hash)
 
-    revision = NoteRevision(
-        note_id=note.id,
-        rev_no=last_revision.rev_no + 1,
-        content_md=payload.content_md,
-        content_json=payload.content_json,
-        prev_hash=last_revision.chain_hash,
-        content_hash=content_hash,
-        chain_hash=chain_hash,
-        created_by=payload.created_by,
-    )
-    db.add(revision)
-    db.flush()
+        revision = NoteRevision(
+            note_id=note.id,
+            rev_no=last_revision.rev_no + 1,
+            content_md=payload.content_md,
+            content_json=payload.content_json,
+            prev_hash=last_revision.chain_hash,
+            content_hash=content_hash,
+            chain_hash=chain_hash,
+            created_by=payload.created_by,
+        )
+        db.add(revision)
+        db.flush()
 
-    note.current_revision_id = revision.id
-    db.commit()
+        note.current_revision_id = revision.id
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Revision conflict, retry") from exc
+
     db.refresh(revision)
     return revision
 
 
 @router.get("/notes/{note_id}", response_model=schemas.NoteOut)
-def get_note(note_id: str, db: Session = Depends(get_db)) -> NoteEntry:
+def get_note(note_id: uuid.UUID, db: Session = Depends(get_db)) -> NoteEntry:
     note = db.get(NoteEntry, note_id)
     if not note or note.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Note not found")
     return note
+
+
+@router.get("/notes/{note_id}/revisions", response_model=list[schemas.NoteRevisionOut])
+def list_note_revisions(note_id: uuid.UUID, db: Session = Depends(get_db)) -> list[NoteRevision]:
+    note = db.get(NoteEntry, note_id)
+    if not note or note.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    return (
+        db.query(NoteRevision)
+        .filter(NoteRevision.note_id == note_id)
+        .order_by(NoteRevision.rev_no.asc())
+        .all()
+    )

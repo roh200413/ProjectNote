@@ -69,13 +69,13 @@ class NoteCreate(BaseModel):
     project_id: uuid.UUID
     title: str = Field(min_length=1, max_length=255)
     entry_date: date
-    content_md: str
+    content_md: str = Field(min_length=1)
     content_json: dict
     created_by: uuid.UUID | None = None
 
 
 class NoteRevisionCreate(BaseModel):
-    content_md: str
+    content_md: str = Field(min_length=1)
     content_json: dict
     created_by: uuid.UUID | None = None
 
