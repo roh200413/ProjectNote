@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>연구노트 상세</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:24px;color:#111827}
+    .wrap{max-width:1200px;margin:0 auto}
+    .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .btn{background:#2563eb;color:#fff;border:none;border-radius:8px;padding:10px 14px;cursor:pointer}
+    .btn.gray{background:#6b7280}
+    .panel{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-top:14px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center}
+    .modal{background:#fff;padding:20px;border-radius:12px;max-width:520px;width:92%}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>연구노트 상세</h1>
+    <div>
+      <button class="btn gray" onclick="location.href='/frontend/research-notes'">목록</button>
+      <button class="btn" id="openModal">연구노트 다운로드</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">{{ note.title }}</h2>
+    <div>책임자: {{ note.owner }} · 과제번호: {{ note.project_code }}</div>
+    <div>기간: {{ note.period }} · 파일: {{ note.files }}개 · 멤버: {{ note.members }}명</div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0">연구파일</h3>
+    <table>
+      <thead><tr><th>파일명</th><th>작성자</th></tr></thead>
+      <tbody>
+      {% for f in files %}
+        <tr><td>{{ f.name }}</td><td>{{ f.author }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="downloadModal" class="modal-bg">
+  <div class="modal">
+    <h3 style="margin-top:0">연구노트 다운로드(PDF 내보내기)</h3>
+    <p>페이지 방향과 보안 옵션을 선택해 다운로드할 수 있습니다.</p>
+    <button class="btn" onclick="closeModal()">닫기</button>
+  </div>
+</div>
+<script>
+  const modal = document.getElementById('downloadModal');
+  document.getElementById('openModal').onclick = () => modal.style.display = 'flex';
+  function closeModal(){ modal.style.display = 'none'; }
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+</script>
+</body>
+</html>
