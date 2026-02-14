@@ -1,11 +1,14 @@
 import hashlib
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api import schemas
+from app.core.config import settings
 from app.db.base import get_db
 from app.db.models import NoteEntry, NoteRevision, Organization, Project, User
 
@@ -24,6 +27,29 @@ def _build_chain_hash(previous_chain_hash: str | None, content_hash: str) -> str
 @router.get("/health", response_model=schemas.HealthResponse)
 def health() -> schemas.HealthResponse:
     return schemas.HealthResponse()
+
+
+@router.get("/frontend/bootstrap", response_model=schemas.FrontendBootstrapResponse)
+def frontend_bootstrap() -> schemas.FrontendBootstrapResponse:
+    return schemas.FrontendBootstrapResponse(
+        api_name=settings.app_name,
+        api_version="v1",
+        timestamp=datetime.now(timezone.utc),
+    )
+
+
+@router.get("/dashboard/summary", response_model=schemas.DashboardSummary)
+def dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSummary:
+    organizations = db.query(func.count(Organization.id)).scalar() or 0
+    projects = db.query(func.count(Project.id)).scalar() or 0
+    notes = db.query(func.count(NoteEntry.id)).scalar() or 0
+    revisions = db.query(func.count(NoteRevision.id)).scalar() or 0
+    return schemas.DashboardSummary(
+        organizations=organizations,
+        projects=projects,
+        notes=notes,
+        revisions=revisions,
+    )
 
 
 @router.post("/users", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)

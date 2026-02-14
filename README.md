@@ -11,6 +11,8 @@
 - 제시한 DB 스키마를 반영한 SQLAlchemy 모델 (`app/db/models.py`)
 - FastAPI 기반 API
   - `GET /api/v1/health`
+  - `GET /api/v1/frontend/bootstrap` (프론트 초기 연결 확인)
+  - `GET /api/v1/dashboard/summary` (대시보드 집계)
   - `POST /api/v1/users`
   - `POST /api/v1/organizations`
   - `GET /api/v1/organizations`

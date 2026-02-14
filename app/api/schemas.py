@@ -8,6 +8,19 @@ class HealthResponse(BaseModel):
     status: str = "ok"
 
 
+class FrontendBootstrapResponse(BaseModel):
+    api_name: str
+    api_version: str
+    timestamp: datetime
+
+
+class DashboardSummary(BaseModel):
+    organizations: int
+    projects: int
+    notes: int
+    revisions: int
+
+
 class OrganizationCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     code: str | None = Field(default=None, max_length=30)
