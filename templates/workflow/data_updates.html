@@ -1,0 +1,10 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"/><title>데이터 업데이트</title></head>
+<body style="font-family:Arial;padding:24px">
+<h1>데이터 업데이트</h1>
+<a href="/frontend/workflows">워크플로우 홈</a>
+<ul>
+{% for u in updates %}
+  <li>{{ u.target }} - {{ u.status }} ({{ u.updated_at }})</li>
+{% endfor %}
+</ul>
+</body></html>

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 
 
 RESEARCH_NOTES = [
@@ -27,12 +27,63 @@ RESEARCH_NOTES = [
     },
 ]
 
+PROJECTS = [
+    {
+        "id": "cbce1902-d86b-4be4-af3f-cd9c011868e0",
+        "name": "원전 AI 자동평가 고도화",
+        "status": "active",
+        "manager": "김기수",
+    },
+    {
+        "id": "53316220-cc3f-48f0-b9eb-1aaf55a48f86",
+        "name": "연구노트 FE 고도화",
+        "status": "draft",
+        "manager": "최재혁",
+    },
+]
+
+RESEARCHERS = [
+    {"id": "1", "name": "김기수", "role": "PI", "email": "kim@example.com"},
+    {"id": "2", "name": "최재혁", "role": "연구원", "email": "choi@example.com"},
+]
+
+DATA_UPDATES = [
+    {
+        "id": "upd-1",
+        "target": "연구노트 메타데이터",
+        "status": "completed",
+        "updated_at": "2026-02-18T11:03:00+09:00",
+    }
+]
+
+SIGNATURE_STATE = {
+    "last_signed_by": "김기수",
+    "last_signed_at": "2026-02-18T11:10:00+09:00",
+    "status": "valid",
+}
+
 
 def _find_note(note_id: str) -> dict:
     for note in RESEARCH_NOTES:
         if note["id"] == note_id:
             return note
     raise Http404("Research note not found")
+
+
+def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
+    return JsonResponse(
+        {
+            "detail": [
+                {
+                    "type": "uuid_parsing",
+                    "loc": ["query", field],
+                    "msg": "Input should be a valid UUID.",
+                    "input": raw_input,
+                }
+            ]
+        },
+        status=422,
+    )
 
 
 @require_GET
@@ -53,7 +104,14 @@ def frontend_bootstrap(_request):
 
 @require_GET
 def dashboard_summary(_request):
-    return JsonResponse({"organizations": 1, "projects": 2, "notes": len(RESEARCH_NOTES), "revisions": 0})
+    return JsonResponse(
+        {
+            "organizations": 1,
+            "projects": len(PROJECTS),
+            "notes": len(RESEARCH_NOTES),
+            "revisions": 0,
+        }
+    )
 
 
 @require_GET
@@ -64,21 +122,78 @@ def projects(request):
         try:
             uuid.UUID(org_id)
         except ValueError:
-            return JsonResponse(
-                {
-                    "detail": [
-                        {
-                            "type": "uuid_parsing",
-                            "loc": ["query", "org_id"],
-                            "msg": "Input should be a valid UUID.",
-                            "input": org_id,
-                        }
-                    ]
-                },
-                status=422,
-            )
+            return _json_uuid_validation_error("org_id", org_id)
 
-    return JsonResponse([], safe=False)
+    return JsonResponse(PROJECTS, safe=False)
+
+
+@require_http_methods(["GET", "POST"])
+def project_management_api(request):
+    if request.method == "GET":
+        return JsonResponse(PROJECTS, safe=False)
+
+    name = request.POST.get("name", "새 프로젝트")
+    manager = request.POST.get("manager", "미지정")
+    project = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "status": "draft",
+        "manager": manager,
+    }
+    PROJECTS.append(project)
+    return JsonResponse(project, status=201)
+
+
+@require_http_methods(["GET", "POST"])
+def researchers_api(request):
+    if request.method == "GET":
+        return JsonResponse(RESEARCHERS, safe=False)
+
+    researcher = {
+        "id": str(len(RESEARCHERS) + 1),
+        "name": request.POST.get("name", "신규 연구원"),
+        "role": request.POST.get("role", "연구원"),
+        "email": request.POST.get("email", "unknown@example.com"),
+    }
+    RESEARCHERS.append(researcher)
+    return JsonResponse(researcher, status=201)
+
+
+@require_http_methods(["GET", "POST"])
+def data_updates_api(request):
+    if request.method == "GET":
+        return JsonResponse(DATA_UPDATES, safe=False)
+
+    update_item = {
+        "id": f"upd-{len(DATA_UPDATES) + 1}",
+        "target": request.POST.get("target", "연구데이터"),
+        "status": request.POST.get("status", "queued"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    DATA_UPDATES.append(update_item)
+    return JsonResponse(update_item, status=201)
+
+
+@require_GET
+def final_download_api(_request):
+    payload = {
+        "format": "pdf",
+        "status": "ready",
+        "download_url": "/downloads/projectnote-final-report.pdf",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return JsonResponse(payload)
+
+
+@require_http_methods(["GET", "POST"])
+def signature_api(request):
+    if request.method == "GET":
+        return JsonResponse(SIGNATURE_STATE)
+
+    SIGNATURE_STATE["last_signed_by"] = request.POST.get("signed_by", SIGNATURE_STATE["last_signed_by"])
+    SIGNATURE_STATE["last_signed_at"] = datetime.now(timezone.utc).isoformat()
+    SIGNATURE_STATE["status"] = request.POST.get("status", "valid")
+    return JsonResponse(SIGNATURE_STATE)
 
 
 @require_GET
@@ -89,6 +204,43 @@ def research_notes_api(_request):
 @require_GET
 def research_note_detail_api(_request, note_id: str):
     return JsonResponse(_find_note(note_id))
+
+
+@require_GET
+def workflow_home_page(_request):
+    cards = [
+        {"title": "프로젝트 생성 및 관리", "href": "/frontend/projects"},
+        {"title": "연구자 추가", "href": "/frontend/researchers"},
+        {"title": "데이터 업데이트", "href": "/frontend/data-updates"},
+        {"title": "연구노트 최종 다운로드", "href": "/frontend/final-download"},
+        {"title": "사인 업데이트", "href": "/frontend/signatures"},
+    ]
+    return render(_request, "workflow/home.html", {"cards": cards})
+
+
+@require_GET
+def project_management_page(_request):
+    return render(_request, "workflow/projects.html", {"projects": PROJECTS})
+
+
+@require_GET
+def researchers_page(_request):
+    return render(_request, "workflow/researchers.html", {"researchers": RESEARCHERS})
+
+
+@require_GET
+def data_updates_page(_request):
+    return render(_request, "workflow/data_updates.html", {"updates": DATA_UPDATES})
+
+
+@require_GET
+def final_download_page(_request):
+    return render(_request, "workflow/final_download.html", {"report_name": "projectnote-final-report.pdf"})
+
+
+@require_GET
+def signature_page(_request):
+    return render(_request, "workflow/signatures.html", {"signature": SIGNATURE_STATE})
 
 
 @require_GET
