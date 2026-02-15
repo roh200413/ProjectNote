@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}연구노트 상세{% endblock %}
+{% block page_title %}연구노트 상세{% endblock %}
+{% block content %}
+<section class="pn-card">
+  <h2 style="margin-top:0">{{ note.title }}</h2>
+  <p class="pn-sub">책임자: {{ note.owner }} · 과제번호: {{ note.project_code }}</p>
+  <p class="pn-sub">기간: {{ note.period }} · 파일: {{ note.files }}개 · 멤버: {{ note.members }}명</p>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button class="pn-btn ghost" onclick="location.href='/frontend/research-notes'">목록</button>
+    <button class="pn-btn" id="openModal">연구노트 다운로드</button>
+  </div>
+</section>
+
+<section class="pn-card" style="margin-top:12px">
+  <h3 style="margin-top:0">연구파일</h3>
+  <table class="pn-table">
+    <thead><tr><th>파일명</th><th>작성자</th></tr></thead>
+    <tbody>
+      {% for f in files %}
+        <tr><td>{{ f.name }}</td><td>{{ f.author }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div id="downloadModal" style="position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px">
+  <div class="pn-card" style="max-width:520px;width:100%">
+    <h3 style="margin-top:0">연구노트 다운로드(PDF)</h3>
+    <p class="pn-sub">페이지 방향과 보안 옵션을 선택한 뒤 내보낼 수 있습니다.</p>
+    <button class="pn-btn" onclick="closeModal()">닫기</button>
+  </div>
+</div>
+<script>
+  const modal = document.getElementById('downloadModal');
+  document.getElementById('openModal').onclick = () => modal.style.display = 'flex';
+  function closeModal(){ modal.style.display = 'none'; }
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+</script>
+{% endblock %}

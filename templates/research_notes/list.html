@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}연구노트 목록{% endblock %}
+{% block page_title %}연구노트 목록{% endblock %}
+{% block content %}
+<section class="pn-grid cols-2">
+  {% for note in notes %}
+    <article class="pn-card">
+      <h3 style="margin:0 0 8px">{{ note.title }}</h3>
+      <p class="pn-sub" style="margin:0 0 10px">책임자: {{ note.owner }} · 과제번호: {{ note.project_code }}</p>
+      <p class="pn-sub" style="margin:0">기간: {{ note.period }}</p>
+      <a class="pn-btn" style="display:inline-block;text-decoration:none;margin-top:10px" href="/frontend/research-notes/{{ note.id }}">상세 보기</a>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}
