@@ -1,0 +1,9 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"/><title>연구자 추가</title></head>
+<body style="font-family:Arial;padding:24px">
+<h1>연구자 추가 기능</h1>
+<a href="/frontend/workflows">워크플로우 홈</a>
+<table border="1" cellpadding="8" cellspacing="0" style="margin-top:12px">
+<tr><th>이름</th><th>역할</th><th>이메일</th></tr>
+{% for r in researchers %}<tr><td>{{ r.name }}</td><td>{{ r.role }}</td><td>{{ r.email }}</td></tr>{% endfor %}
+</table>
+</body></html>
