@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
+
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -208,6 +209,7 @@ def research_note_detail_api(_request, note_id: str):
 
 
 @require_GET
+
 @ensure_csrf_cookie
 def workflow_home_page(_request):
     cards = [
@@ -249,7 +251,6 @@ def final_download_page(_request):
 @ensure_csrf_cookie
 def signature_page(_request):
     return render(_request, "workflow/signatures.html", {"signature": SIGNATURE_STATE})
-
 
 
 
