@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
+
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 
@@ -207,48 +209,75 @@ def research_note_detail_api(_request, note_id: str):
 
 
 @require_GET
+
+@ensure_csrf_cookie
 def workflow_home_page(_request):
     cards = [
-        {"title": "프로젝트 생성 및 관리", "href": "/frontend/projects"},
-        {"title": "연구자 추가", "href": "/frontend/researchers"},
-        {"title": "데이터 업데이트", "href": "/frontend/data-updates"},
-        {"title": "연구노트 최종 다운로드", "href": "/frontend/final-download"},
-        {"title": "사인 업데이트", "href": "/frontend/signatures"},
+        {"title": "프로젝트 생성 및 관리", "href": "/frontend/projects", "description": "프로젝트를 생성하고 상태를 관리합니다."},
+        {"title": "연구자 추가", "href": "/frontend/researchers", "description": "연구 참여 인력 정보를 등록합니다."},
+        {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
+        {"title": "연구노트 최종 다운로드", "href": "/frontend/final-download", "description": "최종 산출물 생성 상태를 확인합니다."},
+        {"title": "사인 업데이트", "href": "/frontend/signatures", "description": "최신 서명 상태를 갱신합니다."},
+        {"title": "ADMIN", "href": "/frontend/admin", "description": "운영 지표와 최근 액션을 조회합니다."},
     ]
     return render(_request, "workflow/home.html", {"cards": cards})
 
 
 @require_GET
+@ensure_csrf_cookie
 def project_management_page(_request):
     return render(_request, "workflow/projects.html", {"projects": PROJECTS})
 
 
 @require_GET
+@ensure_csrf_cookie
 def researchers_page(_request):
     return render(_request, "workflow/researchers.html", {"researchers": RESEARCHERS})
 
 
 @require_GET
+@ensure_csrf_cookie
 def data_updates_page(_request):
     return render(_request, "workflow/data_updates.html", {"updates": DATA_UPDATES})
 
 
 @require_GET
+@ensure_csrf_cookie
 def final_download_page(_request):
     return render(_request, "workflow/final_download.html", {"report_name": "projectnote-final-report.pdf"})
 
 
 @require_GET
+@ensure_csrf_cookie
 def signature_page(_request):
     return render(_request, "workflow/signatures.html", {"signature": SIGNATURE_STATE})
 
 
+
 @require_GET
+@ensure_csrf_cookie
+def admin_page(_request):
+    metrics = {
+        "projects": len(PROJECTS),
+        "researchers": len(RESEARCHERS),
+        "updates": len(DATA_UPDATES),
+        "notes": len(RESEARCH_NOTES),
+    }
+    recent = [
+        {"type": "last_signature", "value": SIGNATURE_STATE["last_signed_by"]},
+        {"type": "last_project", "value": PROJECTS[-1]["name"]},
+        {"type": "last_update", "value": DATA_UPDATES[-1]["target"]},
+    ]
+    return render(_request, "workflow/admin.html", {"metrics": metrics, "recent": recent})
+
+@require_GET
+@ensure_csrf_cookie
 def research_notes_page(_request):
     return render(_request, "research_notes/list.html", {"notes": RESEARCH_NOTES})
 
 
 @require_GET
+@ensure_csrf_cookie
 def research_note_detail_page(_request, note_id: str):
     note = _find_note(note_id)
     fake_files = [

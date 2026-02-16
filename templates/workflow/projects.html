@@ -1,10 +1,51 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"/><title>프로젝트 관리</title></head>
-<body style="font-family:Arial;padding:24px">
-<h1>프로젝트 생성 및 관리</h1>
-<a href="/frontend/workflows">워크플로우 홈</a>
-<ul>
-{% for p in projects %}
-  <li>{{ p.name }} ({{ p.status }}) / PM: {{ p.manager }}</li>
-{% endfor %}
-</ul>
-</body></html>
+
+{% extends "base.html" %}
+{% block title %}프로젝트 관리{% endblock %}
+{% block page_title %}프로젝트 생성 및 관리{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">신규 프로젝트 생성</h3>
+    <form id="projectForm" class="pn-grid" style="gap:10px">
+      <div><label class="pn-label">프로젝트명</label><input class="pn-input" name="name" required /></div>
+      <div><label class="pn-label">담당자</label><input class="pn-input" name="manager" required /></div>
+      <button class="pn-btn" type="submit">생성</button>
+    </form>
+    <div id="projectToast" class="pn-toast">대기 중</div>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">프로젝트 목록</h3>
+    <table class="pn-table" id="projectTable">
+      <thead><tr><th>이름</th><th>상태</th><th>담당자</th></tr></thead>
+      <tbody>
+      {% for p in projects %}
+        <tr><td>{{ p.name }}</td><td><span class="pn-badge">{{ p.status }}</span></td><td>{{ p.manager }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const projectForm = document.getElementById('projectForm');
+  projectForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = new FormData(projectForm);
+    const response = await fetch('/api/v1/project-management', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: data,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok) {
+      const tbody = document.querySelector('#projectTable tbody');
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${body.name}</td><td><span class="pn-badge">${body.status}</span></td><td>${body.manager}</td>`;
+      tbody.prepend(row);
+      document.getElementById('projectToast').textContent = `생성 완료: ${body.name}`;
+      projectForm.reset();
+    }
+  });
+</script>
+{% endblock %}

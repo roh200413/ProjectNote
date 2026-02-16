@@ -63,7 +63,11 @@ def test_research_notes_api_and_front_pages() -> None:
 
     page_response = client.get("/frontend/research-notes")
     assert page_response.status_code == 200
-    assert "연구노트" in page_response.content.decode()
+
+    page_content = page_response.content.decode()
+    assert "연구노트" in page_content
+    assert "pn-shell" in page_content
+
 
     detail_page = client.get(f"/frontend/research-notes/{notes[0]['id']}")
     assert detail_page.status_code == 200
@@ -73,6 +77,7 @@ def test_research_notes_api_and_front_pages() -> None:
 def test_workflow_pages_exist() -> None:
     pages = [
         "/frontend/workflows",
+        "/frontend/admin",
         "/frontend/projects",
         "/frontend/researchers",
         "/frontend/data-updates",

@@ -1,7 +1,18 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"/><title>연구노트 최종 다운로드</title></head>
-<body style="font-family:Arial;padding:24px">
-<h1>연구노트 최종 다운로드</h1>
-<a href="/frontend/workflows">워크플로우 홈</a>
-<p>최종 산출물: <strong>{{ report_name }}</strong></p>
-<button onclick="alert('다운로드 요청 완료')">다운로드 요청</button>
-</body></html>
+{% extends "base.html" %}
+{% block title %}최종 다운로드{% endblock %}
+{% block page_title %}연구노트 최종 다운로드{% endblock %}
+{% block content %}
+<section class="pn-card">
+  <p>최종 산출물: <strong>{{ report_name }}</strong></p>
+  <button class="pn-btn" id="downloadBtn">다운로드 준비 상태 조회</button>
+  <pre id="downloadState" class="pn-card" style="margin-top:10px;background:#f8fafc"></pre>
+</section>
+<script>
+  document.getElementById('downloadBtn').addEventListener('click', async () => {
+    const response = await fetch('/api/v1/final-download');
+    const body = await response.json();
+    document.getElementById('downloadState').textContent = JSON.stringify(body, null, 2);
+  });
+</script>
+{% endblock %}
+

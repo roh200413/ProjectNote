@@ -1,9 +1,50 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"/><title>연구자 추가</title></head>
-<body style="font-family:Arial;padding:24px">
-<h1>연구자 추가 기능</h1>
-<a href="/frontend/workflows">워크플로우 홈</a>
-<table border="1" cellpadding="8" cellspacing="0" style="margin-top:12px">
-<tr><th>이름</th><th>역할</th><th>이메일</th></tr>
-{% for r in researchers %}<tr><td>{{ r.name }}</td><td>{{ r.role }}</td><td>{{ r.email }}</td></tr>{% endfor %}
-</table>
-</body></html>
+
+{% extends "base.html" %}
+{% block title %}연구자 관리{% endblock %}
+{% block page_title %}연구자 추가 기능{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">연구자 추가</h3>
+    <form id="researcherForm" class="pn-grid" style="gap:10px">
+      <div class="pn-row">
+        <div><label class="pn-label">이름</label><input class="pn-input" name="name" required /></div>
+        <div><label class="pn-label">역할</label><input class="pn-input" name="role" required /></div>
+      </div>
+      <div><label class="pn-label">이메일</label><input class="pn-input" name="email" type="email" required /></div>
+      <button class="pn-btn" type="submit">추가</button>
+    </form>
+    <div id="researcherToast" class="pn-toast">대기 중</div>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">참여 연구자</h3>
+    <table class="pn-table" id="researcherTable">
+      <thead><tr><th>이름</th><th>역할</th><th>이메일</th></tr></thead>
+      <tbody>
+      {% for r in researchers %}<tr><td>{{ r.name }}</td><td>{{ r.role }}</td><td>{{ r.email }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const researcherForm = document.getElementById('researcherForm');
+  researcherForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const response = await fetch('/api/v1/researchers', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: new FormData(researcherForm),
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${body.name}</td><td>${body.role}</td><td>${body.email}</td>`;
+      document.querySelector('#researcherTable tbody').prepend(row);
+      document.getElementById('researcherToast').textContent = `추가 완료: ${body.name}`;
+      researcherForm.reset();
+    }
+  });
+</script>
+{% endblock %}

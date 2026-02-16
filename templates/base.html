@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}ProjectNote{% endblock %}</title>
+  <style>
+    :root{
+      --bg:#f3f6fb;
+      --surface:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --line:#dbe3ef;
+      --primary:#2563eb;
+      --primary-strong:#1d4ed8;
+      --ok:#16a34a;
+      --warn:#d97706;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .pn-shell{max-width:1200px;margin:0 auto;padding:24px}
+    .pn-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+    .pn-title{font-size:28px;font-weight:800;margin:0}
+    .pn-sub{color:var(--muted);font-size:14px}
+    .pn-nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px}
+    .pn-nav a{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#334155;text-decoration:none;font-size:13px}
+    .pn-nav a:hover{border-color:var(--primary);color:var(--primary)}
+    .pn-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+    .pn-grid{display:grid;gap:14px}
+    .pn-grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+    .pn-btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600}
+    .pn-btn:hover{background:var(--primary-strong)}
+    .pn-btn.ghost{background:#fff;border:1px solid var(--line);color:#334155}
+    .pn-input,.pn-select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .pn-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+    .pn-label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block}
+    .pn-table{width:100%;border-collapse:collapse}
+    .pn-table th,.pn-table td{padding:10px;border-bottom:1px solid #edf2f7;text-align:left;font-size:14px}
+    .pn-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#eff6ff;color:#1d4ed8}
+    .pn-status-ok{color:var(--ok)}
+    .pn-status-warn{color:var(--warn)}
+    .pn-toast{margin-top:10px;font-size:13px;color:var(--muted)}
+  </style>
+  <script>
+    function getCsrfToken(){
+      const name = 'csrftoken=';
+      const chunks = document.cookie.split(';').map((c)=>c.trim());
+      for (const chunk of chunks){
+        if (chunk.startsWith(name)) return decodeURIComponent(chunk.substring(name.length));
+      }
+      return '';
+    }
+  </script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <main class="pn-shell">
+    <header class="pn-topbar">
+      <div>
+        <h1 class="pn-title">{% block page_title %}ProjectNote{% endblock %}</h1>
+        <div class="pn-sub">공통 디자인 시스템 적용 · 워크플로우 운영 화면</div>
+      </div>
+    </header>
+    <nav class="pn-nav">
+      <a href="/frontend/workflows">워크플로우 홈</a>
+      <a href="/frontend/admin">ADMIN</a>
+      <a href="/frontend/projects">프로젝트</a>
+      <a href="/frontend/researchers">연구자</a>
+      <a href="/frontend/data-updates">데이터</a>
+      <a href="/frontend/final-download">최종 다운로드</a>
+      <a href="/frontend/signatures">사인</a>
+      <a href="/frontend/research-notes">연구노트</a>
+    </nav>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

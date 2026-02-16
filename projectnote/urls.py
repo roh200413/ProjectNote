@@ -1,8 +1,10 @@
+
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import path
 
 from projectnote import views
+
 
 
 def home(request):
@@ -22,6 +24,7 @@ urlpatterns = [
     path("api/v1/research-notes", views.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", views.research_note_detail_api),
     path("frontend/workflows", views.workflow_home_page),
+    path("frontend/admin", views.admin_page),
     path("frontend/projects", views.project_management_page),
     path("frontend/researchers", views.researchers_page),
     path("frontend/data-updates", views.data_updates_page),
