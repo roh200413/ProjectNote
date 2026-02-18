@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}ADMIN 대시보드{% endblock %}
+{% block page_title %}ADMIN 운영 대시보드{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">운영 지표</h3>
+    <ul>
+      <li>프로젝트: <strong>{{ metrics.projects }}</strong></li>
+      <li>연구자: <strong>{{ metrics.researchers }}</strong></li>
+      <li>업데이트 기록: <strong>{{ metrics.updates }}</strong></li>
+      <li>연구노트: <strong>{{ metrics.notes }}</strong></li>
+    </ul>
+  </section>
+  <section class="pn-card">
+    <h3 style="margin-top:0">최근 액션</h3>
+    <table class="pn-table">
+      <thead><tr><th>유형</th><th>값</th></tr></thead>
+      <tbody>
+      {% for item in recent %}
+        <tr><td>{{ item.type }}</td><td>{{ item.value }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}
