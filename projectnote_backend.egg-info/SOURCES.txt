@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+projectnote/__init__.py
+projectnote/asgi.py
+projectnote/settings.py
+projectnote/urls.py
+projectnote/views.py
+projectnote/wsgi.py
+projectnote_backend.egg-info/PKG-INFO
+projectnote_backend.egg-info/SOURCES.txt
+projectnote_backend.egg-info/dependency_links.txt
+projectnote_backend.egg-info/requires.txt
+projectnote_backend.egg-info/top_level.txt
+tests/test_api.py
