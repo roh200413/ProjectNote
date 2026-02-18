@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime, timezone
+from functools import wraps
 
 from django.http import Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -174,6 +175,17 @@ SIGNATURE_STATE = {
     "status": "valid",
 }
 
+DEMO_USERS = {
+    "admin": {
+        "password": "admin1234",
+        "name": "노승희",
+        "role": "관리자",
+        "email": "paul@deep-ai.kr",
+        "organization": "(주)딥아이",
+        "major": "R&D",
+    }
+}
+
 
 def _find_note(note_id: str) -> dict:
     for note in RESEARCH_NOTES:
@@ -187,6 +199,32 @@ def _find_project(project_id: str) -> dict:
         if project["id"] == project_id:
             return project
     raise Http404("Project not found")
+
+
+def _page_context(request, extra: dict | None = None) -> dict:
+    context = {
+        "current_user": request.session.get(
+            "user_profile",
+            {
+                "name": "노승희",
+                "role": "관리자",
+            },
+        )
+    }
+    if extra:
+        context.update(extra)
+    return context
+
+
+def login_required_page(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not request.session.get("user_profile"):
+            next_url = request.get_full_path()
+            return redirect(f"/login?next={next_url}")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
 
 
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
@@ -208,6 +246,44 @@ def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
 @require_GET
 def health(_request):
     return JsonResponse({"status": "ok"})
+
+
+@require_http_methods(["GET", "POST"])
+def login_page(request):
+    if request.method == "GET":
+        if request.session.get("user_profile"):
+            return redirect("/frontend/workflows")
+        return render(request, "auth/login.html", {"error": "", "next": request.GET.get("next", "")})
+
+    username = request.POST.get("username", "").strip()
+    password = request.POST.get("password", "")
+    next_url = request.POST.get("next", "")
+    user = DEMO_USERS.get(username)
+    if not user or user["password"] != password:
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
+            status=401,
+        )
+
+    request.session["user_profile"] = {
+        "username": username,
+        "name": user["name"],
+        "role": user["role"],
+        "email": user["email"],
+        "organization": user["organization"],
+        "major": user["major"],
+    }
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("/frontend/workflows")
+
+
+@require_GET
+def logout_page(request):
+    request.session.pop("user_profile", None)
+    return redirect("/login")
 
 
 @require_GET
@@ -339,6 +415,7 @@ def research_note_update_api(request, note_id: str):
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def workflow_home_page(_request):
     cards = [
         {"title": "프로젝트 생성", "href": "/frontend/projects/create", "description": "신규 프로젝트를 생성합니다."},
@@ -350,23 +427,26 @@ def workflow_home_page(_request):
         {"title": "My Page", "href": "/frontend/my-page", "description": "내 상세 정보와 전자서명을 확인합니다."},
         {"title": "ADMIN", "href": "/frontend/admin", "description": "운영 지표와 최근 액션을 조회합니다."},
     ]
-    return render(_request, "workflow/home.html", {"cards": cards})
+    return render(_request, "workflow/home.html", _page_context(_request, {"cards": cards}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def project_management_page(_request):
-    return render(_request, "workflow/projects.html", {"projects": PROJECTS})
+    return render(_request, "workflow/projects.html", _page_context(_request, {"projects": PROJECTS}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def project_create_page(_request):
-    return render(_request, "workflow/project_create.html")
+    return render(_request, "workflow/project_create.html", _page_context(_request))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def project_detail_page(_request, project_id: str):
     project = _find_project(project_id)
     note_ids = PROJECT_NOTE_MAP.get(project_id, [])
@@ -375,42 +455,54 @@ def project_detail_page(_request, project_id: str):
     return render(
         _request,
         "workflow/project_detail.html",
-        {
-            "project": project,
-            "project_notes": project_notes,
-            "researcher_groups": PROJECT_RESEARCHER_GROUPS.get(project_id, []),
-            "selected_note": selected_note,
-            "selected_note_files": NOTE_FILE_MAP.get(selected_note["id"], []) if selected_note else [],
-        },
+        _page_context(
+            _request,
+            {
+                "project": project,
+                "project_notes": project_notes,
+                "researcher_groups": PROJECT_RESEARCHER_GROUPS.get(project_id, []),
+                "selected_note": selected_note,
+                "selected_note_files": NOTE_FILE_MAP.get(selected_note["id"], []) if selected_note else [],
+            },
+        ),
     )
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def researchers_page(_request):
-    return render(_request, "workflow/researchers.html", {"researchers": RESEARCHERS})
+    return render(_request, "workflow/researchers.html", _page_context(_request, {"researchers": RESEARCHERS}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def data_updates_page(_request):
-    return render(_request, "workflow/data_updates.html", {"updates": DATA_UPDATES})
+    return render(_request, "workflow/data_updates.html", _page_context(_request, {"updates": DATA_UPDATES}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def final_download_page(_request):
-    return render(_request, "workflow/final_download.html", {"report_name": "projectnote-final-report.pdf"})
+    return render(
+        _request,
+        "workflow/final_download.html",
+        _page_context(_request, {"report_name": "projectnote-final-report.pdf"}),
+    )
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def signature_page(_request):
-    return render(_request, "workflow/signatures.html", {"signature": SIGNATURE_STATE})
+    return render(_request, "workflow/signatures.html", _page_context(_request, {"signature": SIGNATURE_STATE}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def admin_page(_request):
     metrics = {
         "projects": len(PROJECTS),
@@ -423,47 +515,52 @@ def admin_page(_request):
         {"type": "last_project", "value": PROJECTS[-1]["name"]},
         {"type": "last_update", "value": DATA_UPDATES[-1]["target"]},
     ]
-    return render(_request, "workflow/admin.html", {"metrics": metrics, "recent": recent})
+    return render(_request, "workflow/admin.html", _page_context(_request, {"metrics": metrics, "recent": recent}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def my_page(_request):
-    profile = {
-        "name": "노승희",
-        "email": "paul@deep-ai.kr",
-        "role": "관리자",
-        "organization": "(주)딥아이",
-        "major": "R&D",
-        "signature": "서명",
-    }
-    return render(_request, "workflow/my_page.html", {"profile": profile})
+    profile = _request.session.get("user_profile", {}).copy()
+    profile["signature"] = "서명"
+    return render(_request, "workflow/my_page.html", _page_context(_request, {"profile": profile}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def research_notes_page(_request):
-    return render(_request, "research_notes/list.html", {"notes": RESEARCH_NOTES})
+    return render(_request, "research_notes/list.html", _page_context(_request, {"notes": RESEARCH_NOTES}))
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def research_note_detail_page(_request, note_id: str):
     note = _find_note(note_id)
     return render(
         _request,
         "research_notes/detail.html",
-        {
-            "note": note,
-            "files": NOTE_FILE_MAP.get(note_id, []),
-            "folders": NOTE_FOLDERS.get(note_id, []),
-        },
+        _page_context(
+            _request,
+            {
+                "note": note,
+                "files": NOTE_FILE_MAP.get(note_id, []),
+                "folders": NOTE_FOLDERS.get(note_id, []),
+            },
+        ),
     )
 
 
 @require_GET
 @ensure_csrf_cookie
+@login_required_page
 def research_note_viewer_page(_request, note_id: str):
     note = _find_note(note_id)
     files = NOTE_FILE_MAP.get(note_id, [])
-    return render(_request, "research_notes/viewer.html", {"note": note, "file": files[0] if files else None})
+    return render(
+        _request,
+        "research_notes/viewer.html",
+        _page_context(_request, {"note": note, "file": files[0] if files else None}),
+    )

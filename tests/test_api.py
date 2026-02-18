@@ -12,6 +12,11 @@ django.setup()
 client = Client()
 
 
+def login(client_obj: Client) -> None:
+    response = client_obj.post("/login", {"username": "admin", "password": "admin1234"})
+    assert response.status_code == 302
+
+
 def test_health() -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
@@ -61,6 +66,7 @@ def test_research_notes_api_and_front_pages() -> None:
     assert detail_response.status_code == 200
     assert detail_response.json()["id"] == notes[0]["id"]
 
+    login(client)
     page_response = client.get("/frontend/research-notes")
     assert page_response.status_code == 200
     page_content = page_response.content.decode()
@@ -73,6 +79,7 @@ def test_research_notes_api_and_front_pages() -> None:
 
 
 def test_workflow_pages_exist() -> None:
+    login(client)
     pages = [
         "/frontend/workflows",
         "/frontend/admin",
@@ -90,6 +97,7 @@ def test_workflow_pages_exist() -> None:
 
 
 def test_project_detail_and_viewer_pages() -> None:
+    login(client)
     projects_response = client.get("/api/v1/projects")
     project_id = projects_response.json()[0]["id"]
 
@@ -107,6 +115,7 @@ def test_project_detail_and_viewer_pages() -> None:
 
 
 def test_project_create_and_my_page_content() -> None:
+    login(client)
     create_page = client.get("/frontend/projects/create")
     assert create_page.status_code == 200
     assert "프로젝트 생성" in create_page.content.decode()
@@ -144,6 +153,7 @@ def test_workflow_apis_support_management_actions() -> None:
 
 
 def test_research_note_update_api() -> None:
+    login(client)
     note_id = client.get("/api/v1/research-notes").json()[0]["id"]
     response = client.post(
         f"/api/v1/research-notes/{note_id}/update",
@@ -153,3 +163,25 @@ def test_research_note_update_api() -> None:
     payload = response.json()
     assert payload["message"] == "연구노트가 업데이트되었습니다."
     assert payload["note"]["title"] == "업데이트 제목"
+
+
+def test_login_logout_and_auth_redirect() -> None:
+    anon = Client()
+    redirect_response = anon.get("/frontend/projects")
+    assert redirect_response.status_code == 302
+    assert redirect_response["Location"].startswith("/login")
+
+    bad_login = anon.post("/login", {"username": "admin", "password": "wrong"})
+    assert bad_login.status_code == 401
+
+    good_login = anon.post("/login", {"username": "admin", "password": "admin1234"})
+    assert good_login.status_code == 302
+    assert good_login["Location"] == "/frontend/workflows"
+
+    my_page = anon.get("/frontend/my-page")
+    assert my_page.status_code == 200
+    assert "노승희" in my_page.content.decode()
+
+    logout = anon.get("/logout")
+    assert logout.status_code == 302
+    assert logout["Location"] == "/login"

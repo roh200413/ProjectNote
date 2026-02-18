@@ -1,15 +1,10 @@
-
-from django.contrib import admin
-from django.http import HttpResponse
 from django.urls import path
 
 from projectnote import views
 
-def home(request):
-    return HttpResponse("ProjectNote backend is running")
-
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("login", views.login_page),
+    path("logout", views.logout_page),
     path("api/v1/health", views.health),
     path("api/v1/frontend/bootstrap", views.frontend_bootstrap),
     path("api/v1/dashboard/summary", views.dashboard_summary),

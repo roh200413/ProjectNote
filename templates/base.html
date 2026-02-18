@@ -85,7 +85,10 @@
     <section class="pn-main">
       <header class="pn-top">
         <input class="pn-search" placeholder="검색어를 입력해주세요." />
-        <div class="pn-user">노승희 <span class="pn-badge">관리자</span></div>
+        <div class="pn-user">
+          {{ current_user.name }} <span class="pn-badge">{{ current_user.role }}</span>
+          <a href="/logout" style="margin-left:8px;color:#1d4ed8;text-decoration:none;font-size:12px">로그아웃</a>
+        </div>
       </header>
       <main class="pn-shell">
         <div class="pn-head">

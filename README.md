@@ -25,6 +25,8 @@ python manage.py runserver 0.0.0.0:8000
 - `GET /api/v1/research-notes/<id>`
 
 ## 프론트엔드 페이지
+- `GET/POST /login`
+- `GET /logout`
 - `GET /frontend/workflows`
 - `GET /frontend/admin`
 - `GET /frontend/projects`
