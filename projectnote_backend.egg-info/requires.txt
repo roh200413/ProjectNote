@@ -1,0 +1,6 @@
+django>=5.1.0
+
+[dev]
+pytest>=8.3.2
+pytest-django>=4.9.0
+ruff>=0.6.2

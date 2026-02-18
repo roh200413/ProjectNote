@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}ProjectNote{% endblock %}</title>
+  <style>
+    :root {
+      --bg:#f2f4f8;
+      --surface:#ffffff;
+      --line:#dbe2ed;
+      --text:#1f2937;
+      --muted:#7d8aa0;
+      --primary:#2463eb;
+      --primary-strong:#1d4ed8;
+      --radius:12px;
+      --shadow:0 6px 16px rgba(15,23,42,.04);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Pretendard,Inter,Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .pn-layout { display:grid; grid-template-columns:66px 1fr; min-height:100vh; }
+    .pn-sidebar { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:12px 8px; gap:12px; }
+    .pn-logo { font-size:12px; font-weight:800; color:#2563eb; margin-bottom:8px; }
+    .pn-sidebtn { width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:#f7f9fc; display:flex; align-items:center; justify-content:center; text-decoration:none; color:#4b5563; }
+    .pn-sidebtn.active,.pn-sidebtn:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; }
+
+    .pn-main { padding:12px 18px 28px; }
+    .pn-top { height:52px; display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; box-shadow:var(--shadow); }
+    .pn-search { width:48%; max-width:540px; border:1px solid var(--line); border-radius:8px; background:#f8fafc; padding:9px 12px; }
+    .pn-user { font-size:13px; color:#334155; font-weight:600; }
+
+    .pn-shell { max-width:1240px; margin:18px auto 0; }
+    .pn-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
+    .pn-title { margin:0; font-size:42px; font-weight:800; }
+    .pn-sub { color:var(--muted); font-size:13px; }
+    .pn-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); }
+    .pn-grid { display:grid; gap:12px; }
+    .pn-grid.cols-2 { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+    .pn-grid.cols-3 { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+    .pn-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
+
+    .pn-label { font-size:12px; color:#64748b; font-weight:600; margin-bottom:4px; display:block; }
+    .pn-input,.pn-select,.pn-textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
+    .pn-btn { border:none; background:var(--primary); color:white; border-radius:9px; padding:10px 14px; font-weight:700; cursor:pointer; }
+    .pn-btn:hover { background:var(--primary-strong); }
+    .pn-btn.ghost { background:#fff; border:1px solid var(--line); color:#334155; }
+    .pn-btn.soft { background:#ecf2ff; color:#1d4ed8; }
+    .pn-badge { display:inline-block; font-size:12px; background:#e8efff; color:#1d4ed8; padding:3px 8px; border-radius:999px; font-weight:700; }
+    .pn-badge.gray { background:#edf2f7; color:#5b6575; }
+
+    .pn-table { width:100%; border-collapse:collapse; }
+    .pn-table th,.pn-table td { padding:10px; border-bottom:1px solid #edf2f7; text-align:left; font-size:14px; }
+    .pn-table th { color:#667085; background:#f8fafc; }
+    .pn-toast { margin-top:8px; color:#4b5563; font-size:13px; }
+
+    @media (max-width: 900px) {
+      .pn-layout { grid-template-columns:1fr; }
+      .pn-sidebar { display:none; }
+      .pn-main { padding:10px; }
+      .pn-title { font-size:30px; }
+    }
+  </style>
+  <script>
+    function getCsrfToken(){
+      const name = 'csrftoken=';
+      const chunks = document.cookie.split(';').map((c)=>c.trim());
+      for (const chunk of chunks){
+        if (chunk.startsWith(name)) return decodeURIComponent(chunk.substring(name.length));
+      }
+      return '';
+    }
+  </script>
+</head>
+<body>
+  <div class="pn-layout">
+    <aside class="pn-sidebar">
+      <div class="pn-logo">Project Note</div>
+      <a class="pn-sidebtn active" href="/frontend/workflows">🏠</a>
+      <a class="pn-sidebtn" href="/frontend/projects">📁</a>
+      <a class="pn-sidebtn" href="/frontend/research-notes">🗂️</a>
+      <a class="pn-sidebtn" href="/frontend/researchers">👥</a>
+<!--      <a class="pn-sidebtn" href="/frontend/admin">⚙️</a>-->
+    </aside>
+    <section class="pn-main">
+      <header class="pn-top">
+        <input class="pn-search" placeholder="검색어를 입력해주세요." />
+        <div class="pn-user">
+          <a href="/frontend/my-page">
+            {{ current_user.name }} <span class="pn-badge">{{ current_user.role }}</span>
+          </a>
+          <a href="/logout" style="margin-left:8px;color:#1d4ed8;text-decoration:none;font-size:12px">로그아웃</a>
+        </div>
+      </header>
+      <main class="pn-shell">
+        <div class="pn-head">
+          <div>
+            <h1 class="pn-title">{% block page_title %}ProjectNote{% endblock %}</h1>
+            <div class="pn-sub">참고 화면 기반의 공통 UI 시스템</div>
+          </div>
+          {% block page_actions %}{% endblock %}
+        </div>
+        {% block content %}{% endblock %}
+      </main>
+    </section>
+  </div>
+</body>
+</html>

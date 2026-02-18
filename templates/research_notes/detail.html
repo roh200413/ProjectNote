@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}연구노트 상세{% endblock %}
+{% block page_title %}연구노트 상세{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/research-notes'">이전</button>
+  <a class="pn-btn" href="/frontend/research-notes/{{ note.id }}/viewer" style="text-decoration:none">뷰어 열기</a>
+  <button class="pn-btn" id="openDownload">연구노트 다운로드</button>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <span class="pn-badge">소유권한</span>
+  <h2 style="margin:8px 0 8px">{{ note.title }}</h2>
+  <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+    <div><div class="pn-sub">책임자</div><strong>{{ note.owner }}</strong></div>
+    <div><div class="pn-sub">과제번호</div><strong>{{ note.project_code }}</strong></div>
+    <div><div class="pn-sub">과제기간</div><strong>{{ note.period }}</strong></div>
+    <div><div class="pn-sub">연구파일</div><strong>{{ note.files }}</strong></div>
+  </div>
+</section>
+
+<div class="pn-grid" style="grid-template-columns:230px 1fr;align-items:start">
+  <aside class="pn-card">
+    <h3 style="margin-top:0">연구폴더 목록</h3>
+    <button class="pn-btn" style="width:100%;margin-bottom:10px">연구폴더 생성</button>
+    <div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;margin-bottom:8px">연구노트 홈</div>
+    {% for folder in folders %}
+      <div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;margin-bottom:8px">{{ folder }}</div>
+    {% endfor %}
+  </aside>
+
+  <section class="pn-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+      <h3 style="margin:0">연구파일</h3>
+      <div style="display:flex;gap:8px">
+        <button class="pn-btn ghost">파일 이동</button>
+        <button class="pn-btn ghost">파일 삭제</button>
+        <button class="pn-btn soft">연구파일 추가</button>
+      </div>
+    </div>
+    <table class="pn-table">
+      <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일자</th><th>작성자</th><th>상세</th></tr></thead>
+      <tbody>
+      {% for file in files %}
+        <tr>
+          <td>{{ file.name }}</td>
+          <td>{{ file.format }}</td>
+          <td>{{ file.created }}</td>
+          <td>{{ file.author }}</td>
+          <td><a href="/frontend/research-notes/{{ note.id }}/viewer">파일 뷰어</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div id="downloadModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.4);align-items:center;justify-content:center;padding:20px;z-index:100;">
+  <div class="pn-card" style="max-width:760px;width:100%;display:grid;grid-template-columns:1.2fr 1fr;gap:12px">
+    <section>
+      <h3 style="margin:0 0 8px">연구노트 다운로드(PDF내보내기)</h3>
+      <div class="pn-card" style="background:#f8fafc;margin-bottom:10px">
+        <label class="pn-label">페이지 방향</label>
+        <div style="display:flex;gap:8px"><button class="pn-btn soft">세로</button><button class="pn-btn ghost">가로</button></div>
+      </div>
+      <div class="pn-card" style="background:#f8fafc">
+        <label class="pn-label">PDF 설정</label>
+        <div style="display:flex;gap:8px"><button class="pn-btn soft">암호화</button><button class="pn-btn ghost">암호화 해제</button></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button class="pn-btn ghost" id="closeDownload">취소</button>
+        <button class="pn-btn">연구노트 다운로드</button>
+      </div>
+    </section>
+    <section class="pn-card" style="background:#eef3ff">
+      <h4 style="margin-top:0">연구노트 미리보기</h4>
+      <div style="min-height:280px;background:#fff;border:1px solid #ced9ef;border-radius:10px;padding:12px">
+        <div class="pn-sub">표지</div>
+        <strong>{{ note.title|truncatechars:36 }}</strong>
+        <div class="pn-sub" style="margin-top:8px">{{ note.owner }} · {{ note.period }}</div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+  const modal = document.getElementById('downloadModal');
+  document.getElementById('openDownload').addEventListener('click', () => { modal.style.display = 'flex'; });
+  document.getElementById('closeDownload').addEventListener('click', () => { modal.style.display = 'none'; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+</script>
+{% endblock %}
