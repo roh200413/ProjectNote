@@ -63,11 +63,9 @@ def test_research_notes_api_and_front_pages() -> None:
 
     page_response = client.get("/frontend/research-notes")
     assert page_response.status_code == 200
-
     page_content = page_response.content.decode()
     assert "연구노트" in page_content
-    assert "pn-shell" in page_content
-
+    assert "pn-layout" in page_content
 
     detail_page = client.get(f"/frontend/research-notes/{notes[0]['id']}")
     assert detail_page.status_code == 200
@@ -89,8 +87,28 @@ def test_workflow_pages_exist() -> None:
         assert response.status_code == 200
 
 
+def test_project_detail_and_viewer_pages() -> None:
+    projects_response = client.get("/api/v1/projects")
+    project_id = projects_response.json()[0]["id"]
+
+    project_detail = client.get(f"/frontend/projects/{project_id}")
+    assert project_detail.status_code == 200
+    html = project_detail.content.decode()
+    assert "연구노트 업데이트" in html
+    assert "집단별 연구자 목록 상세" in html
+
+    notes_response = client.get("/api/v1/research-notes")
+    note_id = notes_response.json()[0]["id"]
+    viewer_response = client.get(f"/frontend/research-notes/{note_id}/viewer")
+    assert viewer_response.status_code == 200
+    assert "파일 정보" in viewer_response.content.decode()
+
+
 def test_workflow_apis_support_management_actions() -> None:
-    project_create = client.post("/api/v1/project-management", {"name": "신규 과제", "manager": "홍길동"})
+    project_create = client.post(
+        "/api/v1/project-management",
+        {"name": "신규 과제", "manager": "홍길동", "organization": "테스트랩"},
+    )
     assert project_create.status_code == 201
     assert project_create.json()["name"] == "신규 과제"
 
@@ -110,3 +128,15 @@ def test_workflow_apis_support_management_actions() -> None:
     sign_update = client.post("/api/v1/signatures", {"signed_by": "홍길동", "status": "valid"})
     assert sign_update.status_code == 200
     assert sign_update.json()["last_signed_by"] == "홍길동"
+
+
+def test_research_note_update_api() -> None:
+    note_id = client.get("/api/v1/research-notes").json()[0]["id"]
+    response = client.post(
+        f"/api/v1/research-notes/{note_id}/update",
+        {"title": "업데이트 제목", "summary": "요약 수정"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["message"] == "연구노트가 업데이트되었습니다."
+    assert payload["note"]["title"] == "업데이트 제목"

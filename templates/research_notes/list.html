@@ -1,17 +1,28 @@
-
 {% extends "base.html" %}
-{% block title %}연구노트 목록{% endblock %}
-{% block page_title %}연구노트 목록{% endblock %}
+{% block title %}연구노트{% endblock %}
+{% block page_title %}연구노트{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/data-updates'">활동내역</button>
+  <button class="pn-btn" onclick="location.href='/frontend/projects'">연구노트 생성</button>
+</div>
+{% endblock %}
 {% block content %}
-<section class="pn-grid cols-2">
+<section class="pn-grid cols-3">
   {% for note in notes %}
-    <article class="pn-card">
-      <h3 style="margin:0 0 8px">{{ note.title }}</h3>
-      <p class="pn-sub" style="margin:0 0 10px">책임자: {{ note.owner }} · 과제번호: {{ note.project_code }}</p>
-      <p class="pn-sub" style="margin:0">기간: {{ note.period }}</p>
-      <a class="pn-btn" style="display:inline-block;text-decoration:none;margin-top:10px" href="/frontend/research-notes/{{ note.id }}">상세 보기</a>
-    </article>
+  <article class="pn-card" style="min-height:260px;display:flex;flex-direction:column;justify-content:space-between">
+    <div>
+      <span class="pn-badge">소유권한</span>
+      <h3 style="margin:10px 0 6px;font-size:28px;line-height:1.25">{{ note.title|truncatechars:32 }}</h3>
+      <div class="pn-sub">책임자 {{ note.owner }}</div>
+      <div class="pn-sub">과제번호 {{ note.project_code }}</div>
+      <div class="pn-sub">기간 {{ note.period }}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <small class="pn-sub">파일 {{ note.files }} · 연구원 {{ note.members }}</small>
+      <a class="pn-btn soft" href="/frontend/research-notes/{{ note.id }}" style="text-decoration:none">상세</a>
+    </div>
+  </article>
   {% endfor %}
 </section>
 {% endblock %}
-

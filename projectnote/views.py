@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
-
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -17,6 +16,9 @@ RESEARCH_NOTES = [
         "period": "2023.06.01 ~ 2026.06.01",
         "files": 1109,
         "members": 17,
+        "summary": "AI 자동평가 고도화와 현장 검증 히스토리를 관리하는 연구노트입니다.",
+        "last_updated_at": "2026-02-18T11:03:00+09:00",
+
     },
     {
         "id": "da3a50af-d4e9-40ad-8b3f-472cd2666726",
@@ -26,6 +28,8 @@ RESEARCH_NOTES = [
         "period": "2026.01.01 ~ 2026.12.31",
         "files": 368,
         "members": 6,
+        "summary": "연구노트 서비스의 프론트엔드 구조 및 UI 리뉴얼 작업 로그",
+        "last_updated_at": "2026-02-17T09:40:00+09:00",
     },
 ]
 
@@ -35,14 +39,122 @@ PROJECTS = [
         "name": "원전 AI 자동평가 고도화",
         "status": "active",
         "manager": "김기수",
+        "organization": "딥테크딥스",
     },
     {
         "id": "53316220-cc3f-48f0-b9eb-1aaf55a48f86",
         "name": "연구노트 FE 고도화",
         "status": "draft",
         "manager": "최재혁",
+        "organization": "ProjectNote Lab",
     },
 ]
+
+PROJECT_NOTE_MAP = {
+    "cbce1902-d86b-4be4-af3f-cd9c011868e0": ["7fe010e7-402a-40d7-b818-84dada03d8ee"],
+    "53316220-cc3f-48f0-b9eb-1aaf55a48f86": ["da3a50af-d4e9-40ad-8b3f-472cd2666726"],
+}
+
+PROJECT_RESEARCHER_GROUPS = {
+    "cbce1902-d86b-4be4-af3f-cd9c011868e0": [
+        {
+            "group": "AI 모델링팀",
+            "lead": "김기수",
+            "members": [
+                {
+                    "name": "김기수",
+                    "role": "PI",
+                    "organization": "딥테크딥스",
+                    "major": "R&D",
+                    "contribution": "모델 기획",
+                },
+                {
+                    "name": "노승희",
+                    "role": "관리자",
+                    "organization": "딥테크딥스",
+                    "major": "MLOps",
+                    "contribution": "배포/운영 관리",
+                },
+            ],
+        },
+        {
+            "group": "현장 검증팀",
+            "lead": "박서준",
+            "members": [
+                {
+                    "name": "박서준",
+                    "role": "책임연구원",
+                    "organization": "원전검사원",
+                    "major": "품질검증",
+                    "contribution": "현장 테스트",
+                },
+                {
+                    "name": "정유나",
+                    "role": "연구원",
+                    "organization": "원전검사원",
+                    "major": "QA",
+                    "contribution": "결과 검증",
+                },
+            ],
+        },
+    ],
+    "53316220-cc3f-48f0-b9eb-1aaf55a48f86": [
+        {
+            "group": "프론트엔드팀",
+            "lead": "최재혁",
+            "members": [
+                {
+                    "name": "최재혁",
+                    "role": "리드",
+                    "organization": "ProjectNote Lab",
+                    "major": "Web",
+                    "contribution": "디자인 시스템 설계",
+                },
+                {
+                    "name": "한민지",
+                    "role": "연구원",
+                    "organization": "ProjectNote Lab",
+                    "major": "뷰어 엔진",
+                    "contribution": "문서 뷰어 구현",
+                },
+            ],
+        }
+    ],
+}
+
+NOTE_FILE_MAP = {
+    "7fe010e7-402a-40d7-b818-84dada03d8ee": [
+        {
+            "id": "file-1",
+            "name": "[2026.02.13] deep-ai-kr/fe-tim-monorepo_git",
+            "author": "최재혁",
+            "format": "git",
+            "created": "2026.02.14 / 12:01 AM",
+        },
+        {
+            "id": "file-2",
+            "name": "[2026.02.12] deep-ai-kr/ect-auto_git.pdf",
+            "author": "노승희",
+            "format": "pdf",
+            "created": "2026.02.13 / 10:11 AM",
+        },
+    ],
+    "da3a50af-d4e9-40ad-8b3f-472cd2666726": [
+        {
+            "id": "file-3",
+            "name": "[2026.02.08] workspace-setting-ui.png",
+            "author": "한민지",
+            "format": "png",
+            "created": "2026.02.09 / 08:30 PM",
+        }
+    ],
+}
+
+NOTE_FOLDERS = {
+    "7fe010e7-402a-40d7-b818-84dada03d8ee": ["[DEEPTECH - DOCS]", "[DEEPTECH - WEB]", "[DEEPTECH - AI]"],
+    "da3a50af-d4e9-40ad-8b3f-472cd2666726": ["[FE - REFS]", "[FE - UI]"],
+}
+
 
 RESEARCHERS = [
     {"id": "1", "name": "김기수", "role": "PI", "email": "kim@example.com"},
@@ -71,6 +183,13 @@ def _find_note(note_id: str) -> dict:
             return note
     raise Http404("Research note not found")
 
+
+
+def _find_project(project_id: str) -> dict:
+    for project in PROJECTS:
+        if project["id"] == project_id:
+            return project
+    raise Http404("Project not found")
 
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
     return JsonResponse(
@@ -141,8 +260,11 @@ def project_management_api(request):
         "name": name,
         "status": "draft",
         "manager": manager,
+        "organization": request.POST.get("organization", "미지정"),
     }
     PROJECTS.append(project)
+    PROJECT_NOTE_MAP[project["id"]] = []
+    PROJECT_RESEARCHER_GROUPS[project["id"]] = []
     return JsonResponse(project, status=201)
 
 
@@ -208,8 +330,16 @@ def research_note_detail_api(_request, note_id: str):
     return JsonResponse(_find_note(note_id))
 
 
-@require_GET
+@require_http_methods(["POST"])
+def research_note_update_api(request, note_id: str):
+    note = _find_note(note_id)
+    note["title"] = request.POST.get("title", note["title"])
+    note["summary"] = request.POST.get("summary", note["summary"])
+    note["last_updated_at"] = datetime.now(timezone.utc).isoformat()
+    return JsonResponse({"message": "연구노트가 업데이트되었습니다.", "note": note})
 
+
+@require_GET
 @ensure_csrf_cookie
 def workflow_home_page(_request):
     cards = [
@@ -227,6 +357,26 @@ def workflow_home_page(_request):
 @ensure_csrf_cookie
 def project_management_page(_request):
     return render(_request, "workflow/projects.html", {"projects": PROJECTS})
+
+
+@require_GET
+@ensure_csrf_cookie
+def project_detail_page(_request, project_id: str):
+    project = _find_project(project_id)
+    note_ids = PROJECT_NOTE_MAP.get(project_id, [])
+    project_notes = [note for note in RESEARCH_NOTES if note["id"] in note_ids]
+    selected_note = project_notes[0] if project_notes else None
+    return render(
+        _request,
+        "workflow/project_detail.html",
+        {
+            "project": project,
+            "project_notes": project_notes,
+            "researcher_groups": PROJECT_RESEARCHER_GROUPS.get(project_id, []),
+            "selected_note": selected_note,
+            "selected_note_files": NOTE_FILE_MAP.get(selected_note["id"], []) if selected_note else [],
+        },
+    )
 
 
 @require_GET
@@ -253,7 +403,6 @@ def signature_page(_request):
     return render(_request, "workflow/signatures.html", {"signature": SIGNATURE_STATE})
 
 
-
 @require_GET
 @ensure_csrf_cookie
 def admin_page(_request):
@@ -270,6 +419,7 @@ def admin_page(_request):
     ]
     return render(_request, "workflow/admin.html", {"metrics": metrics, "recent": recent})
 
+
 @require_GET
 @ensure_csrf_cookie
 def research_notes_page(_request):
@@ -280,15 +430,20 @@ def research_notes_page(_request):
 @ensure_csrf_cookie
 def research_note_detail_page(_request, note_id: str):
     note = _find_note(note_id)
-    fake_files = [
-        {"name": f"[2026.02.{idx:02d}] deep-ai-kr/fe-tim-monorepo_git", "author": "최재혁"}
-        for idx in range(13, 8, -1)
-    ]
     return render(
         _request,
         "research_notes/detail.html",
         {
             "note": note,
-            "files": fake_files,
+            "files": NOTE_FILE_MAP.get(note_id, []),
+            "folders": NOTE_FOLDERS.get(note_id, []),
         },
     )
+
+
+@require_GET
+@ensure_csrf_cookie
+def research_note_viewer_page(_request, note_id: str):
+    note = _find_note(note_id)
+    files = NOTE_FILE_MAP.get(note_id, [])
+    return render(_request, "research_notes/viewer.html", {"note": note, "file": files[0] if files else None})

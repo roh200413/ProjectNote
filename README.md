@@ -1,6 +1,8 @@
 # ProjectNote Backend (Django)
 
 연구노트 통합 플랫폼을 위한 Django 기반 백엔드/프론트 프로토타입입니다.
+모든 화면은 `templates/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
+
 
 ## 실행
 ```bash
