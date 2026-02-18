@@ -5,7 +5,8 @@
 <div style="display:flex;gap:8px">
   <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">이전</button>
   {% if selected_note %}
-  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 뷰어</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 다운로드</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 업데이트</a>
   {% endif %}
 </div>
 {% endblock %}
@@ -24,11 +25,8 @@
 <div class="pn-grid" style="grid-template-columns:230px 1fr;align-items:start">
   <aside class="pn-card">
     <h3 style="margin-top:0">연구폴더 목록</h3>
-    <button class="pn-btn" style="width:100%;margin-bottom:10px">연구폴더 생성</button>
-    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구노트 홈</div>
-    {% for note in project_notes %}
-      <a href="/frontend/research-notes/{{ note.id }}" style="display:block;padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;text-decoration:none;color:inherit">{{ note.title|truncatechars:20 }}</a>
-    {% endfor %}
+    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구자 목록</div>
+    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구폴더</div>
   </aside>
 
   <section class="pn-card">

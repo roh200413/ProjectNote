@@ -21,13 +21,26 @@ class Organization(Base, TimestampMixin):
     code: Mapped[str | None] = mapped_column(Text, unique=True)
     status: Mapped[str] = mapped_column(Text, default="active", nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"))
-
+    # ✅ 조직 관리자 1명
+    admin_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,  # 관리자 한 사람이 여러 조직의 관리자가 되면 안 되면 유지. 허용이면 제거.
+    )
 
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    # ✅ 소속 조직
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, default="active", nullable=False)
     signature_image: Mapped[bytes | None] = mapped_column(nullable=True)
@@ -84,6 +97,8 @@ class Project(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    manager: Mapped[str] = mapped_column(Text, nullable=False)
+    organization: Mapped[str] = mapped_column(Text, nullable=False)
     code: Mapped[str | None] = mapped_column(Text)
     pi_name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)

@@ -520,23 +520,6 @@ def signature_page(_request):
     return render(_request, "workflow/signatures.html", _page_context(_request, {"signature": SIGNATURE_STATE}))
 
 
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def admin_page(_request):
-    metrics = {
-        "projects": len(PROJECTS),
-        "researchers": len(RESEARCHERS),
-        "updates": len(DATA_UPDATES),
-        "notes": len(RESEARCH_NOTES),
-    }
-    recent = [
-        {"type": "last_signature", "value": SIGNATURE_STATE["last_signed_by"]},
-        {"type": "last_project", "value": PROJECTS[-1]["name"]},
-        {"type": "last_update", "value": DATA_UPDATES[-1]["target"]},
-    ]
-    return render(_request, "workflow/admin.html", _page_context(_request, {"metrics": metrics, "recent": recent}))
-
 
 @require_GET
 @ensure_csrf_cookie

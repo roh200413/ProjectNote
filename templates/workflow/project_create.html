@@ -6,39 +6,141 @@
   <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">목록으로</button>
 </div>
 {% endblock %}
+
 {% block content %}
-<section class="pn-card" style="max-width:960px">
-  <h3 style="margin:0 0 10px">Step 1 · 과제 정보 입력</h3>
-  <p class="pn-sub" style="margin:0 0 14px">프로젝트 생성 기능을 목록 페이지에서 분리했습니다.</p>
-  <form id="projectForm" class="pn-grid" style="gap:12px">
-    <div><label class="pn-label">과제명</label><input class="pn-input" name="name" required /></div>
-    <div class="pn-row">
-      <div><label class="pn-label">과제 책임자</label><input class="pn-input" name="manager" required /></div>
-      <div><label class="pn-label">소속/기관</label><input class="pn-input" name="organization" /></div>
+<form id="projectForm" class="pn-grid" style="gap:12px;max-width:960px">
+
+  <!-- Section 1: 기본 정보 -->
+  <section class="pn-card">
+    <h3 style="margin:0 0 10px">과제 정보</h3>
+    <p class="pn-sub" style="margin:0 0 14px">프로젝트 기본 정보를 입력하세요.</p>
+
+    <div style="margin:0 0 14px">
+      <label class="pn-label">과제명</label>
+      <input class="pn-input" name="name" required />
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px">
-      <button class="pn-btn ghost" type="button" onclick="location.href='/frontend/projects'">취소</button>
-      <button class="pn-btn" type="submit">프로젝트 생성</button>
+
+    <div class="pn-row"  style="margin:0 0 14px">
+      <div>
+        <label class="pn-label">과제 책임자</label>
+        <input class="pn-input" name="manager" required />
+      </div>
+      <div>
+        <label class="pn-label">발행 기관</label>
+        <input class="pn-input" name="organization" />
+      </div>
     </div>
-  </form>
+
+    <div class="pn-row" style="margin:0 0 14px">
+      <div>
+        <label class="pn-label">과제 번호</label>
+        <input class="pn-input" name="code" required />
+      </div>
+      <div>
+        <label class="pn-label">설명</label>
+        <input class="pn-input" name="description" />
+      </div>
+    </div>
+
+    <div class="pn-row" style="margin:0 0 14px">
+      <div>
+        <label class="pn-label">시작일</label>
+        <input type="date" class="pn-input" name="start_date" required />
+      </div>
+      <div>
+        <label class="pn-label">종료일</label>
+        <input type="date" class="pn-input" name="end_date" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: 추가 설정/멤버 초대 -->
+  <section class="pn-card">
+    <h3 style="margin:0 0 10px">추가 설정 및 멤버 초대</h3>
+    <p class="pn-sub" style="margin:0 0 14px">선택사항은 비워도 생성됩니다.</p>
+
+    <div class="pn-row" style="margin:0 0 14px">
+      <div>
+        <label class="pn-label">연구자 선택</label>
+        <select id="researcherSelect" class="pn-input">
+          <option value="">연구자 선택</option>
+
+          {% for group in researcher_groups %}
+            <optgroup label="{{ group.group }} (리드 {{ group.lead }})">
+              {% for member in group.members %}
+                <option
+                  value="{{ member.id }}"
+                  data-name="{{ member.name }}"
+                  data-org="{{ member.organization }}"
+                >
+                  {{ member.name }} · {{ member.organization }}
+                </option>
+              {% endfor %}
+            </optgroup>
+          {% endfor %}
+
+        </select>
+      </div>
+
+      <div>
+        <label class="pn-label">권한</label>
+        <select id="roleSelect" class="pn-input">
+          <option value="viewer">Viewer</option>
+          <option value="member" selected>Member</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div style="display:flex;align-items:end">
+        <button type="button" class="pn-btn ghost" onclick="addMember()">추가</button>
+      </div>
+    </div>
+
+
+    <!-- 추가된 멤버 목록 -->
+    <div style="margin-top:12px">
+      <label class="pn-label">추가된 멤버</label>
+      <div id="memberList" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+  </section>
+
+  <!-- Actions -->
+  <div style="display:flex;justify-content:flex-end;gap:8px">
+    <button class="pn-btn ghost" type="button" onclick="location.href='/frontend/projects'">취소</button>
+    <button class="pn-btn" type="submit">프로젝트 생성</button>
+  </div>
+
   <div id="projectToast" class="pn-toast"></div>
-</section>
+</form>
 
 <script>
   document.getElementById('projectForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = new FormData(e.target);
+
+    const form = e.target;
+    const data = new FormData(form);
+
+    // (선택) invite_email이 비어있으면 서버로 안 보냄
+    if (!data.get('invite_email')) data.delete('invite_email');
+    if (!data.get('invite_role')) data.delete('invite_role');
+    if (!data.get('memo')) data.delete('memo');
+
     const response = await fetch('/api/v1/project-management', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
       body: data,
       credentials: 'same-origin'
     });
-    const body = await response.json();
+
+    let body = null;
+    try { body = await response.json(); } catch (err) {}
+
     if (!response.ok) {
-      document.getElementById('projectToast').textContent = '프로젝트 생성 실패';
+      document.getElementById('projectToast').textContent =
+        (body && body.detail) ? body.detail : '프로젝트 생성 실패';
       return;
     }
+
     document.getElementById('projectToast').textContent = `생성 완료: ${body.name}`;
     setTimeout(() => { window.location.href = `/frontend/projects/${body.id}`; }, 500);
   });

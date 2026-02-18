@@ -79,14 +79,15 @@
       <a class="pn-sidebtn" href="/frontend/projects">📁</a>
       <a class="pn-sidebtn" href="/frontend/research-notes">🗂️</a>
       <a class="pn-sidebtn" href="/frontend/researchers">👥</a>
-      <a class="pn-sidebtn" href="/frontend/my-page">🙍</a>
-      <a class="pn-sidebtn" href="/frontend/admin">⚙️</a>
+<!--      <a class="pn-sidebtn" href="/frontend/admin">⚙️</a>-->
     </aside>
     <section class="pn-main">
       <header class="pn-top">
         <input class="pn-search" placeholder="검색어를 입력해주세요." />
         <div class="pn-user">
-          {{ current_user.name }} <span class="pn-badge">{{ current_user.role }}</span>
+          <a href="/frontend/my-page">
+            {{ current_user.name }} <span class="pn-badge">{{ current_user.role }}</span>
+          </a>
           <a href="/logout" style="margin-left:8px;color:#1d4ed8;text-decoration:none;font-size:12px">로그아웃</a>
         </div>
       </header>
