@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}마이페이지{% endblock %}
+{% block page_title %}마이페이지{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost">비밀번호 변경</button>
+  <button class="pn-btn">프로필 수정</button>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="max-width:960px;margin-bottom:12px">
+  <div class="pn-card" style="background:#f8fafc;display:flex;align-items:center;gap:14px;margin-bottom:12px">
+    <div style="width:58px;height:58px;border-radius:50%;background:#dbe8ff;display:flex;align-items:center;justify-content:center;font-size:22px">👤</div>
+    <div>
+      <div style="font-weight:700">{{ profile.email }}</div>
+      <div class="pn-sub">{{ profile.name }} · {{ profile.role }}</div>
+    </div>
+  </div>
+
+  <div class="pn-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <label class="pn-label">이름</label>
+      <input class="pn-input" value="{{ profile.name }}" readonly />
+    </div>
+    <div>
+      <label class="pn-label">소속기관</label>
+      <input class="pn-input" value="{{ profile.organization }}" readonly />
+    </div>
+    <div style="grid-column:1 / -1">
+      <label class="pn-label">전공/분야/부서명</label>
+      <input class="pn-input" value="{{ profile.major }}" readonly />
+    </div>
+  </div>
+</section>
+
+<section class="pn-card" style="max-width:960px">
+  <h3 style="margin-top:0">전자서명 등록하기(필수)</h3>
+  <div style="height:220px;border:1px solid var(--line);border-radius:12px;background:#eef1f6;display:flex;align-items:center;justify-content:center;font-size:42px;color:#1f2937">
+    {{ profile.signature }}
+  </div>
+</section>
+{% endblock %}
