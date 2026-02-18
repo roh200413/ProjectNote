@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/v1/research-notes/<str:note_id>", views.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", views.research_note_update_api),
     path("frontend/workflows", views.workflow_home_page),
+    path("frontend/admin", views.admin_page),
     path("frontend/projects", views.project_management_page),
     path("frontend/projects/create", views.project_create_page),
     path("frontend/projects/<str:project_id>", views.project_detail_page),
