@@ -1,27 +1,49 @@
 {% extends "base.html" %}
-{% block title %}연구노트 프로젝트{% endblock %}
-{% block page_title %}연구노트{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/data-updates'">활동내역</button>
-  <button class="pn-btn" onclick="location.href='/frontend/projects/create'">연구노트 생성</button>
-</div>
-{% endblock %}
+{% block title %}연구자 관리{% endblock %}
+{% block page_title %}연구자 추가 기능{% endblock %}
 {% block content %}
-<section class="pn-grid cols-3">
-  {% for p in projects %}
-  <article class="pn-card" style="min-height:230px;display:flex;flex-direction:column;justify-content:space-between">
-    <div>
-      <span class="pn-badge {% if p.status != 'active' %}gray{% endif %}">{{ p.status }}</span>
-      <h3 style="margin:10px 0 6px;font-size:22px;line-height:1.3">{{ p.name }}</h3>
-      <div class="pn-sub">담당자 {{ p.manager }}</div>
-      <div class="pn-sub">기관 {{ p.organization|default:'미지정' }}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <small class="pn-sub">{{ p.id|slice:':8' }}...</small>
-      <a class="pn-btn soft" style="text-decoration:none" href="/frontend/projects/{{ p.id }}">상세</a>
-    </div>
-  </article>
-  {% endfor %}
-</section>
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">연구자 추가</h3>
+    <form id="researcherForm" class="pn-grid" style="gap:10px">
+      <div class="pn-row">
+        <div><label class="pn-label">이름</label><input class="pn-input" name="name" required /></div>
+        <div><label class="pn-label">역할</label><input class="pn-input" name="role" required /></div>
+      </div>
+      <div><label class="pn-label">이메일</label><input class="pn-input" name="email" type="email" required /></div>
+      <button class="pn-btn" type="submit">추가</button>
+    </form>
+    <div id="researcherToast" class="pn-toast">대기 중</div>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">참여 연구자</h3>
+    <table class="pn-table" id="researcherTable">
+      <thead><tr><th>이름</th><th>역할</th><th>이메일</th></tr></thead>
+      <tbody>
+      {% for r in researchers %}<tr><td>{{ r.name }}</td><td>{{ r.role }}</td><td>{{ r.email }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const researcherForm = document.getElementById('researcherForm');
+  researcherForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const response = await fetch('/api/v1/researchers', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: new FormData(researcherForm),
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${body.name}</td><td>${body.role}</td><td>${body.email}</td>`;
+      document.querySelector('#researcherTable tbody').prepend(row);
+      document.getElementById('researcherToast').textContent = `추가 완료: ${body.name}`;
+      researcherForm.reset();
+    }
+  });
+</script>
 {% endblock %}

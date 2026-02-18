@@ -434,13 +434,6 @@ def workflow_home_page(_request):
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
-def project_management_page(_request):
-    return render(_request, "workflow/projects.html", _page_context(_request, {"projects": PROJECTS}))
-
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
 def project_create_page(_request):
     return render(_request, "workflow/project_create.html", _page_context(_request))
 
@@ -472,8 +465,8 @@ def project_detail_page(_request, project_id: str):
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
-def researchers_page(_request):
-    return render(_request, "workflow/researchers.html", _page_context(_request, {"researchers": RESEARCHERS}))
+def projects_page(_request):
+    return render(_request, "workflow/projects.html", _page_context(_request, {"projects": PROJECTS}))
 
 
 @require_GET
