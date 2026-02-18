@@ -12,6 +12,7 @@ from django.test import Client
 django.setup()
 
 from projectnote.workflow_app.application.schemas import CreateProjectPayload
+from projectnote.workflow_app.domains.projects.service import ProjectService
 from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
 from projectnote.workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher
 
@@ -29,7 +30,6 @@ def login(client_obj: Client) -> None:
     response = client_obj.post("/login", {"username": "admin", "password": "admin1234"})
     assert response.status_code == 302
 
-django.setup()
 
 def seed_workflow_data() -> tuple[str, str]:
     researcher = Researcher.objects.create(
@@ -333,3 +333,8 @@ def test_ddd_supporting_layers_are_wired() -> None:
 
     db_url = sqlalchemy_database_url()
     assert db_url.startswith("sqlite:///")
+
+
+def test_domain_oriented_project_service_exists() -> None:
+    service = ProjectService()
+    assert hasattr(service, "create_project")

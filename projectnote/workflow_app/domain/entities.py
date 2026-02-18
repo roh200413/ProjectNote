@@ -1,19 +1,6 @@
-from dataclasses import dataclass
+from projectnote.workflow_app.domains.projects.entities import (
+    CreateProjectCommand,
+    InvitedMemberCommand,
+)
 
-
-@dataclass(frozen=True)
-class CreateProjectCommand:
-    name: str
-    manager: str
-    organization: str
-    code: str
-    description: str
-    start_date: str
-    end_date: str
-    status: str
-
-
-@dataclass(frozen=True)
-class InvitedMemberCommand:
-    researcher_id: int
-    role: str
+__all__ = ["CreateProjectCommand", "InvitedMemberCommand"]

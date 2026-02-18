@@ -48,11 +48,17 @@ sqlite3 projectnote.db "SELECT id, email, organization FROM workflow_app_researc
 
 
 ## 아키텍처(DDD + ORM)
-- `projectnote/workflow_app/domain`: 도메인 커맨드/엔티티
-- `projectnote/workflow_app/application`: Pydantic 입력 스키마, 유스케이스 서비스
-- `projectnote/workflow_app/infrastructure`: Django ORM Repository, SQLAlchemy 세션/모델
+- `projectnote/workflow_app/domains/projects`: 프로젝트 생성/조회 도메인
+- `projectnote/workflow_app/domains/researchers`: 연구자 도메인
+- `projectnote/workflow_app/domains/research_notes`: 연구노트 도메인
+- `projectnote/workflow_app/domains/data_updates`: 데이터 업데이트 도메인
+- `projectnote/workflow_app/domains/signatures`: 서명 도메인
+- `projectnote/workflow_app/domains/dashboard`: 대시보드 집계 도메인
+- `projectnote/workflow_app/application`: 유스케이스/입력 스키마(파사드)
+- `projectnote/workflow_app/infrastructure`: ORM/SQLAlchemy 어댑터
 
-SQLAlchemy는 DB 직접 점검/외부 도구 연동 시 사용할 수 있고, 애플리케이션 기본 데이터 접근은 Django ORM Repository가 담당합니다.
+현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
+SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
 
 ## 주요 API
 - `GET /api/v1/health`

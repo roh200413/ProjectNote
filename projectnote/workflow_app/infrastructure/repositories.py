@@ -1,222 +1,83 @@
-from collections import defaultdict
-from datetime import datetime
-
-from django.utils import timezone
-
-from projectnote.workflow_app.domain import CreateProjectCommand, InvitedMemberCommand
-from projectnote.workflow_app.models import (
-    DataUpdate,
-    Project,
-    ProjectMember,
-    ResearchNote,
-    ResearchNoteFile,
-    ResearchNoteFolder,
-    Researcher,
-    SignatureState,
+from projectnote.workflow_app.domains.dashboard import DashboardService
+from projectnote.workflow_app.domains.data_updates import DataUpdateRepository
+from projectnote.workflow_app.domains.projects import (
+    CreateProjectCommand,
+    InvitedMemberCommand,
+    ProjectRepository,
 )
+from projectnote.workflow_app.domains.research_notes import ResearchNoteRepository
+from projectnote.workflow_app.domains.researchers import ResearcherRepository
+from projectnote.workflow_app.domains.signatures import SignatureRepository
+from projectnote.workflow_app.models import Project
 
 
 class WorkflowRepository:
+    """Facade repository kept for backward compatibility with existing views."""
+
+    def __init__(self) -> None:
+        self.projects = ProjectRepository()
+        self.researchers = ResearcherRepository()
+        self.notes = ResearchNoteRepository()
+        self.updates = DataUpdateRepository()
+        self.signatures = SignatureRepository()
+
     def list_projects(self) -> list[dict]:
-        return [self.project_to_dict(project) for project in Project.objects.order_by("-created_at")]
+        return self.projects.list_projects()
 
     def get_project(self, project_id: str) -> Project:
-        return Project.objects.get(id=project_id)
+        return self.projects.get_project(project_id)
 
     def create_project(self, command: CreateProjectCommand) -> Project:
-        start_date = datetime.strptime(command.start_date, "%Y-%m-%d").date() if command.start_date else None
-        end_date = datetime.strptime(command.end_date, "%Y-%m-%d").date() if command.end_date else None
-        return Project.objects.create(
-            name=command.name,
-            manager=command.manager,
-            organization=command.organization,
-            code=command.code,
-            description=command.description,
-            start_date=start_date,
-            end_date=end_date,
-            status=command.status or Project.Status.DRAFT,
-        )
+        return self.projects.create_project(command)
 
     def create_project_members(self, project: Project, invited: list[InvitedMemberCommand]) -> None:
-        ids = [item.researcher_id for item in invited]
-        researchers = {researcher.id: researcher for researcher in Researcher.objects.filter(id__in=ids)}
-        for item in invited:
-            researcher = researchers.get(item.researcher_id)
-            if not researcher:
-                continue
-            ProjectMember.objects.get_or_create(
-                project=project,
-                researcher=researcher,
-                defaults={"role": item.role, "contribution": "프로젝트 참여"},
-            )
+        self.projects.create_project_members(project, invited)
 
     def list_researchers(self) -> list[dict]:
-        return [
-            {
-                "id": str(r.id),
-                "name": r.name,
-                "role": r.role,
-                "email": r.email,
-                "organization": r.organization,
-                "major": r.major,
-                "status": r.status,
-            }
-            for r in Researcher.objects.order_by("id")
-        ]
+        return self.researchers.list_researchers()
 
     def create_researcher(self, payload: dict) -> dict:
-        researcher = Researcher.objects.create(
-            name=payload.get("name", "신규 연구원"),
-            role=payload.get("role", "연구원"),
-            email=payload.get("email", f"unknown-{timezone.now().timestamp()}@example.com"),
-            organization=payload.get("organization", "미지정"),
-            major=payload.get("major", "미지정"),
-            status="활성",
-        )
-        return {
-            "id": str(researcher.id),
-            "name": researcher.name,
-            "role": researcher.role,
-            "email": researcher.email,
-            "organization": researcher.organization,
-            "major": researcher.major,
-            "status": researcher.status,
-        }
+        return self.researchers.create_researcher(payload)
 
     def list_research_notes(self) -> list[dict]:
-        return [self.note_to_dict(note) for note in ResearchNote.objects.order_by("-updated_at")]
+        return self.notes.list_research_notes()
 
     def get_research_note(self, note_id: str) -> dict:
-        note = ResearchNote.objects.get(id=note_id)
-        return self.note_to_dict(note)
+        return self.notes.get_research_note(note_id)
 
     def update_research_note(self, note_id: str, title: str | None, summary: str | None) -> dict:
-        note = ResearchNote.objects.get(id=note_id)
-        if title:
-            note.title = title
-        if summary:
-            note.summary = summary
-        note.save(update_fields=["title", "summary", "last_updated_at", "updated_at"])
-        return self.note_to_dict(note)
+        return self.notes.update_research_note(note_id, title, summary)
 
     def list_note_files(self, note_id: str) -> list[dict]:
-        return [
-            {"id": str(f.id), "name": f.name, "author": f.author, "format": f.format, "created": f.created}
-            for f in ResearchNoteFile.objects.filter(note_id=note_id).order_by("id")
-        ]
+        return self.notes.list_note_files(note_id)
 
     def list_note_folders(self, note_id: str) -> list[str]:
-        return list(ResearchNoteFolder.objects.filter(note_id=note_id).order_by("id").values_list("name", flat=True))
+        return self.notes.list_note_folders(note_id)
 
     def create_data_update(self, payload: dict) -> dict:
-        update = DataUpdate.objects.create(target=payload.get("target", "연구데이터"), status=payload.get("status", "queued"))
-        return {"id": f"upd-{update.id}", "target": update.target, "status": update.status, "updated_at": update.updated_at.isoformat()}
+        return self.updates.create_data_update(payload)
 
     def list_data_updates(self) -> list[dict]:
-        return [{"id": f"upd-{u.id}", "target": u.target, "status": u.status, "updated_at": u.updated_at.isoformat()} for u in DataUpdate.objects.order_by("-updated_at")]
-
-    def get_or_create_signature_state(self) -> SignatureState:
-        signature, _ = SignatureState.objects.get_or_create(id=1, defaults={"last_signed_by": "", "status": "valid"})
-        return signature
+        return self.updates.list_data_updates()
 
     def update_signature(self, signed_by: str, status: str) -> dict:
-        signature = self.get_or_create_signature_state()
-        signature.last_signed_by = signed_by or signature.last_signed_by
-        signature.status = status or signature.status
-        signature.last_signed_at = timezone.now()
-        signature.save(update_fields=["last_signed_by", "status", "last_signed_at", "updated_at"])
-        return self.signature_to_dict(signature)
+        return self.signatures.update_signature(signed_by, status)
 
     def read_signature(self) -> dict:
-        return self.signature_to_dict(self.get_or_create_signature_state())
+        return self.signatures.read_signature()
 
     def project_note_ids(self, project_id: str) -> list[str]:
-        return [str(i) for i in ResearchNote.objects.filter(project_id=project_id).values_list("id", flat=True)]
+        return self.projects.project_note_ids(project_id)
 
     def project_researcher_groups(self, project_id: str) -> list[dict]:
-        memberships = ProjectMember.objects.filter(project_id=project_id).select_related("researcher")
-        grouped = defaultdict(list)
-        for member in memberships:
-            grouped[member.researcher.organization].append(member)
-
-        groups = []
-        for organization, members in grouped.items():
-            groups.append(
-                {
-                    "group": f"{organization} 연구그룹",
-                    "lead": members[0].researcher.name,
-                    "members": [
-                        {
-                            "name": m.researcher.name,
-                            "role": m.role,
-                            "organization": m.researcher.organization,
-                            "major": m.researcher.major,
-                            "contribution": m.contribution,
-                        }
-                        for m in members
-                    ],
-                }
-            )
-        return groups
+        return self.projects.project_researcher_groups(project_id)
 
     def dashboard_counts(self) -> dict:
-        organization_count = Researcher.objects.values("organization").distinct().count()
-        return {
-            "organizations": organization_count,
-            "projects": Project.objects.count(),
-            "notes": ResearchNote.objects.count(),
-            "revisions": 0,
-        }
+        return DashboardService.counts()
 
     def researcher_groups_for_selection(self) -> list[dict]:
-        groups = []
-        researchers = Researcher.objects.order_by("organization", "id")
-        grouped = defaultdict(list)
-        for researcher in researchers:
-            grouped[researcher.organization].append(researcher)
-
-        for org, members in grouped.items():
-            groups.append(
-                {
-                    "group": f"{org} 연구그룹",
-                    "lead": members[0].name,
-                    "members": [{"id": str(m.id), "name": m.name, "organization": m.organization} for m in members],
-                }
-            )
-        return groups
+        return self.researchers.researcher_groups_for_selection()
 
     @staticmethod
     def project_to_dict(project: Project) -> dict:
-        return {
-            "id": str(project.id),
-            "name": project.name,
-            "status": project.status,
-            "manager": project.manager,
-            "organization": project.organization,
-            "code": project.code,
-            "description": project.description,
-            "start_date": project.start_date.isoformat() if project.start_date else "",
-            "end_date": project.end_date.isoformat() if project.end_date else "",
-        }
-
-    @staticmethod
-    def note_to_dict(note: ResearchNote) -> dict:
-        return {
-            "id": str(note.id),
-            "title": note.title,
-            "owner": note.owner,
-            "project_code": note.project_code,
-            "period": note.period,
-            "files": note.files,
-            "members": note.members,
-            "summary": note.summary,
-            "last_updated_at": note.last_updated_at.isoformat() if note.last_updated_at else note.updated_at.isoformat(),
-        }
-
-    @staticmethod
-    def signature_to_dict(signature: SignatureState) -> dict:
-        return {
-            "last_signed_by": signature.last_signed_by,
-            "last_signed_at": signature.last_signed_at.isoformat() if signature.last_signed_at else "",
-            "status": signature.status,
-        }
+        return ProjectRepository.project_to_dict(project)
