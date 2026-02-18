@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>로그인 · ProjectNote</title>
+  <style>
+    body { margin:0; font-family:Pretendard,Inter,Arial,sans-serif; background:#f2f4f8; color:#1f2937; }
+    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:420px; background:#fff; border:1px solid #dbe2ed; border-radius:14px; padding:22px; box-shadow:0 8px 20px rgba(15,23,42,.06); }
+    h1 { margin:0 0 8px; font-size:30px; }
+    .sub { margin:0 0 14px; color:#7d8aa0; font-size:13px; }
+    .label { font-size:12px; color:#64748b; font-weight:700; display:block; margin:0 0 4px; }
+    .input { width:100%; border:1px solid #dbe2ed; border-radius:8px; padding:11px; margin-bottom:10px; }
+    .btn { width:100%; border:none; background:#2463eb; color:#fff; border-radius:9px; padding:11px; font-weight:700; cursor:pointer; }
+    .err { margin:0 0 10px; color:#dc2626; font-size:13px; }
+    .helper { margin-top:12px; color:#64748b; font-size:12px; }
+    code { background:#eef2ff; padding:2px 5px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>로그인</h1>
+      <p class="sub">로그인 후 워크플로우 화면에 접근할 수 있습니다.</p>
+      {% if error %}<p class="err">{{ error }}</p>{% endif %}
+      <form method="post" action="/login">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}" />
+        <label class="label">아이디</label>
+        <input class="input" name="username" placeholder="admin" required />
+        <label class="label">비밀번호</label>
+        <input class="input" type="password" name="password" placeholder="admin1234" required />
+        <button class="btn" type="submit">로그인</button>
+      </form>
+      <div class="helper">데모 계정: <code>admin</code> / <code>admin1234</code></div>
+    </section>
+  </main>
+</body>
+</html>
