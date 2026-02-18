@@ -77,6 +77,8 @@ def test_workflow_pages_exist() -> None:
         "/frontend/workflows",
         "/frontend/admin",
         "/frontend/projects",
+        "/frontend/projects/create",
+        "/frontend/my-page",
         "/frontend/researchers",
         "/frontend/data-updates",
         "/frontend/final-download",
@@ -102,6 +104,17 @@ def test_project_detail_and_viewer_pages() -> None:
     viewer_response = client.get(f"/frontend/research-notes/{note_id}/viewer")
     assert viewer_response.status_code == 200
     assert "파일 정보" in viewer_response.content.decode()
+
+
+def test_project_create_and_my_page_content() -> None:
+    create_page = client.get("/frontend/projects/create")
+    assert create_page.status_code == 200
+    assert "프로젝트 생성" in create_page.content.decode()
+
+    my_page = client.get("/frontend/my-page")
+    assert my_page.status_code == 200
+    assert "마이페이지" in my_page.content.decode()
+    assert "전자서명 등록하기" in my_page.content.decode()
 
 
 def test_workflow_apis_support_management_actions() -> None:

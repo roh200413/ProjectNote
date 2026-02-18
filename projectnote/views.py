@@ -18,7 +18,6 @@ RESEARCH_NOTES = [
         "members": 17,
         "summary": "AI 자동평가 고도화와 현장 검증 히스토리를 관리하는 연구노트입니다.",
         "last_updated_at": "2026-02-18T11:03:00+09:00",
-
     },
     {
         "id": "da3a50af-d4e9-40ad-8b3f-472cd2666726",
@@ -155,7 +154,6 @@ NOTE_FOLDERS = {
     "da3a50af-d4e9-40ad-8b3f-472cd2666726": ["[FE - REFS]", "[FE - UI]"],
 }
 
-
 RESEARCHERS = [
     {"id": "1", "name": "김기수", "role": "PI", "email": "kim@example.com"},
     {"id": "2", "name": "최재혁", "role": "연구원", "email": "choi@example.com"},
@@ -184,12 +182,12 @@ def _find_note(note_id: str) -> dict:
     raise Http404("Research note not found")
 
 
-
 def _find_project(project_id: str) -> dict:
     for project in PROJECTS:
         if project["id"] == project_id:
             return project
     raise Http404("Project not found")
+
 
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
     return JsonResponse(
@@ -343,11 +341,13 @@ def research_note_update_api(request, note_id: str):
 @ensure_csrf_cookie
 def workflow_home_page(_request):
     cards = [
-        {"title": "프로젝트 생성 및 관리", "href": "/frontend/projects", "description": "프로젝트를 생성하고 상태를 관리합니다."},
+        {"title": "프로젝트 생성", "href": "/frontend/projects/create", "description": "신규 프로젝트를 생성합니다."},
+        {"title": "프로젝트 관리", "href": "/frontend/projects", "description": "생성된 프로젝트 목록과 상세를 관리합니다."},
         {"title": "연구자 추가", "href": "/frontend/researchers", "description": "연구 참여 인력 정보를 등록합니다."},
         {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
         {"title": "연구노트 최종 다운로드", "href": "/frontend/final-download", "description": "최종 산출물 생성 상태를 확인합니다."},
         {"title": "사인 업데이트", "href": "/frontend/signatures", "description": "최신 서명 상태를 갱신합니다."},
+        {"title": "My Page", "href": "/frontend/my-page", "description": "내 상세 정보와 전자서명을 확인합니다."},
         {"title": "ADMIN", "href": "/frontend/admin", "description": "운영 지표와 최근 액션을 조회합니다."},
     ]
     return render(_request, "workflow/home.html", {"cards": cards})
@@ -357,6 +357,12 @@ def workflow_home_page(_request):
 @ensure_csrf_cookie
 def project_management_page(_request):
     return render(_request, "workflow/projects.html", {"projects": PROJECTS})
+
+
+@require_GET
+@ensure_csrf_cookie
+def project_create_page(_request):
+    return render(_request, "workflow/project_create.html")
 
 
 @require_GET
@@ -418,6 +424,20 @@ def admin_page(_request):
         {"type": "last_update", "value": DATA_UPDATES[-1]["target"]},
     ]
     return render(_request, "workflow/admin.html", {"metrics": metrics, "recent": recent})
+
+
+@require_GET
+@ensure_csrf_cookie
+def my_page(_request):
+    profile = {
+        "name": "노승희",
+        "email": "paul@deep-ai.kr",
+        "role": "관리자",
+        "organization": "(주)딥아이",
+        "major": "R&D",
+        "signature": "서명",
+    }
+    return render(_request, "workflow/my_page.html", {"profile": profile})
 
 
 @require_GET

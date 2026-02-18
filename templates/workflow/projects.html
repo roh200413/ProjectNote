@@ -4,22 +4,11 @@
 {% block page_actions %}
 <div style="display:flex;gap:8px">
   <button class="pn-btn ghost" onclick="location.href='/frontend/data-updates'">활동내역</button>
-  <button class="pn-btn" onclick="document.getElementById('name').focus()">연구노트 생성</button>
+  <button class="pn-btn" onclick="location.href='/frontend/projects/create'">연구노트 생성</button>
 </div>
 {% endblock %}
 {% block content %}
-<section class="pn-card" style="margin-bottom:14px">
-  <h3 style="margin:0 0 10px">Step 1 · 과제 정보 입력</h3>
-  <form id="projectForm" class="pn-row">
-    <div><label class="pn-label">과제명</label><input id="name" class="pn-input" name="name" required /></div>
-    <div><label class="pn-label">과제 책임자</label><input class="pn-input" name="manager" required /></div>
-    <div><label class="pn-label">소속/기관</label><input class="pn-input" name="organization" /></div>
-    <div style="display:flex;align-items:flex-end"><button class="pn-btn" type="submit" style="width:100%">프로젝트 생성</button></div>
-  </form>
-  <div id="projectToast" class="pn-toast">프로젝트 카드를 클릭하면 상세 정보, 연구노트 업데이트, 연구자 그룹 정보를 볼 수 있습니다.</div>
-</section>
-
-<section id="projectCards" class="pn-grid cols-3">
+<section class="pn-grid cols-3">
   {% for p in projects %}
   <article class="pn-card" style="min-height:230px;display:flex;flex-direction:column;justify-content:space-between">
     <div>
@@ -35,39 +24,4 @@
   </article>
   {% endfor %}
 </section>
-
-<script>
-  const projectForm = document.getElementById('projectForm');
-  projectForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const data = new FormData(projectForm);
-    const response = await fetch('/api/v1/project-management', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: data,
-      credentials: 'same-origin'
-    });
-    const body = await response.json();
-    if (!response.ok) return;
-
-    const card = document.createElement('article');
-    card.className = 'pn-card';
-    card.style.cssText = 'min-height:230px;display:flex;flex-direction:column;justify-content:space-between';
-    card.innerHTML = `
-      <div>
-        <span class="pn-badge gray">${body.status}</span>
-        <h3 style="margin:10px 0 6px;font-size:22px;line-height:1.3">${body.name}</h3>
-        <div class="pn-sub">담당자 ${body.manager}</div>
-        <div class="pn-sub">기관 ${body.organization || '미지정'}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <small class="pn-sub">${body.id.slice(0,8)}...</small>
-        <a class="pn-btn soft" style="text-decoration:none" href="/frontend/projects/${body.id}">상세</a>
-      </div>
-    `;
-    document.getElementById('projectCards').prepend(card);
-    document.getElementById('projectToast').textContent = `생성 완료: ${body.name}`;
-    projectForm.reset();
-  });
-</script>
 {% endblock %}
