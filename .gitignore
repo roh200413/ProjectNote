@@ -4,3 +4,5 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 projectnote.db
+
+printf "\n.idea/\n*.egg-info/\n" >> .gitignore
