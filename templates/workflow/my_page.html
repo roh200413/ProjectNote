@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}나의 상세 페이지{% endblock %}
+{% block page_title %}나의 상세 페이지{% endblock %}
+{% block content %}
+<section class="pn-grid cols-2">
+  {% for card in cards %}
+    <article class="pn-card">
+      <h3 style="margin:0 0 8px">{{ card.title }}</h3>
+      <p class="pn-sub" style="margin:0 0 12px">{{ card.description }}</p>
+      <a class="pn-btn" style="display:inline-block;text-decoration:none" href="{{ card.href }}">바로가기</a>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}
