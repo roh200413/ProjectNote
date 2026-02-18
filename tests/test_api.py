@@ -124,6 +124,7 @@ def test_project_create_and_my_page_content() -> None:
     assert my_page.status_code == 200
     assert "마이페이지" in my_page.content.decode()
     assert "전자서명 등록하기" in my_page.content.decode()
+    assert "드래그 앤 드롭으로 이미지를 올려주세요" in my_page.content.decode()
 
 
 def test_workflow_apis_support_management_actions() -> None:
@@ -185,3 +186,22 @@ def test_login_logout_and_auth_redirect() -> None:
     logout = anon.get("/logout")
     assert logout.status_code == 302
     assert logout["Location"] == "/login"
+
+
+def test_my_page_signature_update() -> None:
+    local_client = Client()
+    login(local_client)
+
+    invalid = local_client.post("/frontend/my-page/signature", {"signature_data_url": "invalid"})
+    assert invalid.status_code == 400
+
+    valid = local_client.post(
+        "/frontend/my-page/signature",
+        {"signature_data_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"},
+    )
+    assert valid.status_code == 200
+    assert "업데이트" in valid.json()["message"]
+
+    page = local_client.get("/frontend/my-page")
+    assert page.status_code == 200
+    assert "data:image/png;base64" in page.content.decode()

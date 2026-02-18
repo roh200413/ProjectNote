@@ -35,8 +35,94 @@
 
 <section class="pn-card" style="max-width:960px">
   <h3 style="margin-top:0">전자서명 등록하기(필수)</h3>
-  <div style="height:220px;border:1px solid var(--line);border-radius:12px;background:#eef1f6;display:flex;align-items:center;justify-content:center;font-size:42px;color:#1f2937">
-    {{ profile.signature }}
+  <div id="signatureDropzone" style="height:260px;border:2px dashed #b7c6dd;border-radius:12px;background:#eef1f6;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;cursor:pointer;overflow:hidden">
+    {% if profile.signature %}
+      <img id="signaturePreview" src="{{ profile.signature }}" alt="전자서명" style="max-width:100%;max-height:100%;object-fit:contain" />
+    {% else %}
+      <div id="signaturePlaceholder" style="color:#4b5563;font-size:18px;line-height:1.5">
+        드래그 앤 드롭으로 이미지를 올려주세요<br />
+        <small style="font-size:13px;color:#6b7280">또는 클릭해서 이미지를 선택하세요.</small>
+      </div>
+      <img id="signaturePreview" alt="전자서명" style="max-width:100%;max-height:100%;object-fit:contain;display:none" />
+    {% endif %}
   </div>
+  <input id="signatureFileInput" type="file" accept="image/*" style="display:none" />
+  <div style="display:flex;justify-content:flex-end;margin-top:10px;gap:8px">
+    <button id="clearSignature" class="pn-btn ghost" type="button">초기화</button>
+    <button id="saveSignature" class="pn-btn" type="button">서명 저장</button>
+  </div>
+  <div id="signatureToast" class="pn-toast"></div>
 </section>
+
+<script>
+  const dropzone = document.getElementById('signatureDropzone');
+  const input = document.getElementById('signatureFileInput');
+  const preview = document.getElementById('signaturePreview');
+  const placeholder = document.getElementById('signaturePlaceholder');
+  const toast = document.getElementById('signatureToast');
+  let selectedImage = preview.getAttribute('src') || '';
+
+  function showImage(dataUrl){
+    selectedImage = dataUrl;
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+  }
+
+  function showPlaceholder(){
+    selectedImage = '';
+    preview.removeAttribute('src');
+    preview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'block';
+  }
+
+  function readFile(file){
+    if (!file || !file.type.startsWith('image/')) {
+      toast.textContent = '이미지 파일만 업로드할 수 있습니다.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => showImage(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', () => input.click());
+  input.addEventListener('change', (e) => readFile(e.target.files[0]));
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#2463eb';
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.borderColor = '#b7c6dd';
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#b7c6dd';
+    readFile(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('clearSignature').addEventListener('click', () => {
+    showPlaceholder();
+    input.value = '';
+    toast.textContent = '서명 이미지를 초기화했습니다.';
+  });
+
+  document.getElementById('saveSignature').addEventListener('click', async () => {
+    if (!selectedImage) {
+      toast.textContent = '저장할 이미지가 없습니다.';
+      return;
+    }
+    const formData = new FormData();
+    formData.append('signature_data_url', selectedImage);
+    const response = await fetch('/frontend/my-page/signature', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    toast.textContent = body.message || '저장 완료';
+  });
+</script>
 {% endblock %}

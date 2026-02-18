@@ -23,6 +23,7 @@ urlpatterns = [
     path("frontend/projects/create", views.project_create_page),
     path("frontend/projects/<str:project_id>", views.project_detail_page),
     path("frontend/my-page", views.my_page),
+    path("frontend/my-page/signature", views.update_my_signature),
     path("frontend/researchers", views.researchers_page),
     path("frontend/data-updates", views.data_updates_page),
     path("frontend/final-download", views.final_download_page),

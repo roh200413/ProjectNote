@@ -274,6 +274,7 @@ def login_page(request):
         "email": user["email"],
         "organization": user["organization"],
         "major": user["major"],
+        "signature_data_url": "",
     }
     if next_url.startswith("/"):
         return redirect(next_url)
@@ -523,8 +524,21 @@ def admin_page(_request):
 @login_required_page
 def my_page(_request):
     profile = _request.session.get("user_profile", {}).copy()
-    profile["signature"] = "서명"
+    profile["signature"] = profile.get("signature_data_url", "")
     return render(_request, "workflow/my_page.html", _page_context(_request, {"profile": profile}))
+
+
+@require_http_methods(["POST"])
+@login_required_page
+def update_my_signature(request):
+    signature_data_url = request.POST.get("signature_data_url", "")
+    if not signature_data_url.startswith("data:image/"):
+        return JsonResponse({"message": "유효한 이미지 데이터가 아닙니다."}, status=400)
+
+    profile = request.session.get("user_profile", {}).copy()
+    profile["signature_data_url"] = signature_data_url
+    request.session["user_profile"] = profile
+    return JsonResponse({"message": "서명이 업데이트되었습니다."})
 
 
 @require_GET
