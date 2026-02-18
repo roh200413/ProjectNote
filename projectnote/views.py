@@ -18,6 +18,7 @@ RESEARCH_NOTES = [
         "members": 17,
         "summary": "AI 자동평가 고도화와 현장 검증 히스토리를 관리하는 연구노트입니다.",
         "last_updated_at": "2026-02-18T11:03:00+09:00",
+
     },
     {
         "id": "da3a50af-d4e9-40ad-8b3f-472cd2666726",
@@ -154,6 +155,7 @@ NOTE_FOLDERS = {
     "da3a50af-d4e9-40ad-8b3f-472cd2666726": ["[FE - REFS]", "[FE - UI]"],
 }
 
+
 RESEARCHERS = [
     {"id": "1", "name": "김기수", "role": "PI", "email": "kim@example.com"},
     {"id": "2", "name": "최재혁", "role": "연구원", "email": "choi@example.com"},
@@ -182,12 +184,12 @@ def _find_note(note_id: str) -> dict:
     raise Http404("Research note not found")
 
 
+
 def _find_project(project_id: str) -> dict:
     for project in PROJECTS:
         if project["id"] == project_id:
             return project
     raise Http404("Project not found")
-
 
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
     return JsonResponse(
