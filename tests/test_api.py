@@ -29,6 +29,7 @@ def login(client_obj: Client) -> None:
     response = client_obj.post("/login", {"username": "admin", "password": "admin1234"})
     assert response.status_code == 302
 
+django.setup()
 
 def seed_workflow_data() -> tuple[str, str]:
     researcher = Researcher.objects.create(
