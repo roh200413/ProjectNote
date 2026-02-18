@@ -156,8 +156,24 @@ NOTE_FOLDERS = {
 }
 
 RESEARCHERS = [
-    {"id": "1", "name": "김기수", "role": "PI", "email": "kim@example.com"},
-    {"id": "2", "name": "최재혁", "role": "연구원", "email": "choi@example.com"},
+    {
+        "id": "1",
+        "name": "김기수",
+        "role": "PI",
+        "email": "kim@example.com",
+        "organization": "딥테크딥스",
+        "major": "R&D",
+        "status": "활성",
+    },
+    {
+        "id": "2",
+        "name": "최재혁",
+        "role": "연구원",
+        "email": "choi@example.com",
+        "organization": "ProjectNote Lab",
+        "major": "프론트엔드",
+        "status": "활성",
+    },
 ]
 
 DATA_UPDATES = [
@@ -353,6 +369,9 @@ def researchers_api(request):
         "name": request.POST.get("name", "신규 연구원"),
         "role": request.POST.get("role", "연구원"),
         "email": request.POST.get("email", "unknown@example.com"),
+        "organization": request.POST.get("organization", "미지정"),
+        "major": request.POST.get("major", "미지정"),
+        "status": "활성",
     }
     RESEARCHERS.append(researcher)
     return JsonResponse(researcher, status=201)
@@ -420,8 +439,8 @@ def research_note_update_api(request, note_id: str):
 def workflow_home_page(_request):
     cards = [
         {"title": "프로젝트 생성", "href": "/frontend/projects/create", "description": "신규 프로젝트를 생성합니다."},
-        {"title": "프로젝트 관리", "href": "/frontend/projects", "description": "생성된 프로젝트 목록과 상세를 관리합니다."},
-        {"title": "연구자 추가", "href": "/frontend/researchers", "description": "연구 참여 인력 정보를 등록합니다."},
+        {"title": "프로젝트 관리", "href": "/frontend/projects", "description": "생성된 프로젝트 목록/상세를 관리합니다."},
+        {"title": "연구자 관리", "href": "/frontend/researchers", "description": "연구자 등록 및 소속/역할 정보를 관리합니다."},
         {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
         {"title": "연구노트 최종 다운로드", "href": "/frontend/final-download", "description": "최종 산출물 생성 상태를 확인합니다."},
         {"title": "사인 업데이트", "href": "/frontend/signatures", "description": "최신 서명 상태를 갱신합니다."},
@@ -429,6 +448,13 @@ def workflow_home_page(_request):
         {"title": "ADMIN", "href": "/frontend/admin", "description": "운영 지표와 최근 액션을 조회합니다."},
     ]
     return render(_request, "workflow/home.html", _page_context(_request, {"cards": cards}))
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def project_management_page(_request):
+    return render(_request, "workflow/projects.html", _page_context(_request, {"projects": PROJECTS}))
 
 
 @require_GET
@@ -465,8 +491,8 @@ def project_detail_page(_request, project_id: str):
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
-def projects_page(_request):
-    return render(_request, "workflow/projects.html", _page_context(_request, {"projects": PROJECTS}))
+def researchers_page(_request):
+    return render(_request, "workflow/researchers.html", _page_context(_request, {"researchers": RESEARCHERS}))
 
 
 @require_GET

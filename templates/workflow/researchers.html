@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}연구자 관리{% endblock %}
+{% block page_title %}연구자 관리{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">프로젝트 보기</button>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin-top:0">연구자 추가</h3>
+  <form id="researcherForm" class="pn-row">
+    <div><label class="pn-label">이름</label><input class="pn-input" name="name" required /></div>
+    <div><label class="pn-label">권한</label><input class="pn-input" name="role" required /></div>
+    <div><label class="pn-label">이메일</label><input class="pn-input" name="email" type="email" required /></div>
+    <div><label class="pn-label">소속/기관</label><input class="pn-input" name="organization" required /></div>
+    <div><label class="pn-label">전공/부서명</label><input class="pn-input" name="major" required /></div>
+    <div style="display:flex;align-items:flex-end"><button class="pn-btn" type="submit" style="width:100%">연구자 추가</button></div>
+  </form>
+  <div id="researcherToast" class="pn-toast">프로젝트 페이지와 겹치던 정보는 제거하고, 연구자 고유 정보만 관리합니다.</div>
+</section>
+
+<section class="pn-card">
+  <h3 style="margin-top:0">연구자 목록</h3>
+  <table class="pn-table" id="researcherTable">
+    <thead><tr><th>이름</th><th>권한</th><th>이메일</th><th>소속/기관</th><th>전공/부서명</th><th>상태</th></tr></thead>
+    <tbody>
+    {% for r in researchers %}
+      <tr>
+        <td>{{ r.name }}</td>
+        <td>{{ r.role }}</td>
+        <td>{{ r.email }}</td>
+        <td>{{ r.organization }}</td>
+        <td>{{ r.major }}</td>
+        <td><span class="pn-badge">{{ r.status }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  const researcherForm = document.getElementById('researcherForm');
+  researcherForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(researcherForm);
+    const response = await fetch('/api/v1/researchers', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      document.getElementById('researcherToast').textContent = '연구자 추가 실패';
+      return;
+    }
+
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${body.name}</td><td>${body.role}</td><td>${body.email}</td><td>${body.organization}</td><td>${body.major}</td><td><span class="pn-badge">${body.status}</span></td>`;
+    document.querySelector('#researcherTable tbody').prepend(row);
+    document.getElementById('researcherToast').textContent = `추가 완료: ${body.name}`;
+    researcherForm.reset();
+  });
+</script>
+{% endblock %}

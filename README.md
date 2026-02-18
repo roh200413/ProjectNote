@@ -32,9 +32,9 @@ python manage.py runserver 0.0.0.0:8000
 - `GET /frontend/projects`
 - `GET /frontend/projects/create`
 - `GET /frontend/projects/<id>`
+- `GET /frontend/researchers` (연구자 전용 정보 관리)
 - `GET /frontend/my-page`
 - `POST /frontend/my-page/signature` (data URL 이미지 업로드)
-- `GET /frontend/researchers`
 - `GET /frontend/data-updates`
 - `GET /frontend/final-download`
 - `GET /frontend/signatures`

@@ -137,9 +137,17 @@ def test_workflow_apis_support_management_actions() -> None:
 
     researcher_create = client.post(
         "/api/v1/researchers",
-        {"name": "신규연구자", "role": "연구보조", "email": "new@example.com"},
+        {
+            "name": "신규연구자",
+            "role": "연구보조",
+            "email": "new@example.com",
+            "organization": "테스트기관",
+            "major": "품질관리",
+        },
     )
     assert researcher_create.status_code == 201
+    assert researcher_create.json()["organization"] == "테스트기관"
+    assert researcher_create.json()["major"] == "품질관리"
 
     update_create = client.post("/api/v1/data-updates", {"target": "실험로그", "status": "queued"})
     assert update_create.status_code == 201
@@ -205,3 +213,18 @@ def test_my_page_signature_update() -> None:
     page = local_client.get("/frontend/my-page")
     assert page.status_code == 200
     assert "data:image/png;base64" in page.content.decode()
+
+
+def test_researchers_page_separated_fields() -> None:
+    local_client = Client()
+    login(local_client)
+    response = local_client.get("/frontend/researchers")
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "소속/기관" in html
+    assert "전공/부서명" in html
+    assert "프로젝트 페이지와 겹치던 정보는 제거" in html
+
+    projects_page = local_client.get("/frontend/projects")
+    assert projects_page.status_code == 200
+    assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
