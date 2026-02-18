@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}프로젝트 생성{% endblock %}
+{% block page_title %}Create Project{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">목록으로</button>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="max-width:960px">
+  <h3 style="margin:0 0 10px">Step 1 · 과제 정보 입력</h3>
+  <p class="pn-sub" style="margin:0 0 14px">프로젝트 생성 기능을 목록 페이지에서 분리했습니다.</p>
+  <form id="projectForm" class="pn-grid" style="gap:12px">
+    <div><label class="pn-label">과제명</label><input class="pn-input" name="name" required /></div>
+    <div class="pn-row">
+      <div><label class="pn-label">과제 책임자</label><input class="pn-input" name="manager" required /></div>
+      <div><label class="pn-label">소속/기관</label><input class="pn-input" name="organization" /></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="pn-btn ghost" type="button" onclick="location.href='/frontend/projects'">취소</button>
+      <button class="pn-btn" type="submit">프로젝트 생성</button>
+    </div>
+  </form>
+  <div id="projectToast" class="pn-toast"></div>
+</section>
+
+<script>
+  document.getElementById('projectForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = new FormData(e.target);
+    const response = await fetch('/api/v1/project-management', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: data,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      document.getElementById('projectToast').textContent = '프로젝트 생성 실패';
+      return;
+    }
+    document.getElementById('projectToast').textContent = `생성 완료: ${body.name}`;
+    setTimeout(() => { window.location.href = `/frontend/projects/${body.id}`; }, 500);
+  });
+</script>
+{% endblock %}

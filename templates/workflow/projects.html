@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}연구노트 프로젝트{% endblock %}
+{% block page_title %}연구노트{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/data-updates'">활동내역</button>
+  <button class="pn-btn" onclick="location.href='/frontend/projects/create'">연구노트 생성</button>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-grid cols-3">
+  {% for p in projects %}
+  <article class="pn-card" style="min-height:230px;display:flex;flex-direction:column;justify-content:space-between">
+    <div>
+      <span class="pn-badge {% if p.status != 'active' %}gray{% endif %}">{{ p.status }}</span>
+      <h3 style="margin:10px 0 6px;font-size:22px;line-height:1.3">{{ p.name }}</h3>
+      <div class="pn-sub">담당자 {{ p.manager }}</div>
+      <div class="pn-sub">기관 {{ p.organization|default:'미지정' }}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <small class="pn-sub">{{ p.id|slice:':8' }}...</small>
+      <a class="pn-btn soft" style="text-decoration:none" href="/frontend/projects/{{ p.id }}">상세</a>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

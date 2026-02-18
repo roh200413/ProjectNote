@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}사인 업데이트{% endblock %}
+{% block page_title %}사인 업데이트{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">현재 상태</h3>
+    <p>마지막 서명자: <strong id="sigBy">{{ signature.last_signed_by }}</strong></p>
+    <p>서명 시각: <span id="sigAt">{{ signature.last_signed_at }}</span></p>
+    <p>상태: <span id="sigStatus" class="pn-status-ok">{{ signature.status }}</span></p>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">사인 갱신</h3>
+    <form id="signatureForm" class="pn-grid" style="gap:10px">
+      <div><label class="pn-label">서명자</label><input class="pn-input" name="signed_by" required /></div>
+      <div>
+        <label class="pn-label">상태</label>
+        <select class="pn-select" name="status"><option>valid</option><option>revoked</option></select>
+      </div>
+      <button class="pn-btn" type="submit">업데이트</button>
+    </form>
+    <div id="signatureToast" class="pn-toast"></div>
+  </section>
+</div>
+<script>
+  document.getElementById('signatureForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const response = await fetch('/api/v1/signatures', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: new FormData(e.target),
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok){
+      document.getElementById('sigBy').textContent = body.last_signed_by;
+      document.getElementById('sigAt').textContent = body.last_signed_at;
+      document.getElementById('sigStatus').textContent = body.status;
+      document.getElementById('signatureToast').textContent = '서명 상태가 업데이트되었습니다.';
+      e.target.reset();
+    }
+  });
+</script>
+{% endblock %}

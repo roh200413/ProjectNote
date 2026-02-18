@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}데이터 업데이트{% endblock %}
+{% block page_title %}데이터 업데이트{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">업데이트 등록</h3>
+    <form id="updateForm" class="pn-grid" style="gap:10px">
+      <div><label class="pn-label">대상</label><input class="pn-input" name="target" required /></div>
+      <div>
+        <label class="pn-label">상태</label>
+        <select class="pn-select" name="status">
+          <option>queued</option><option>completed</option><option>failed</option>
+        </select>
+      </div>
+      <button class="pn-btn" type="submit">업데이트 기록</button>
+    </form>
+    <div id="updateToast" class="pn-toast">대기 중</div>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">업데이트 로그</h3>
+    <table class="pn-table" id="updateTable">
+      <thead><tr><th>대상</th><th>상태</th><th>시각</th></tr></thead>
+      <tbody>
+      {% for u in updates %}
+        <tr><td>{{ u.target }}</td><td>{{ u.status }}</td><td>{{ u.updated_at }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+  const updateForm = document.getElementById('updateForm');
+  updateForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const response = await fetch('/api/v1/data-updates', {
+      method:'POST',
+      headers:{'X-CSRFToken': getCsrfToken()},
+      body:new FormData(updateForm),
+      credentials:'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td>${body.target}</td><td>${body.status}</td><td>${body.updated_at}</td>`;
+      document.querySelector('#updateTable tbody').prepend(row);
+      document.getElementById('updateToast').textContent = `업데이트 추가: ${body.target}`;
+      updateForm.reset();
+    }
+  });
+</script>
+{% endblock %}

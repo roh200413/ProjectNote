@@ -2,29 +2,29 @@
 name = "projectnote-backend"
 version = "0.1.0"
 description = "Research note integrated platform backend"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
-  "fastapi>=0.115.0",
-  "uvicorn[standard]>=0.30.0",
-  "sqlalchemy>=2.0.32",
-  "pydantic>=2.8.2",
-  "python-dotenv>=1.0.1",
-  "pydantic-settings>=2.4.0"
+  "django>=5.1.0"
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3.2",
-  "httpx>=0.27.0",
+  "pytest-django>=4.9.0",
   "ruff>=0.6.2"
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+DJANGO_SETTINGS_MODULE = "projectnote.settings"
 
 [tool.ruff]
 line-length = 100
+
+
+[tool.setuptools.packages.find]
+include = ["projectnote*"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
