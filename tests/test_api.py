@@ -128,12 +128,32 @@ def test_project_create_and_my_page_content() -> None:
 
 
 def test_workflow_apis_support_management_actions() -> None:
+    login(client)
     project_create = client.post(
         "/api/v1/project-management",
-        {"name": "신규 과제", "manager": "홍길동", "organization": "테스트랩"},
+        {
+            "name": "신규 과제",
+            "manager": "홍길동",
+            "organization": "테스트랩",
+            "code": "TEST-001",
+            "description": "테스트 설명",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "status": "active",
+            "invited_members": '[{"id":"1","role":"admin"}]',
+        },
     )
     assert project_create.status_code == 201
-    assert project_create.json()["name"] == "신규 과제"
+    project_payload = project_create.json()
+    assert project_payload["name"] == "신규 과제"
+    assert project_payload["code"] == "TEST-001"
+    assert project_payload["status"] == "active"
+
+    detail_page = client.get(f"/frontend/projects/{project_payload['id']}")
+    assert detail_page.status_code == 200
+    detail_html = detail_page.content.decode()
+    assert "TEST-001" in detail_html
+    assert "초대 멤버" in detail_html
 
     researcher_create = client.post(
         "/api/v1/researchers",

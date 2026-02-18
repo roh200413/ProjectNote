@@ -1,4 +1,5 @@
 import uuid
+import json
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -232,6 +233,24 @@ def _page_context(request, extra: dict | None = None) -> dict:
     return context
 
 
+def _researcher_groups_for_selection() -> list[dict]:
+    grouped: dict[str, list[dict]] = {}
+    for researcher in RESEARCHERS:
+        org = researcher.get("organization", "미지정")
+        grouped.setdefault(org, []).append(researcher)
+
+    groups = []
+    for org, members in grouped.items():
+        groups.append(
+            {
+                "group": f"{org} 연구그룹",
+                "lead": members[0]["name"],
+                "members": members,
+            }
+        )
+    return groups
+
+
 def login_required_page(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
@@ -346,16 +365,47 @@ def project_management_api(request):
 
     name = request.POST.get("name", "새 프로젝트")
     manager = request.POST.get("manager", "미지정")
+    invited_members_payload = request.POST.get("invited_members", "[]")
+    try:
+        invited_members = json.loads(invited_members_payload)
+        if not isinstance(invited_members, list):
+            invited_members = []
+    except json.JSONDecodeError:
+        invited_members = []
+
     project = {
         "id": str(uuid.uuid4()),
         "name": name,
-        "status": "draft",
+        "status": request.POST.get("status", "draft"),
         "manager": manager,
         "organization": request.POST.get("organization", "미지정"),
+        "code": request.POST.get("code", ""),
+        "description": request.POST.get("description", ""),
+        "start_date": request.POST.get("start_date", ""),
+        "end_date": request.POST.get("end_date", ""),
     }
     PROJECTS.append(project)
     PROJECT_NOTE_MAP[project["id"]] = []
-    PROJECT_RESEARCHER_GROUPS[project["id"]] = []
+
+    researchers_by_id = {researcher["id"]: researcher for researcher in RESEARCHERS}
+    created_members = []
+    for invited in invited_members:
+        researcher = researchers_by_id.get(invited.get("id"))
+        if not researcher:
+            continue
+        created_members.append(
+            {
+                "name": researcher["name"],
+                "role": invited.get("role", researcher.get("role", "연구원")),
+                "organization": researcher.get("organization", "미지정"),
+                "major": researcher.get("major", "미지정"),
+                "contribution": "프로젝트 참여",
+            }
+        )
+
+    PROJECT_RESEARCHER_GROUPS[project["id"]] = (
+        [{"group": "초대 멤버", "lead": manager, "members": created_members}] if created_members else []
+    )
     return JsonResponse(project, status=201)
 
 
@@ -461,7 +511,11 @@ def project_management_page(_request):
 @ensure_csrf_cookie
 @login_required_page
 def project_create_page(_request):
-    return render(_request, "workflow/project_create.html", _page_context(_request))
+    return render(
+        _request,
+        "workflow/project_create.html",
+        _page_context(_request, {"researcher_groups": _researcher_groups_for_selection()}),
+    )
 
 
 @require_GET

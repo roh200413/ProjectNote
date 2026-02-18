@@ -18,7 +18,14 @@
     <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
+    <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
+    <div><div class="pn-sub">시작일</div><strong>{{ project.start_date|default:'-' }}</strong></div>
+    <div><div class="pn-sub">종료일</div><strong>{{ project.end_date|default:'-' }}</strong></div>
     <div><div class="pn-sub">연구파일</div><strong>{% if selected_note %}{{ selected_note.files }}{% else %}0{% endif %}</strong></div>
+  </div>
+  <div style="margin-top:10px">
+    <div class="pn-sub">설명</div>
+    <div>{{ project.description|default:'설명 없음' }}</div>
   </div>
 </section>
 
