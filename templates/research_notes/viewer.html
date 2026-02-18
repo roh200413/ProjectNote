@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}파일 상세{% endblock %}
+{% block page_title %}파일상세{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/research-notes/{{ note.id }}'">이전 파일</button>
+  <button class="pn-btn ghost">다음 파일</button>
+  <button class="pn-btn">원본파일 다운로드</button>
+</div>
+{% endblock %}
+{% block content %}
+<div class="pn-grid" style="grid-template-columns:1fr 320px;align-items:start">
+  <section class="pn-card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--line)">
+      <strong>{{ file.name|default:note.title }}</strong>
+    </div>
+    <div style="background:#bcc4ce;min-height:640px;padding:24px">
+      <div style="background:white;max-width:860px;min-height:560px;margin:0 auto;border-radius:8px;padding:40px">
+        <h2 style="font-size:54px;margin:0 0 16px">deep-ai-kr/ect-auto</h2>
+        <p style="font-size:34px;margin:0 0 10px">github link : https://github.com/deep-ai-kr/ect-auto</p>
+        <h3 style="font-size:46px;margin:24px 0 8px">commit</h3>
+        <p style="font-size:30px;margin-top:0">2026-02-12T00:55:19.000Z</p>
+        <ul style="font-size:27px;line-height:1.6">
+          <li>[saw9090] - tube spec info 스키마 타입 변경건</li>
+          <li>Fix : risky message order</li>
+          <li>Fix : tuning message process</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <aside class="pn-card">
+    <h3 style="margin-top:0">파일 정보</h3>
+    <table class="pn-table">
+      <tbody>
+        <tr><th>파일명</th><td>{{ file.name|default:'파일 없음' }}</td></tr>
+        <tr><th>작성자</th><td>{{ file.author|default:note.owner }}</td></tr>
+        <tr><th>작성일</th><td>{{ file.created|default:note.last_updated_at }}</td></tr>
+        <tr><th>형식</th><td>{{ file.format|default:'pdf' }}</td></tr>
+      </tbody>
+    </table>
+    <section class="pn-card" style="margin-top:8px;background:#f8fafc">
+      <h4 style="margin-top:0">메모</h4>
+      <p class="pn-sub">{{ note.summary }}</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

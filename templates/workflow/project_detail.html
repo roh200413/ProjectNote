@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}프로젝트 상세{% endblock %}
+{% block page_title %}연구노트 상세{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">이전</button>
+  {% if selected_note %}
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 다운로드</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 업데이트</a>
+  {% endif %}
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <span class="pn-badge">소유권한</span>
+  <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
+  <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+    <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
+    <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
+    <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
+    <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
+    <div><div class="pn-sub">시작일</div><strong>{{ project.start_date|default:'-' }}</strong></div>
+    <div><div class="pn-sub">종료일</div><strong>{{ project.end_date|default:'-' }}</strong></div>
+    <div><div class="pn-sub">연구파일</div><strong>{% if selected_note %}{{ selected_note.files }}{% else %}0{% endif %}</strong></div>
+  </div>
+  <div style="margin-top:10px">
+    <div class="pn-sub">설명</div>
+    <div>{{ project.description|default:'설명 없음' }}</div>
+  </div>
+</section>
+
+<div class="pn-grid" style="grid-template-columns:230px 1fr;align-items:start">
+  <aside class="pn-card">
+    <h3 style="margin-top:0">연구폴더 목록</h3>
+    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구자 목록</div>
+    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구폴더</div>
+  </aside>
+
+  <section class="pn-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+      <h3 style="margin:0">연구노트 업데이트</h3>
+      {% if selected_note %}<a class="pn-btn soft" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}">연구노트 수정</a>{% endif %}
+    </div>
+    <form id="noteUpdateForm" class="pn-grid" style="margin-bottom:12px">
+      <div><label class="pn-label">연구노트 선택</label>
+        <select name="note_id" class="pn-select">
+          {% for note in project_notes %}<option value="{{ note.id }}">{{ note.title }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label class="pn-label">제목</label><input class="pn-input" name="title" placeholder="새 제목 입력" /></div>
+      <div><label class="pn-label">요약</label><textarea class="pn-textarea" name="summary" rows="3" placeholder="업데이트 내용을 입력"></textarea></div>
+      <div style="display:flex;justify-content:flex-end"><button class="pn-btn" type="submit">저장</button></div>
+    </form>
+    <div id="noteUpdateToast" class="pn-toast"></div>
+
+    <h3 style="margin:0 0 8px">연구파일</h3>
+    <table class="pn-table">
+      <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일</th><th>작성자</th><th>뷰어</th></tr></thead>
+      <tbody>
+      {% for file in selected_note_files %}
+        <tr>
+          <td>{{ file.name }}</td>
+          <td>{{ file.format }}</td>
+          <td>{{ file.created }}</td>
+          <td>{{ file.author }}</td>
+          <td>{% if selected_note %}<a href="/frontend/research-notes/{{ selected_note.id }}/viewer">열기</a>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="pn-sub">등록된 파일이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="pn-card" style="margin-top:12px">
+  <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
+  {% for group in researcher_groups %}
+  <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>{{ group.group }}</strong>
+      <small class="pn-sub">리드 {{ group.lead }}</small>
+    </div>
+    <table class="pn-table">
+      <thead><tr><th>이름</th><th>권한</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
+      <tbody>
+      {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.role }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.major }}</td>
+          <td>{{ member.contribution }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </article>
+  {% endfor %}
+</section>
+
+<script>
+  document.getElementById('noteUpdateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const noteId = formData.get('note_id');
+    const response = await fetch(`/api/v1/research-notes/${noteId}/update`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    document.getElementById('noteUpdateToast').textContent = response.ok ? body.message : '업데이트 실패';
+  });
+</script>
+{% endblock %}
