@@ -8,8 +8,51 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
+python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
+
+## DB 적용 및 직접 확인
+
+### 1) DB 파일 위치
+이 프로젝트는 Django + SQLite를 사용하며 DB 파일은 아래 경로입니다.
+
+- `/workspace/ProjectNote/projectnote.db`
+
+`projectnote/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
+
+### 2) 테이블 생성(마이그레이션)
+```bash
+python manage.py migrate
+```
+
+### 3) 데모 데이터 생성(옵션)
+```bash
+python manage.py seed_demo --reset
+python manage.py shell -c "from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
+```
+
+### 4) SQLite CLI로 직접 확인
+```bash
+sqlite3 projectnote.db ".tables"
+sqlite3 projectnote.db "SELECT id, name, status FROM workflow_app_project;"
+sqlite3 projectnote.db "SELECT id, email, organization FROM workflow_app_researcher;"
+```
+
+### 5) JetBrains DB Navigator / Database Tool 설정
+- Database Type: `SQLite`
+- Config Type: `File`
+- Database file: `/workspace/ProjectNote/projectnote.db`
+- Schema: `main`
+- SSH Tunnel: 사용 안 함
+
+
+## 아키텍처(DDD + ORM)
+- `projectnote/workflow_app/domain`: 도메인 커맨드/엔티티
+- `projectnote/workflow_app/application`: Pydantic 입력 스키마, 유스케이스 서비스
+- `projectnote/workflow_app/infrastructure`: Django ORM Repository, SQLAlchemy 세션/모델
+
+SQLAlchemy는 DB 직접 점검/외부 도구 연동 시 사용할 수 있고, 애플리케이션 기본 데이터 접근은 Django ORM Repository가 담당합니다.
 
 ## 주요 API
 - `GET /api/v1/health`

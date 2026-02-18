@@ -9,8 +9,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 from projectnote.workflow_app.models import Project, ResearchNote
-from projectnote.workflow_app.repositories import WorkflowRepository
-from projectnote.workflow_app.services import WorkflowService
+from projectnote.workflow_app.infrastructure.repositories import WorkflowRepository
+from projectnote.workflow_app.application.services import WorkflowService
 
 repository = WorkflowRepository()
 service = WorkflowService(repository)
@@ -252,7 +252,7 @@ def project_create_page(request):
 @login_required_page
 def project_detail_page(request, project_id: str):
     try:
-        project = repository._project_to_dict(Project.objects.get(id=project_id))
+        project = repository.project_to_dict(Project.objects.get(id=project_id))
     except Project.DoesNotExist as exc:
         raise Http404("Project not found") from exc
 

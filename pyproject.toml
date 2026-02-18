@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Research note integrated platform backend"
 requires-python = ">=3.10"
 dependencies = [
-  "django>=5.1.0"
+  "django>=5.1.0",
+  "sqlalchemy>=2.0.36",
+  "pydantic>=2.9.2"
 ]
 
 [project.optional-dependencies]

@@ -4,15 +4,18 @@ import uuid
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "projectnote.settings")
 
 import django
+import pytest
 from django.core.management import call_command
 from django.test import Client
 
 
 django.setup()
 
+from projectnote.workflow_app.application.schemas import CreateProjectPayload
+from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
 from projectnote.workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher
 
-call_command("migrate", run_syncdb=True, verbosity=0)
+pytestmark = pytest.mark.django_db
 
 
 client = Client()
@@ -26,6 +29,7 @@ def login(client_obj: Client) -> None:
     response = client_obj.post("/login", {"username": "admin", "password": "admin1234"})
     assert response.status_code == 302
 
+django.setup()
 
 def seed_workflow_data() -> tuple[str, str]:
     researcher = Researcher.objects.create(
@@ -305,3 +309,27 @@ def test_researchers_page_separated_fields() -> None:
     projects_page = local_client.get("/frontend/projects")
     assert projects_page.status_code == 200
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
+
+
+def test_seed_demo_command_populates_tables() -> None:
+    reset_db()
+    call_command("seed_demo", "--reset", verbosity=0)
+
+    assert Project.objects.count() >= 1
+    assert Researcher.objects.count() >= 2
+    assert ResearchNote.objects.count() >= 1
+
+    response = client.get("/api/v1/projects")
+    assert response.status_code == 200
+    assert len(response.json()) >= 1
+
+
+def test_ddd_supporting_layers_are_wired() -> None:
+    reset_db()
+
+    payload = CreateProjectPayload(name="DDD 검증 프로젝트", manager="관리자")
+    assert payload.name == "DDD 검증 프로젝트"
+    assert payload.status == "draft"
+
+    db_url = sqlalchemy_database_url()
+    assert db_url.startswith("sqlite:///")
