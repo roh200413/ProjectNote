@@ -110,6 +110,16 @@ def login_page(request):
     return redirect("/frontend/workflows")
 
 
+
+
+@require_GET
+@ensure_csrf_cookie
+def signup_page(request):
+    if request.session.get("user_profile"):
+        return redirect("/frontend/workflows")
+    return render(request, "auth/signup.html", {"next": request.GET.get("next", "")})
+
+
 @require_GET
 def logout_page(request):
     request.session.pop("user_profile", None)

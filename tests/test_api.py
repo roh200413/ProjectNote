@@ -264,6 +264,16 @@ def test_login_logout_and_auth_redirect() -> None:
     bad_login = anon.post("/login", {"username": "admin", "password": "wrong"})
     assert bad_login.status_code == 401
 
+    login_page = anon.get("/login")
+    assert login_page.status_code == 200
+    login_html = login_page.content.decode()
+    assert 'href="/signup"' in login_html
+    assert "<h2>회원가입</h2>" not in login_html
+
+    signup_page = anon.get("/signup")
+    assert signup_page.status_code == 200
+    assert "회원가입" in signup_page.content.decode()
+
     good_login = anon.post("/login", {"username": "admin", "password": "admin1234"})
     assert good_login.status_code == 302
     assert good_login["Location"] == "/frontend/workflows"
