@@ -340,55 +340,56 @@ def test_domain_oriented_project_service_exists() -> None:
     assert hasattr(service, "create_project")
 
 
-def test_admin_team_user_bootstrap_and_table_management() -> None:
+def test_signup_and_admin_user_management_tables() -> None:
     reset_db()
     seed_workflow_data()
+
+    admin_signup = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "leader",
+            "display_name": "팀장",
+            "email": "leader@example.com",
+            "password": "secret123",
+            "role": "admin",
+            "team_name": "플랫폼팀",
+            "team_description": "운영팀",
+        },
+    )
+    assert admin_signup.status_code == 201
+    join_code = admin_signup.json()["join_code"]
+    assert len(join_code) == 6
+
+    member_signup = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "member1",
+            "display_name": "일반회원",
+            "email": "member1@example.com",
+            "password": "secret123",
+            "role": "member",
+            "team_name": "플랫폼팀",
+            "team_code": join_code,
+        },
+    )
+    assert member_signup.status_code == 201
+    assert member_signup.json()["team"] == "플랫폼팀"
+
     local_client = Client()
     login(local_client)
+    users = local_client.get("/api/v1/admin/users")
+    assert users.status_code == 200
+    users_payload = users.json()
+    assert any(item["username"] == "leader" and item["role"] == "관리자" for item in users_payload)
+    assert any(item["username"] == "member1" and item["role"] == "일반" for item in users_payload)
 
     admin_page = local_client.get("/frontend/admin")
     assert admin_page.status_code == 200
     html = admin_page.content.decode()
-    assert "팀 생성" in html
-    assert "최초 관리자 생성" in html
-    assert "테이블 관리" in html
-
-    team_create = local_client.post("/api/v1/admin/teams", {"name": "플랫폼팀", "description": "운영팀"})
-    assert team_create.status_code == 201
-    team_id = str(team_create.json()["id"])
-
-    admin_create = local_client.post(
-        "/api/v1/admin/users",
-        {
-            "username": "rootadmin",
-            "display_name": "루트관리자",
-            "email": "root@example.com",
-            "password": "secret123",
-            "team_id": team_id,
-        },
-    )
-    assert admin_create.status_code == 201
-    assert admin_create.json()["username"] == "rootadmin"
-
-    admin_duplicate = local_client.post(
-        "/api/v1/admin/users",
-        {
-            "username": "second",
-            "display_name": "두번째",
-            "email": "second@example.com",
-            "password": "secret123",
-        },
-    )
-    assert admin_duplicate.status_code == 409
+    assert "팀 관리" in html
+    assert "모든 가입자 관리" in html
 
     tables = local_client.get("/api/v1/admin/tables")
     assert tables.status_code == 200
     tables_payload = tables.json()
-    assert any(item["table"] == "workflow_app_team" for item in tables_payload)
-
-    truncate = local_client.post("/api/v1/admin/tables/workflow_app_team/truncate")
-    assert truncate.status_code == 200
-
-    tables_after = local_client.get("/api/v1/admin/tables").json()
-    team_table = next(item for item in tables_after if item["table"] == "workflow_app_team")
-    assert team_table["rows"] == 0
+    assert any(item["table"] == "workflow_app_useraccount" for item in tables_payload)

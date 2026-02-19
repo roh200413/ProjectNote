@@ -5,6 +5,7 @@ from projectnote import views
 urlpatterns = [
     path("login", views.login_page),
     path("logout", views.logout_page),
+    path("api/v1/auth/signup", views.signup_api),
     path("api/v1/health", views.health),
     path("api/v1/frontend/bootstrap", views.frontend_bootstrap),
     path("api/v1/dashboard/summary", views.dashboard_summary),
