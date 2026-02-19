@@ -14,7 +14,7 @@ django.setup()
 from projectnote.workflow_app.application.schemas import CreateProjectPayload
 from projectnote.workflow_app.domains.projects.service import ProjectService
 from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
-from projectnote.workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher
+from projectnote.workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 
 pytestmark = pytest.mark.django_db
 
@@ -27,7 +27,18 @@ def reset_db() -> None:
 
 
 def login(client_obj: Client) -> None:
-    response = client_obj.post("/login", {"username": "admin", "password": "admin1234"})
+    team, _ = Team.objects.get_or_create(name="기본팀", defaults={"description": "기본", "join_code": "123456"})
+    UserAccount.objects.get_or_create(
+        username="member-login",
+        defaults={
+            "display_name": "기본사용자",
+            "email": "member-login@example.com",
+            "password": "admin1234",
+            "role": UserAccount.Role.MEMBER,
+            "team": team,
+        },
+    )
+    response = client_obj.post("/login", {"username": "member-login", "password": "admin1234"})
     assert response.status_code == 302
 
 
@@ -145,7 +156,6 @@ def test_workflow_pages_exist() -> None:
     login(client)
     pages = [
         "/frontend/workflows",
-        "/frontend/admin",
         "/frontend/projects",
         "/frontend/projects/create",
         "/frontend/my-page",
@@ -157,6 +167,121 @@ def test_workflow_pages_exist() -> None:
     for path in pages:
         response = client.get(path)
         assert response.status_code == 200
+
+    admin_restricted_pages = [
+        "/frontend/admin/dashboard",
+        "/frontend/admin/teams",
+        "/frontend/admin/users",
+        "/frontend/admin/tables",
+    ]
+    for path in admin_restricted_pages:
+        response = client.get(path)
+        assert response.status_code == 302
+        assert response["Location"].startswith("/admin/login")
+
+
+def test_admin_pages_require_admin_login() -> None:
+    reset_db()
+    anon = Client()
+
+    admin_dashboard = anon.get("/frontend/admin/dashboard")
+    assert admin_dashboard.status_code == 302
+    assert admin_dashboard["Location"].startswith("/admin/login?next=")
+
+    admin_login_page = anon.get("/admin/login")
+    assert admin_login_page.status_code == 200
+    assert "관리자 로그인" in admin_login_page.content.decode()
+
+    bad_login = anon.post("/admin/login", {"username": "admin", "password": "wrong"})
+    assert bad_login.status_code == 401
+
+    ok_login = anon.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert ok_login.status_code == 302
+    assert ok_login["Location"] == "/frontend/admin/dashboard"
+
+
+def test_non_super_admin_cannot_access_admin_pages() -> None:
+    reset_db()
+    seed_workflow_data()
+    client_obj = Client()
+    signup = client_obj.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "teamadmin",
+            "display_name": "팀관리자",
+            "email": "teamadmin@example.com",
+            "password": "secret123",
+            "role": "admin",
+            "team_name": "테스트팀",
+            "team_description": "테스트",
+        },
+    )
+    assert signup.status_code == 201
+
+    login_response = client_obj.post("/login", {"username": "teamadmin", "password": "secret123"})
+    assert login_response.status_code == 302
+    assert login_response["Location"] == "/frontend/workflows"
+
+    admin_page = client_obj.get("/frontend/admin/dashboard")
+    assert admin_page.status_code == 302
+    assert admin_page["Location"].startswith("/admin/login")
+
+
+def test_super_admin_cannot_access_regular_workflow_pages() -> None:
+    reset_db()
+    local_client = Client()
+
+    admin_login = local_client.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert admin_login.status_code == 302
+    assert admin_login["Location"] == "/frontend/admin/dashboard"
+
+    workflow_page = local_client.get("/frontend/workflows")
+    assert workflow_page.status_code == 302
+    assert workflow_page["Location"] == "/frontend/admin/dashboard"
+
+
+def test_super_admin_can_manage_only_data_tables() -> None:
+    reset_db()
+    local_client = Client()
+    local_client.post("/admin/login", {"username": "admin", "password": "admin1234"})
+
+    dashboard = local_client.get("/frontend/admin/dashboard")
+    assert dashboard.status_code == 200
+
+    tables_page = local_client.get("/frontend/admin/tables")
+    assert tables_page.status_code == 200
+
+    teams_page = local_client.get("/frontend/admin/teams")
+    assert teams_page.status_code == 403
+
+    users_page = local_client.get("/frontend/admin/users")
+    assert users_page.status_code == 403
+
+    teams_api = local_client.get("/api/v1/admin/teams")
+    assert teams_api.status_code == 403
+
+    users_api = local_client.get("/api/v1/admin/users")
+    assert users_api.status_code == 403
+
+
+def test_user_without_team_is_blocked_from_home() -> None:
+    reset_db()
+    client_obj = Client()
+    signup = client_obj.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "noteam",
+            "display_name": "무소속",
+            "email": "noteam@example.com",
+            "password": "secret123",
+            "role": "member",
+        },
+    )
+    assert signup.status_code == 201
+
+    login_response = client_obj.post("/login", {"username": "noteam", "password": "secret123"})
+    assert login_response.status_code == 403
+    assert "관리자 팀 할당 및 승인이 되지 않았습니다." in login_response.content.decode()
 
 
 def test_project_detail_and_viewer_pages() -> None:
@@ -393,11 +518,18 @@ def test_signup_and_admin_user_management_tables() -> None:
     assert any(item["username"] == "leader" and item["role"] == "관리자" for item in users_payload)
     assert any(item["username"] == "member1" and item["role"] == "일반" for item in users_payload)
 
-    admin_page = local_client.get("/frontend/admin")
+    admin_redirect = local_client.get("/frontend/admin")
+    assert admin_redirect.status_code == 302
+    assert admin_redirect["Location"] == "/frontend/admin/dashboard"
+
+    admin_page = local_client.get("/frontend/admin/teams")
     assert admin_page.status_code == 200
     html = admin_page.content.decode()
     assert "팀 관리" in html
-    assert "모든 가입자 관리" in html
+
+    users_page = local_client.get("/frontend/admin/users")
+    assert users_page.status_code == 200
+    assert "모든 가입자 관리" in users_page.content.decode()
 
     tables = local_client.get("/api/v1/admin/tables")
     assert tables.status_code == 200

@@ -1,0 +1,25 @@
+{% extends "base_admin.html" %}
+{% block title %}관리자 대시보드{% endblock %}
+{% block page_title %}ADMIN 대시보드{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.reload()">새로고침</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
+  {% include "admin/partials/nav_list.html" %}
+  <div class="pn-grid" style="gap:12px">
+    <section class="pn-grid cols-3" style="margin-bottom:12px">
+      <article class="pn-card"><div class="pn-sub">기관 수</div><h3>{{ summary.organizations }}</h3></article>
+      <article class="pn-card"><div class="pn-sub">프로젝트 수</div><h3>{{ summary.projects }}</h3></article>
+      <article class="pn-card"><div class="pn-sub">노트 수</div><h3>{{ summary.notes }}</h3></article>
+    </section>
+    <section class="pn-card">
+      <h3 style="margin-top:0">권한 안내</h3>
+      <p class="pn-sub" style="margin:0">슈퍼 어드민은 데이터 테이블 조회/초기화 관리만 가능합니다. 팀 관리 및 일반 가입자 관리는 일반 사용자 계정으로 로그인 후 진행하세요.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

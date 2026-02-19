@@ -1,5 +1,7 @@
 import os
 import uuid
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -8,23 +10,14 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from projectnote.workflow_app.models import Project, ResearchNote
+from projectnote.workflow_app.models import Project, ResearchNote, SuperAdminAccount
 from projectnote.workflow_app.infrastructure.repositories import WorkflowRepository
 from projectnote.workflow_app.application.services import WorkflowService
 
 repository = WorkflowRepository()
 service = WorkflowService(repository)
 
-DEMO_USERS = {
-    os.getenv("PROJECTNOTE_DEMO_USER", "admin"): {
-        "password": os.getenv("PROJECTNOTE_DEMO_PASSWORD", "admin1234"),
-        "name": os.getenv("PROJECTNOTE_DEMO_NAME", "노승희"),
-        "role": "관리자",
-        "email": os.getenv("PROJECTNOTE_DEMO_EMAIL", "paul@deep-ai.kr"),
-        "organization": os.getenv("PROJECTNOTE_DEMO_ORG", "(주)딥아이"),
-        "major": os.getenv("PROJECTNOTE_DEMO_MAJOR", "R&D"),
-    }
-}
+SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_accounts.json"
 
 
 def _page_context(request, extra: dict | None = None) -> dict:
@@ -45,12 +38,84 @@ def _page_context(request, extra: dict | None = None) -> dict:
 def login_required_page(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
-        if not request.session.get("user_profile"):
+        user_profile = request.session.get("user_profile")
+        if not user_profile:
             next_url = request.get_full_path()
             return redirect(f"/login?next={next_url}")
+        if user_profile.get("is_super_admin"):
+            return redirect("/frontend/admin/dashboard")
         return view_func(request, *args, **kwargs)
 
     return _wrapped
+
+
+def admin_required_page(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user_profile = request.session.get("user_profile")
+        if not user_profile or not user_profile.get("is_super_admin"):
+            next_url = request.get_full_path()
+            return redirect(f"/admin/login?next={next_url}")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def _save_login_session(request, username: str, user: dict[str, str]) -> None:
+    request.session["user_profile"] = {
+        "username": username,
+        "name": user["name"],
+        "role": user["role"],
+        "email": user["email"],
+        "organization": user["organization"],
+        "major": user["major"],
+        "team": user.get("team", "-"),
+        "is_super_admin": bool(user.get("is_super_admin", False)),
+        "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
+    }
+
+
+def _load_super_admin_users() -> dict[str, dict[str, str]]:
+    if SUPER_ADMIN_JSON_PATH.exists():
+        with SUPER_ADMIN_JSON_PATH.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+            users = payload.get("users", {})
+            if isinstance(users, dict):
+                return users
+
+    return {
+        os.getenv("PROJECTNOTE_DEMO_USER", "admin"): {
+            "password": os.getenv("PROJECTNOTE_DEMO_PASSWORD", "admin1234"),
+            "name": os.getenv("PROJECTNOTE_DEMO_NAME", "노승희"),
+            "email": os.getenv("PROJECTNOTE_DEMO_EMAIL", "paul@deep-ai.kr"),
+            "organization": os.getenv("PROJECTNOTE_DEMO_ORG", "(주)딥아이"),
+            "major": os.getenv("PROJECTNOTE_DEMO_MAJOR", "R&D"),
+        }
+    }
+
+
+def _sync_super_admin_accounts() -> None:
+    for username, user in _load_super_admin_users().items():
+        SuperAdminAccount.objects.update_or_create(
+            username=username,
+            defaults={
+                "display_name": user.get("name", username),
+                "email": user.get("email", f"{username}@projectnote.local"),
+                "password": user.get("password", ""),
+                "organization": user.get("organization", "ProjectNote"),
+                "major": user.get("major", "관리"),
+                "is_active": True,
+            },
+        )
+
+
+def _authenticate_login_user(username: str, password: str) -> dict[str, str] | None:
+    return repository.find_user_for_login(username, password)
+
+
+def _authenticate_super_admin(username: str, password: str) -> dict[str, str] | None:
+    _sync_super_admin_accounts()
+    return repository.find_super_admin_for_login(username, password)
 
 
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
@@ -78,36 +143,63 @@ def health(_request):
 @ensure_csrf_cookie
 def login_page(request):
     if request.method == "GET":
-        if request.session.get("user_profile"):
+        user_profile = request.session.get("user_profile")
+        if user_profile:
+            if user_profile.get("is_super_admin"):
+                return redirect("/frontend/admin/dashboard")
             return redirect("/frontend/workflows")
         return render(request, "auth/login.html", {"error": "", "next": request.GET.get("next", "")})
 
     username = request.POST.get("username", "").strip()
     password = request.POST.get("password", "")
     next_url = request.POST.get("next", "")
-    user = repository.find_user_for_login(username, password)
+    user = _authenticate_login_user(username, password)
     if not user:
-        user = DEMO_USERS.get(username)
-        if not user or user["password"] != password:
-            return render(
-                request,
-                "auth/login.html",
-                {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
-                status=401,
-            )
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
+            status=401,
+        )
 
-    request.session["user_profile"] = {
-        "username": username,
-        "name": user["name"],
-        "role": user["role"],
-        "email": user["email"],
-        "organization": user["organization"],
-        "major": user["major"],
-        "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
-    }
+    if not user.get("is_super_admin") and user.get("team") in {None, "-", ""}:
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "관리자 팀 할당 및 승인이 되지 않았습니다.", "next": next_url},
+            status=403,
+        )
+
+    _save_login_session(request, username, user)
     if next_url.startswith("/"):
         return redirect(next_url)
     return redirect("/frontend/workflows")
+
+
+@require_http_methods(["GET", "POST"])
+@ensure_csrf_cookie
+def admin_login_page(request):
+    if request.method == "GET":
+        if request.session.get("user_profile", {}).get("is_super_admin"):
+            return redirect("/frontend/admin/dashboard")
+        return render(request, "auth/admin_login.html", {"error": "", "next": request.GET.get("next", "")})
+
+    username = request.POST.get("username", "").strip()
+    password = request.POST.get("password", "")
+    next_url = request.POST.get("next", "")
+    user = _authenticate_super_admin(username, password)
+    if not user:
+        return render(
+            request,
+            "auth/admin_login.html",
+            {"error": "슈퍼 어드민 계정으로만 로그인할 수 있습니다.", "next": next_url},
+            status=401,
+        )
+
+    _save_login_session(request, username, user)
+    if next_url.startswith("/frontend/admin"):
+        return redirect(next_url)
+    return redirect("/frontend/admin/dashboard")
 
 
 
@@ -226,52 +318,25 @@ def signature_api(request):
 
 
 @require_http_methods(["GET", "POST"])
-@login_required_page
+@admin_required_page
 def admin_teams_api(request):
-    if request.method == "GET":
-        return JsonResponse(repository.list_teams(), safe=False)
-
-    name = request.POST.get("name", "").strip()
-    if not name:
-        return JsonResponse({"detail": "팀 이름은 필수입니다."}, status=400)
-    team = repository.create_team(name=name, description=request.POST.get("description", "").strip())
-    return JsonResponse(team, status=201)
+    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
 
 
 @require_http_methods(["GET", "POST"])
-@login_required_page
+@admin_required_page
 def admin_users_api(request):
-    if request.method == "GET":
-        return JsonResponse(repository.list_all_users(), safe=False)
-
-    username = request.POST.get("username", "").strip()
-    display_name = request.POST.get("display_name", "").strip()
-    email = request.POST.get("email", "").strip()
-    password = request.POST.get("password", "").strip()
-    if not all([username, display_name, email, password]):
-        return JsonResponse({"detail": "username/display_name/email/password는 필수입니다."}, status=400)
-
-    try:
-        admin = repository.create_initial_admin(
-            username=username,
-            display_name=display_name,
-            email=email,
-            password=password,
-            team_id=request.POST.get("team_id") or None,
-        )
-    except ValueError as exc:
-        return JsonResponse({"detail": str(exc)}, status=409)
-    return JsonResponse(admin, status=201)
+    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
 
 
 @require_http_methods(["GET"])
-@login_required_page
+@admin_required_page
 def admin_tables_api(_request):
     return JsonResponse(repository.list_managed_tables(), safe=False)
 
 
 @require_http_methods(["POST"])
-@login_required_page
+@admin_required_page
 def admin_table_truncate_api(_request, table_name: str):
     try:
         repository.truncate_table(table_name)
@@ -320,20 +385,60 @@ def workflow_home_page(request):
 
 @require_GET
 @ensure_csrf_cookie
-@login_required_page
+@admin_required_page
 def admin_page(request):
+    return redirect("/frontend/admin/dashboard")
+
+
+def _admin_navigation(current: str) -> list[dict[str, str]]:
+    items = [
+        {"key": "dashboard", "title": "대시보드", "href": "/frontend/admin/dashboard"},
+        {"key": "tables", "title": "테이블 관리", "href": "/frontend/admin/tables"},
+    ]
+    for item in items:
+        item["active"] = item["key"] == current
+    return items
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_dashboard_page(request):
     return render(
         request,
-        "admin/admin.html",
+        "admin/dashboard.html",
         _page_context(
             request,
             {
                 "summary": repository.dashboard_counts(),
-                "teams": repository.list_teams(),
-                "admin_accounts": repository.list_all_users(),
-                "tables": repository.list_managed_tables(),
+                "admin_nav_items": _admin_navigation("dashboard"),
             },
         ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_teams_page(request):
+    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_users_page(request):
+    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_tables_page(request):
+    return render(
+        request,
+        "admin/tables.html",
+        _page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
     )
 
 

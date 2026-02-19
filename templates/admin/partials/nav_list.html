@@ -1,0 +1,8 @@
+<aside class="pn-card">
+  <h3 style="margin-top:0">슈퍼 어드민 메뉴</h3>
+  <div class="pn-grid" style="gap:6px">
+    {% for item in admin_nav_items %}
+      <a href="{{ item.href }}" class="pn-side-list {% if item.active %}active{% endif %}">{{ item.title }}</a>
+    {% endfor %}
+  </div>
+</aside>
