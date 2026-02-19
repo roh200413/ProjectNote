@@ -36,6 +36,9 @@ class WorkflowRepository:
     def find_user_for_login(self, username: str, password: str) -> dict | None:
         return self.admin.find_user_for_login(username, password)
 
+    def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
+        return self.admin.find_super_admin_for_login(username, password)
+
     def register_user(
         self,
         username: str,

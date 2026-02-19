@@ -87,9 +87,14 @@ python manage.py seed_demo --reset
 
 ## 프론트엔드 페이지
 - `GET/POST /login`
+- `GET/POST /admin/login`
 - `GET /logout`
 - `GET /frontend/workflows`
-- `GET /frontend/admin`
+- `GET /frontend/admin` (대시보드로 리다이렉트)
+- `GET /frontend/admin/dashboard`
+- `GET /frontend/admin/teams`
+- `GET /frontend/admin/users`
+- `GET /frontend/admin/tables`
 - `GET /frontend/projects`
 - `GET /frontend/projects/create`
 - `GET /frontend/projects/<id>`
@@ -110,3 +115,24 @@ python manage.py check
 
 ## 환경 변수
 `.env.example` 파일을 참고하세요.
+
+## 슈퍼 어드민 계정 관리(JSON)
+- 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `super_admin_accounts.json`에서 관리합니다.
+- 앱 실행 시 JSON 계정은 `SuperAdminAccount` 테이블로 동기화되며, 관리자 콘솔(`/frontend/admin/*`) 진입은 `admin/login`에서 **슈퍼 어드민 계정만** 허용됩니다.
+- 일반 관리자/일반 사용자 계정은 로그인 시 팀 미할당 상태라면 홈으로 이동하지 않고 `관리자 팀 할당 및 승인이 되지 않았습니다.` 메시지가 표시됩니다.
+- 형식 예시:
+
+```json
+{
+  "users": {
+    "admin": {
+      "password": "admin1234",
+      "name": "노승희",
+      "role": "관리자",
+      "email": "paul@deep-ai.kr",
+      "organization": "(주)딥아이",
+      "major": "R&D"
+    }
+  }
+}
+```

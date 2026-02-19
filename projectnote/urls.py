@@ -4,6 +4,7 @@ from projectnote import views
 
 urlpatterns = [
     path("login", views.login_page),
+    path("admin/login", views.admin_login_page),
     path("signup", views.signup_page),
     path("logout", views.logout_page),
     path("api/v1/auth/signup", views.signup_api),
@@ -25,6 +26,10 @@ urlpatterns = [
     path("api/v1/research-notes/<str:note_id>/update", views.research_note_update_api),
     path("frontend/workflows", views.workflow_home_page),
     path("frontend/admin", views.admin_page),
+    path("frontend/admin/dashboard", views.admin_dashboard_page),
+    path("frontend/admin/teams", views.admin_teams_page),
+    path("frontend/admin/users", views.admin_users_page),
+    path("frontend/admin/tables", views.admin_tables_page),
     path("frontend/projects", views.project_management_page),
     path("frontend/projects/create", views.project_create_page),
     path("frontend/projects/<str:project_id>", views.project_detail_page),
