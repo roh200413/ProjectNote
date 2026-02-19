@@ -284,6 +284,73 @@ def test_user_without_team_is_blocked_from_home() -> None:
     assert "관리자 팀 할당 및 승인이 되지 않았습니다." in login_response.content.decode()
 
 
+def test_admin_pages_require_admin_login() -> None:
+    reset_db()
+    anon = Client()
+
+    admin_dashboard = anon.get("/frontend/admin/dashboard")
+    assert admin_dashboard.status_code == 302
+    assert admin_dashboard["Location"].startswith("/admin/login?next=")
+
+    admin_login_page = anon.get("/admin/login")
+    assert admin_login_page.status_code == 200
+    assert "관리자 로그인" in admin_login_page.content.decode()
+
+    bad_login = anon.post("/admin/login", {"username": "admin", "password": "wrong"})
+    assert bad_login.status_code == 401
+
+    ok_login = anon.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert ok_login.status_code == 302
+    assert ok_login["Location"] == "/frontend/admin/dashboard"
+
+
+def test_non_super_admin_cannot_access_admin_pages() -> None:
+    reset_db()
+    seed_workflow_data()
+    client_obj = Client()
+    signup = client_obj.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "teamadmin",
+            "display_name": "팀관리자",
+            "email": "teamadmin@example.com",
+            "password": "secret123",
+            "role": "admin",
+            "team_name": "테스트팀",
+            "team_description": "테스트",
+        },
+    )
+    assert signup.status_code == 201
+
+    login_response = client_obj.post("/login", {"username": "teamadmin", "password": "secret123"})
+    assert login_response.status_code == 302
+    assert login_response["Location"] == "/frontend/workflows"
+
+    admin_page = client_obj.get("/frontend/admin/dashboard")
+    assert admin_page.status_code == 302
+    assert admin_page["Location"].startswith("/admin/login")
+
+
+def test_user_without_team_is_blocked_from_home() -> None:
+    reset_db()
+    client_obj = Client()
+    signup = client_obj.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "noteam",
+            "display_name": "무소속",
+            "email": "noteam@example.com",
+            "password": "secret123",
+            "role": "member",
+        },
+    )
+    assert signup.status_code == 201
+
+    login_response = client_obj.post("/login", {"username": "noteam", "password": "secret123"})
+    assert login_response.status_code == 403
+    assert "관리자 팀 할당 및 승인이 되지 않았습니다." in login_response.content.decode()
+
+
 def test_project_detail_and_viewer_pages() -> None:
     reset_db()
     project_id, note_id = seed_workflow_data()
