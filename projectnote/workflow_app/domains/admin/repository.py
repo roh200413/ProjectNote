@@ -3,13 +3,14 @@ import string
 
 from django.db import connection
 
-from projectnote.workflow_app.models import AdminAccount, Team, UserAccount
+from projectnote.workflow_app.models import AdminAccount, SuperAdminAccount, Team, UserAccount
 
 
 class AdminRepository:
     MANAGED_TABLES = [
         "workflow_app_team",
         "workflow_app_adminaccount",
+        "workflow_app_superadminaccount",
         "workflow_app_useraccount",
         "workflow_app_project",
         "workflow_app_researcher",
@@ -70,6 +71,25 @@ class AdminRepository:
             "organization": user.team.name if user.team else "미지정",
             "major": "미지정",
             "team": user.team.name if user.team else "-",
+        }
+
+    def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
+        account = SuperAdminAccount.objects.filter(
+            username=username,
+            password=password,
+            is_active=True,
+        ).first()
+        if not account:
+            return None
+        return {
+            "username": account.username,
+            "name": account.display_name,
+            "role": "슈퍼관리자",
+            "email": account.email,
+            "organization": account.organization,
+            "major": account.major,
+            "team": "SUPER_ADMIN",
+            "is_super_admin": True,
         }
 
     def list_all_users(self) -> list[dict]:

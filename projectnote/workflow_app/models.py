@@ -26,6 +26,16 @@ class AdminAccount(TimestampedModel):
     is_super_admin = models.BooleanField(default=True)
 
 
+class SuperAdminAccount(TimestampedModel):
+    username = models.CharField(max_length=80, unique=True)
+    display_name = models.CharField(max_length=120)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255)
+    organization = models.CharField(max_length=255, default="ProjectNote")
+    major = models.CharField(max_length=255, default="관리")
+    is_active = models.BooleanField(default=True)
+
+
 class UserAccount(TimestampedModel):
     class Role(models.TextChoices):
         ADMIN = "admin", "관리자"
