@@ -1,5 +1,7 @@
 import os
 import uuid
+import json
+from pathlib import Path
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -15,16 +17,27 @@ from projectnote.workflow_app.application.services import WorkflowService
 repository = WorkflowRepository()
 service = WorkflowService(repository)
 
-DEMO_USERS = {
-    os.getenv("PROJECTNOTE_DEMO_USER", "admin"): {
-        "password": os.getenv("PROJECTNOTE_DEMO_PASSWORD", "admin1234"),
-        "name": os.getenv("PROJECTNOTE_DEMO_NAME", "노승희"),
-        "role": "관리자",
-        "email": os.getenv("PROJECTNOTE_DEMO_EMAIL", "paul@deep-ai.kr"),
-        "organization": os.getenv("PROJECTNOTE_DEMO_ORG", "(주)딥아이"),
-        "major": os.getenv("PROJECTNOTE_DEMO_MAJOR", "R&D"),
+SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_accounts.json"
+
+
+def _load_super_admin_users() -> dict[str, dict[str, str]]:
+    if SUPER_ADMIN_JSON_PATH.exists():
+        with SUPER_ADMIN_JSON_PATH.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+            users = payload.get("users", {})
+            if isinstance(users, dict):
+                return users
+
+    return {
+        os.getenv("PROJECTNOTE_DEMO_USER", "admin"): {
+            "password": os.getenv("PROJECTNOTE_DEMO_PASSWORD", "admin1234"),
+            "name": os.getenv("PROJECTNOTE_DEMO_NAME", "노승희"),
+            "role": "관리자",
+            "email": os.getenv("PROJECTNOTE_DEMO_EMAIL", "paul@deep-ai.kr"),
+            "organization": os.getenv("PROJECTNOTE_DEMO_ORG", "(주)딥아이"),
+            "major": os.getenv("PROJECTNOTE_DEMO_MAJOR", "R&D"),
+        }
     }
-}
 
 
 def _page_context(request, extra: dict | None = None) -> dict:
@@ -87,7 +100,7 @@ def login_page(request):
     next_url = request.POST.get("next", "")
     user = repository.find_user_for_login(username, password)
     if not user:
-        user = DEMO_USERS.get(username)
+        user = _load_super_admin_users().get(username)
         if not user or user["password"] != password:
             return render(
                 request,
@@ -322,18 +335,71 @@ def workflow_home_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def admin_page(request):
+    return redirect("/frontend/admin/dashboard")
+
+
+def _admin_navigation(current: str) -> list[dict[str, str]]:
+    items = [
+        {"key": "dashboard", "title": "대시보드", "href": "/frontend/admin/dashboard"},
+        {"key": "teams", "title": "팀 관리", "href": "/frontend/admin/teams"},
+        {"key": "users", "title": "가입자 관리", "href": "/frontend/admin/users"},
+        {"key": "tables", "title": "테이블 관리", "href": "/frontend/admin/tables"},
+    ]
+    for item in items:
+        item["active"] = item["key"] == current
+    return items
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_dashboard_page(request):
     return render(
         request,
-        "admin/admin.html",
+        "admin/dashboard.html",
         _page_context(
             request,
             {
                 "summary": repository.dashboard_counts(),
-                "teams": repository.list_teams(),
-                "admin_accounts": repository.list_all_users(),
-                "tables": repository.list_managed_tables(),
+                "admin_nav_items": _admin_navigation("dashboard"),
             },
         ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_teams_page(request):
+    return render(
+        request,
+        "admin/teams.html",
+        _page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_users_page(request):
+    return render(
+        request,
+        "admin/users.html",
+        _page_context(
+            request,
+            {"admin_accounts": repository.list_all_users(), "admin_nav_items": _admin_navigation("users")},
+        ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_tables_page(request):
+    return render(
+        request,
+        "admin/tables.html",
+        _page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
     )
 
 

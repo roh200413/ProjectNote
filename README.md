@@ -89,7 +89,11 @@ python manage.py seed_demo --reset
 - `GET/POST /login`
 - `GET /logout`
 - `GET /frontend/workflows`
-- `GET /frontend/admin`
+- `GET /frontend/admin` (대시보드로 리다이렉트)
+- `GET /frontend/admin/dashboard`
+- `GET /frontend/admin/teams`
+- `GET /frontend/admin/users`
+- `GET /frontend/admin/tables`
 - `GET /frontend/projects`
 - `GET /frontend/projects/create`
 - `GET /frontend/projects/<id>`
@@ -110,3 +114,22 @@ python manage.py check
 
 ## 환경 변수
 `.env.example` 파일을 참고하세요.
+
+## 슈퍼 어드민 계정 관리(JSON)
+- 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `super_admin_accounts.json`에서 관리합니다.
+- 형식 예시:
+
+```json
+{
+  "users": {
+    "admin": {
+      "password": "admin1234",
+      "name": "노승희",
+      "role": "관리자",
+      "email": "paul@deep-ai.kr",
+      "organization": "(주)딥아이",
+      "major": "R&D"
+    }
+  }
+}
+```
