@@ -1,0 +1,51 @@
+{% extends "base_admin.html" %}
+{% block title %}관리자 테이블 관리{% endblock %}
+{% block page_title %}ADMIN · 테이블 관리{% endblock %}
+
+{% block content %}
+<div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
+  {% include "admin/partials/nav_list.html" %}
+  <section class="pn-card">
+    <h3 style="margin-top:0">테이블 관리</h3>
+    <p class="pn-sub">테이블 데이터 건수 확인 및 비우기(truncate) 기능</p>
+    <table class="pn-table">
+      <thead><tr><th>테이블</th><th>행 수</th><th>관리</th></tr></thead>
+      <tbody id="tableManageBody">
+      {% for item in tables %}
+        <tr>
+          <td>{{ item.table }}</td>
+          <td>{{ item.rows }}</td>
+          <td><button class="pn-btn soft" type="button" onclick="truncateTable('{{ item.table }}')">데이터 비우기</button></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="3" class="pn-sub">관리 대상 테이블이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="adminToast" class="pn-toast" style="margin-top:12px"></div>
+  </section>
+</div>
+
+<script>
+  function toast(message) { document.getElementById('adminToast').textContent = message; }
+
+  async function refreshTables() {
+    const tablesRes = await fetch('/api/v1/admin/tables', {credentials:'same-origin'});
+    const tables = await tablesRes.json();
+    const tableBody = document.getElementById('tableManageBody');
+    tableBody.innerHTML = tables.length ? tables.map(item => `<tr><td>${item.table}</td><td>${item.rows}</td><td><button class="pn-btn soft" type="button" onclick="truncateTable('${item.table}')">데이터 비우기</button></td></tr>`).join('') : '<tr><td colspan="3" class="pn-sub">관리 대상 테이블이 없습니다.</td></tr>';
+  }
+
+  async function truncateTable(tableName) {
+    if (!confirm(`${tableName} 테이블 데이터를 비우시겠습니까?`)) return;
+    const res = await fetch(`/api/v1/admin/tables/${tableName}/truncate`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    toast(body.message || body.detail || '처리 완료');
+    await refreshTables();
+  }
+</script>
+{% endblock %}

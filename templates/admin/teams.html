@@ -1,0 +1,57 @@
+{% extends "base_admin.html" %}
+{% block title %}관리자 팀 관리{% endblock %}
+{% block page_title %}ADMIN · 팀 관리{% endblock %}
+
+{% block content %}
+<div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
+  {% include "admin/partials/nav_list.html" %}
+  <section class="pn-card">
+    <h3 style="margin-top:0">팀 관리</h3>
+    <form id="teamForm" class="pn-grid" style="gap:8px">
+      <div><label class="pn-label">팀 이름</label><input class="pn-input" name="name" required /></div>
+      <div><label class="pn-label">설명</label><input class="pn-input" name="description" /></div>
+      <div style="display:flex;justify-content:flex-end"><button class="pn-btn" type="submit">팀 생성</button></div>
+    </form>
+
+    <h4 style="margin:14px 0 8px">팀 목록</h4>
+    <table class="pn-table">
+      <thead><tr><th>ID</th><th>팀 이름</th><th>팀 코드</th><th>설명</th></tr></thead>
+      <tbody id="teamTableBody">
+      {% for team in teams %}
+        <tr><td>{{ team.id }}</td><td>{{ team.name }}</td><td>{{ team.join_code }}</td><td>{{ team.description }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="pn-sub">생성된 팀이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="adminToast" class="pn-toast" style="margin-top:12px"></div>
+  </section>
+</div>
+
+<script>
+  function toast(message) { document.getElementById('adminToast').textContent = message; }
+
+  async function refreshTeams() {
+    const teamsRes = await fetch('/api/v1/admin/teams', {credentials:'same-origin'});
+    const teams = await teamsRes.json();
+    const teamBody = document.getElementById('teamTableBody');
+    teamBody.innerHTML = teams.length ? teams.map(team => `<tr><td>${team.id}</td><td>${team.name}</td><td>${team.join_code}</td><td>${team.description || ''}</td></tr>`).join('') : '<tr><td colspan="4" class="pn-sub">생성된 팀이 없습니다.</td></tr>';
+  }
+
+  document.getElementById('teamForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/api/v1/admin/teams', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    if (!res.ok) { toast(body.detail || '팀 생성 실패'); return; }
+    toast(`팀 생성 완료: ${body.name} (코드 ${body.join_code})`);
+    e.target.reset();
+    await refreshTeams();
+  });
+</script>
+{% endblock %}
