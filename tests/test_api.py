@@ -162,6 +162,26 @@ def test_workflow_pages_exist() -> None:
         assert response.status_code == 200
 
 
+def test_admin_pages_require_admin_login() -> None:
+    reset_db()
+    anon = Client()
+
+    admin_dashboard = anon.get("/frontend/admin/dashboard")
+    assert admin_dashboard.status_code == 302
+    assert admin_dashboard["Location"].startswith("/admin/login?next=")
+
+    admin_login_page = anon.get("/admin/login")
+    assert admin_login_page.status_code == 200
+    assert "관리자 로그인" in admin_login_page.content.decode()
+
+    bad_login = anon.post("/admin/login", {"username": "admin", "password": "wrong"})
+    assert bad_login.status_code == 401
+
+    ok_login = anon.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert ok_login.status_code == 302
+    assert ok_login["Location"] == "/frontend/admin/dashboard"
+
+
 def test_project_detail_and_viewer_pages() -> None:
     reset_db()
     project_id, note_id = seed_workflow_data()

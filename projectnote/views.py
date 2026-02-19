@@ -66,6 +66,41 @@ def login_required_page(view_func):
     return _wrapped
 
 
+def admin_required_page(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user_profile = request.session.get("user_profile")
+        if not user_profile or user_profile.get("role") != "관리자":
+            next_url = request.get_full_path()
+            return redirect(f"/admin/login?next={next_url}")
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def _save_login_session(request, username: str, user: dict[str, str]) -> None:
+    request.session["user_profile"] = {
+        "username": username,
+        "name": user["name"],
+        "role": user["role"],
+        "email": user["email"],
+        "organization": user["organization"],
+        "major": user["major"],
+        "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
+    }
+
+
+def _authenticate_login_user(username: str, password: str) -> dict[str, str] | None:
+    user = repository.find_user_for_login(username, password)
+    if user:
+        return user
+
+    user = _load_super_admin_users().get(username)
+    if not user or user["password"] != password:
+        return None
+    return user
+
+
 def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
     return JsonResponse(
         {
@@ -98,29 +133,45 @@ def login_page(request):
     username = request.POST.get("username", "").strip()
     password = request.POST.get("password", "")
     next_url = request.POST.get("next", "")
-    user = repository.find_user_for_login(username, password)
+    user = _authenticate_login_user(username, password)
     if not user:
-        user = _load_super_admin_users().get(username)
-        if not user or user["password"] != password:
-            return render(
-                request,
-                "auth/login.html",
-                {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
-                status=401,
-            )
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
+            status=401,
+        )
 
-    request.session["user_profile"] = {
-        "username": username,
-        "name": user["name"],
-        "role": user["role"],
-        "email": user["email"],
-        "organization": user["organization"],
-        "major": user["major"],
-        "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
-    }
+    _save_login_session(request, username, user)
     if next_url.startswith("/"):
         return redirect(next_url)
     return redirect("/frontend/workflows")
+
+
+@require_http_methods(["GET", "POST"])
+@ensure_csrf_cookie
+def admin_login_page(request):
+    if request.method == "GET":
+        if request.session.get("user_profile", {}).get("role") == "관리자":
+            return redirect("/frontend/admin/dashboard")
+        return render(request, "auth/admin_login.html", {"error": "", "next": request.GET.get("next", "")})
+
+    username = request.POST.get("username", "").strip()
+    password = request.POST.get("password", "")
+    next_url = request.POST.get("next", "")
+    user = _authenticate_login_user(username, password)
+    if not user or user.get("role") != "관리자":
+        return render(
+            request,
+            "auth/admin_login.html",
+            {"error": "관리자 계정으로만 로그인할 수 있습니다.", "next": next_url},
+            status=401,
+        )
+
+    _save_login_session(request, username, user)
+    if next_url.startswith("/frontend/admin"):
+        return redirect(next_url)
+    return redirect("/frontend/admin/dashboard")
 
 
 
@@ -239,7 +290,7 @@ def signature_api(request):
 
 
 @require_http_methods(["GET", "POST"])
-@login_required_page
+@admin_required_page
 def admin_teams_api(request):
     if request.method == "GET":
         return JsonResponse(repository.list_teams(), safe=False)
@@ -252,7 +303,7 @@ def admin_teams_api(request):
 
 
 @require_http_methods(["GET", "POST"])
-@login_required_page
+@admin_required_page
 def admin_users_api(request):
     if request.method == "GET":
         return JsonResponse(repository.list_all_users(), safe=False)
@@ -278,13 +329,13 @@ def admin_users_api(request):
 
 
 @require_http_methods(["GET"])
-@login_required_page
+@admin_required_page
 def admin_tables_api(_request):
     return JsonResponse(repository.list_managed_tables(), safe=False)
 
 
 @require_http_methods(["POST"])
-@login_required_page
+@admin_required_page
 def admin_table_truncate_api(_request, table_name: str):
     try:
         repository.truncate_table(table_name)
@@ -333,7 +384,7 @@ def workflow_home_page(request):
 
 @require_GET
 @ensure_csrf_cookie
-@login_required_page
+@admin_required_page
 def admin_page(request):
     return redirect("/frontend/admin/dashboard")
 
@@ -352,7 +403,7 @@ def _admin_navigation(current: str) -> list[dict[str, str]]:
 
 @require_GET
 @ensure_csrf_cookie
-@login_required_page
+@admin_required_page
 def admin_dashboard_page(request):
     return render(
         request,
@@ -364,6 +415,42 @@ def admin_dashboard_page(request):
                 "admin_nav_items": _admin_navigation("dashboard"),
             },
         ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_teams_page(request):
+    return render(
+        request,
+        "admin/teams.html",
+        _page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_users_page(request):
+    return render(
+        request,
+        "admin/users.html",
+        _page_context(
+            request,
+            {"admin_accounts": repository.list_all_users(), "admin_nav_items": _admin_navigation("users")},
+        ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@admin_required_page
+def admin_tables_page(request):
+    return render(
+        request,
+        "admin/tables.html",
+        _page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
     )
 
 

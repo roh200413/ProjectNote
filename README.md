@@ -87,6 +87,7 @@ python manage.py seed_demo --reset
 
 ## 프론트엔드 페이지
 - `GET/POST /login`
+- `GET/POST /admin/login`
 - `GET /logout`
 - `GET /frontend/workflows`
 - `GET /frontend/admin` (대시보드로 리다이렉트)
@@ -117,6 +118,7 @@ python manage.py check
 
 ## 슈퍼 어드민 계정 관리(JSON)
 - 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `super_admin_accounts.json`에서 관리합니다.
+- 관리자 콘솔(`/frontend/admin/*`) 진입은 `admin/login` 페이지를 통해 관리자 계정(role=관리자)으로만 허용됩니다.
 - 형식 예시:
 
 ```json
