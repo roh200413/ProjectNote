@@ -2,6 +2,7 @@ import random
 import string
 
 from django.db import connection
+from django.db.models import Q
 
 from projectnote.workflow_app.models import AdminAccount, SuperAdminAccount, Team, UserAccount
 
@@ -92,7 +93,16 @@ class AdminRepository:
             "is_super_admin": True,
         }
 
-    def list_all_users(self) -> list[dict]:
+    def list_all_users(self, keyword: str = "") -> list[dict]:
+        users = UserAccount.objects.select_related("team")
+        if keyword:
+            users = users.filter(
+                Q(username__icontains=keyword)
+                | Q(display_name__icontains=keyword)
+                | Q(email__icontains=keyword)
+                | Q(team__name__icontains=keyword)
+            )
+
         return [
             {
                 "id": user.id,
@@ -103,8 +113,28 @@ class AdminRepository:
                 "team": user.team.name if user.team else "-",
                 "join_code": user.team.join_code if user.team else "-",
             }
-            for user in UserAccount.objects.select_related("team").order_by("id")
+            for user in users.distinct().order_by("id")
         ]
+
+    def assign_user_team(self, user_id: int, team_id: int | None) -> dict:
+        user = UserAccount.objects.select_related("team").filter(id=user_id).first()
+        if not user:
+            raise ValueError("사용자를 찾을 수 없습니다.")
+
+        team = None
+        if team_id is not None:
+            team = Team.objects.filter(id=team_id).first()
+            if not team:
+                raise ValueError("팀을 찾을 수 없습니다.")
+
+        user.team = team
+        user.save(update_fields=["team", "updated_at"])
+        return {
+            "id": user.id,
+            "username": user.username,
+            "team": user.team.name if user.team else "-",
+            "join_code": user.team.join_code if user.team else "-",
+        }
 
     def register_user(
         self,

@@ -8,16 +8,75 @@
   <section class="pn-card">
     <h3 style="margin-top:0">모든 가입자 관리</h3>
     <p class="pn-sub" style="margin-top:0">회원가입한 사용자 목록입니다. (관리자/일반)</p>
+
+    <form method="get" action="/frontend/admin/users" class="pn-grid" style="grid-template-columns:1fr auto;gap:8px;margin-bottom:12px">
+      <input class="pn-input" type="text" name="q" value="{{ keyword }}" placeholder="사용자명/이름/이메일/팀명 검색" />
+      <button class="pn-btn" type="submit">검색</button>
+    </form>
+
     <table class="pn-table">
-      <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>팀</th><th>팀 코드</th></tr></thead>
+      <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>팀</th><th>팀 코드</th><th>팀 지정</th></tr></thead>
       <tbody id="adminTableBody">
       {% for admin in admin_accounts %}
-        <tr><td>{{ admin.username }}</td><td>{{ admin.display_name }}</td><td>{{ admin.email }}</td><td>{{ admin.role }}</td><td>{{ admin.team }}</td><td>{{ admin.join_code }}</td></tr>
+        <tr>
+          <td>{{ admin.username }}</td>
+          <td>{{ admin.display_name }}</td>
+          <td>{{ admin.email }}</td>
+          <td>{{ admin.role }}</td>
+          <td>{{ admin.team }}</td>
+          <td>{{ admin.join_code }}</td>
+          <td>
+            <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+              <select class="pn-input" name="team_id" style="min-width:130px;padding:6px 8px">
+                <option value="">미지정</option>
+                {% for team in teams %}
+                  <option value="{{ team.id }}" {% if admin.team == team.name %}selected{% endif %}>{{ team.name }}</option>
+                {% endfor %}
+              </select>
+              <button class="pn-btn" type="submit">저장</button>
+            </form>
+          </td>
+        </tr>
       {% empty %}
-        <tr><td colspan="6" class="pn-sub">아직 가입한 사용자가 없습니다.</td></tr>
+        <tr><td colspan="7" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
       {% endfor %}
       </tbody>
     </table>
+    <div id="adminToast" class="pn-toast" style="margin-top:12px"></div>
   </section>
 </div>
+
+<script>
+  function toast(message) {
+    document.getElementById('adminToast').textContent = message;
+  }
+
+  async function assignTeam(form) {
+    const userId = form.dataset.userId;
+    const formData = new FormData();
+    formData.append('user_id', userId);
+    formData.append('team_id', form.team_id.value);
+
+    const res = await fetch('/api/v1/admin/users', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      toast(body.detail || '팀 지정 실패');
+      return;
+    }
+    toast(`${body.username} 사용자 팀이 ${body.team}으로 변경되었습니다.`);
+    window.location.reload();
+  }
+
+  document.querySelectorAll('.assign-team-form').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await assignTeam(form);
+    });
+  });
+</script>
 {% endblock %}
