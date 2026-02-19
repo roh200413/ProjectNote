@@ -393,6 +393,8 @@ def admin_page(request):
 def _admin_navigation(current: str) -> list[dict[str, str]]:
     items = [
         {"key": "dashboard", "title": "대시보드", "href": "/frontend/admin/dashboard"},
+        {"key": "users", "title": "사용자 관리", "href": "/frontend/admin/users"},
+        {"key": "teams", "title": "팀 관리", "href": "/frontend/admin/teams"},
         {"key": "tables", "title": "테이블 관리", "href": "/frontend/admin/tables"},
     ]
     for item in items:
@@ -421,15 +423,24 @@ def admin_dashboard_page(request):
 @ensure_csrf_cookie
 @admin_required_page
 def admin_teams_page(request):
-    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
-
+    return render(
+        request,
+        "admin/teams.html",
+        _page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+    )
 
 @require_GET
 @ensure_csrf_cookie
 @admin_required_page
 def admin_users_page(request):
-    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
-
+    return render(
+        request,
+        "admin/users.html",
+        _page_context(
+            request,
+            {"admin_accounts": repository.list_all_users(), "admin_nav_items": _admin_navigation("users")},
+        ),
+    )
 
 @require_GET
 @ensure_csrf_cookie
