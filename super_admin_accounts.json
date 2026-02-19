@@ -1,0 +1,12 @@
+{
+  "users": {
+    "admin": {
+      "password": "admin1234",
+      "name": "노승희",
+      "role": "관리자",
+      "email": "paul@deep-ai.kr",
+      "organization": "(주)딥아이",
+      "major": "R&D"
+    }
+  }
+}
