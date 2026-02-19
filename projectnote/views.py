@@ -457,6 +457,42 @@ def admin_tables_page(request):
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
+def admin_teams_page(request):
+    return render(
+        request,
+        "admin/teams.html",
+        _page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_users_page(request):
+    return render(
+        request,
+        "admin/users.html",
+        _page_context(
+            request,
+            {"admin_accounts": repository.list_all_users(), "admin_nav_items": _admin_navigation("users")},
+        ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def admin_tables_page(request):
+    return render(
+        request,
+        "admin/tables.html",
+        _page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
 def project_management_page(request):
     return render(request, "workflow/projects.html", _page_context(request, {"projects": repository.list_projects()}))
 
