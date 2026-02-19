@@ -145,7 +145,10 @@ def test_workflow_pages_exist() -> None:
     login(client)
     pages = [
         "/frontend/workflows",
-        "/frontend/admin",
+        "/frontend/admin/dashboard",
+        "/frontend/admin/teams",
+        "/frontend/admin/users",
+        "/frontend/admin/tables",
         "/frontend/projects",
         "/frontend/projects/create",
         "/frontend/my-page",
@@ -393,11 +396,18 @@ def test_signup_and_admin_user_management_tables() -> None:
     assert any(item["username"] == "leader" and item["role"] == "관리자" for item in users_payload)
     assert any(item["username"] == "member1" and item["role"] == "일반" for item in users_payload)
 
-    admin_page = local_client.get("/frontend/admin")
+    admin_redirect = local_client.get("/frontend/admin")
+    assert admin_redirect.status_code == 302
+    assert admin_redirect["Location"] == "/frontend/admin/dashboard"
+
+    admin_page = local_client.get("/frontend/admin/teams")
     assert admin_page.status_code == 200
     html = admin_page.content.decode()
     assert "팀 관리" in html
-    assert "모든 가입자 관리" in html
+
+    users_page = local_client.get("/frontend/admin/users")
+    assert users_page.status_code == 200
+    assert "모든 가입자 관리" in users_page.content.decode()
 
     tables = local_client.get("/api/v1/admin/tables")
     assert tables.status_code == 200

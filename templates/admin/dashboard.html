@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}관리자 대시보드{% endblock %}
+{% block page_title %}ADMIN 대시보드{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.reload()">새로고침</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
+  {% include "admin/partials/nav_list.html" %}
+  <section class="pn-grid cols-3" style="margin-bottom:12px">
+    <article class="pn-card"><div class="pn-sub">기관 수</div><h3>{{ summary.organizations }}</h3></article>
+    <article class="pn-card"><div class="pn-sub">프로젝트 수</div><h3>{{ summary.projects }}</h3></article>
+    <article class="pn-card"><div class="pn-sub">노트 수</div><h3>{{ summary.notes }}</h3></article>
+  </section>
+</div>
+{% endblock %}
