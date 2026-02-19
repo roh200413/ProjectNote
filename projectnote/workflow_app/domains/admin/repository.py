@@ -1,12 +1,16 @@
+import random
+import string
+
 from django.db import connection
 
-from projectnote.workflow_app.models import AdminAccount, Team
+from projectnote.workflow_app.models import AdminAccount, Team, UserAccount
 
 
 class AdminRepository:
     MANAGED_TABLES = [
         "workflow_app_team",
         "workflow_app_adminaccount",
+        "workflow_app_useraccount",
         "workflow_app_project",
         "workflow_app_researcher",
         "workflow_app_projectmember",
@@ -24,14 +28,22 @@ class AdminRepository:
                 "id": team.id,
                 "name": team.name,
                 "description": team.description,
+                "join_code": team.join_code,
                 "created_at": team.created_at.isoformat(),
             }
             for team in Team.objects.order_by("id")
         ]
 
     def create_team(self, name: str, description: str) -> dict:
-        team = Team.objects.create(name=name, description=description)
-        return {"id": team.id, "name": team.name, "description": team.description}
+        team = Team.objects.create(name=name, description=description, join_code=self._generate_join_code())
+        return {"id": team.id, "name": team.name, "description": team.description, "join_code": team.join_code}
+
+    def _generate_join_code(self) -> str:
+        for _ in range(30):
+            code = "".join(random.choices(string.digits, k=6))
+            if not Team.objects.filter(join_code=code).exists():
+                return code
+        raise ValueError("팀 코드 생성에 실패했습니다. 다시 시도해주세요.")
 
     def list_admin_accounts(self) -> list[dict]:
         return [
@@ -45,6 +57,83 @@ class AdminRepository:
             }
             for admin in AdminAccount.objects.select_related("team").order_by("id")
         ]
+
+    def find_user_for_login(self, username: str, password: str) -> dict | None:
+        user = UserAccount.objects.select_related("team").filter(username=username, password=password).first()
+        if not user:
+            return None
+        return {
+            "username": user.username,
+            "name": user.display_name,
+            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
+            "email": user.email,
+            "organization": user.team.name if user.team else "미지정",
+            "major": "미지정",
+            "team": user.team.name if user.team else "-",
+        }
+
+    def list_all_users(self) -> list[dict]:
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "email": user.email,
+                "role": user.get_role_display(),
+                "team": user.team.name if user.team else "-",
+                "join_code": user.team.join_code if user.team else "-",
+            }
+            for user in UserAccount.objects.select_related("team").order_by("id")
+        ]
+
+    def register_user(
+        self,
+        username: str,
+        display_name: str,
+        email: str,
+        password: str,
+        role: str,
+        team_name: str,
+        team_description: str,
+        team_code: str,
+    ) -> dict:
+        normalized_role = role if role in {UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
+        if UserAccount.objects.filter(username=username).exists():
+            raise ValueError("이미 사용 중인 아이디입니다.")
+        if UserAccount.objects.filter(email=email).exists():
+            raise ValueError("이미 사용 중인 이메일입니다.")
+
+        team = None
+        if normalized_role == UserAccount.Role.ADMIN:
+            if not team_name:
+                raise ValueError("관리자 가입 시 팀 이름은 필수입니다.")
+            team = Team.objects.create(
+                name=team_name,
+                description=team_description,
+                join_code=self._generate_join_code(),
+            )
+        elif team_name or team_code:
+            team = Team.objects.filter(name=team_name, join_code=team_code).first()
+            if not team:
+                raise ValueError("팀 이름 또는 팀 코드가 올바르지 않습니다.")
+
+        user = UserAccount.objects.create(
+            username=username,
+            display_name=display_name,
+            email=email,
+            password=password,
+            role=normalized_role,
+            team=team,
+        )
+        return {
+            "id": user.id,
+            "username": user.username,
+            "display_name": user.display_name,
+            "email": user.email,
+            "role": user.get_role_display(),
+            "team": team.name if team else "-",
+            "join_code": team.join_code if team else "-",
+        }
 
     def create_initial_admin(self, username: str, display_name: str, email: str, password: str, team_id: str | None) -> dict:
         if AdminAccount.objects.exists():

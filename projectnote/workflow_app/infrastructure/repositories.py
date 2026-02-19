@@ -33,6 +33,34 @@ class WorkflowRepository:
     def list_admin_accounts(self) -> list[dict]:
         return self.admin.list_admin_accounts()
 
+    def find_user_for_login(self, username: str, password: str) -> dict | None:
+        return self.admin.find_user_for_login(username, password)
+
+    def register_user(
+        self,
+        username: str,
+        display_name: str,
+        email: str,
+        password: str,
+        role: str,
+        team_name: str,
+        team_description: str,
+        team_code: str,
+    ) -> dict:
+        return self.admin.register_user(
+            username=username,
+            display_name=display_name,
+            email=email,
+            password=password,
+            role=role,
+            team_name=team_name,
+            team_description=team_description,
+            team_code=team_code,
+        )
+
+    def list_all_users(self) -> list[dict]:
+        return self.admin.list_all_users()
+
     def create_initial_admin(self, username: str, display_name: str, email: str, password: str, team_id: str | None) -> dict:
         return self.admin.create_initial_admin(username, display_name, email, password, team_id)
 

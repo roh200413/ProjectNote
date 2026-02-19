@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>회원가입 · ProjectNote</title>
+  <style>
+    body { margin:0; font-family:Pretendard,Inter,Arial,sans-serif; background:#f2f4f8; color:#1f2937; }
+    .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { width:100%; max-width:520px; background:#fff; border:1px solid #dbe2ed; border-radius:14px; padding:22px; box-shadow:0 8px 20px rgba(15,23,42,.06); }
+    h1 { margin:0 0 8px; font-size:28px; }
+    .sub { margin:0 0 14px; color:#7d8aa0; font-size:13px; }
+    .label { font-size:12px; color:#64748b; font-weight:650; display:block; margin:0 0 4px; }
+    .input, .select { width:95%; border:1px solid #dbe2ed; border-radius:8px; padding:11px; margin-bottom:12px; }
+    .btn { width:100%; border:none; background:#2463eb; color:#fff; border-radius:9px; padding:11px; font-weight:700; cursor:pointer; }
+    .link { display:inline-block; margin-top:10px; font-size:12px; color:#2463eb; text-decoration:none; }
+    .helper { margin-top:12px; color:#64748b; font-size:12px; }
+    .hide { display:none; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>회원가입</h1>
+      <p class="sub">관리자/일반 선택 후 가입하세요. 관리자는 팀 생성 및 6자리 코드 발급이 됩니다.</p>
+      <form id="signupForm">
+        {% csrf_token %}
+        <label class="label">아이디</label>
+        <input class="input" name="username" required />
+        <label class="label">표시 이름</label>
+        <input class="input" name="display_name" required />
+        <label class="label">이메일</label>
+        <input class="input" type="email" name="email" required />
+        <label class="label">비밀번호</label>
+        <input class="input" type="password" name="password" required />
+
+        <label class="label">가입 유형</label>
+        <select class="select" name="role" id="signupRole">
+          <option value="member">일반</option>
+          <option value="admin">관리자</option>
+        </select>
+
+        <div id="adminTeamFields" class="hide">
+          <label class="label">팀 이름 (관리자 필수)</label>
+          <input class="input" name="admin_team_name" />
+          <label class="label">팀 설명</label>
+          <input class="input" name="team_description" />
+        </div>
+
+        <div id="memberTeamFields">
+          <label class="label">팀 이름 (선택)</label>
+          <input class="input" name="member_team_name" />
+          <label class="label">팀 코드 (선택, 6자리)</label>
+          <input class="input" name="team_code" maxlength="6" />
+        </div>
+
+        <button class="btn" type="submit">회원가입</button>
+      </form>
+      <p id="signupMessage" class="helper"></p>
+      <a class="link" href="/login">로그인으로 돌아가기</a>
+    </section>
+  </main>
+
+  <script>
+    const roleSelect = document.getElementById('signupRole');
+    const adminFields = document.getElementById('adminTeamFields');
+    const memberFields = document.getElementById('memberTeamFields');
+    const message = document.getElementById('signupMessage');
+
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return '';
+    }
+
+    function updateRoleFields() {
+      const isAdmin = roleSelect.value === 'admin';
+      adminFields.classList.toggle('hide', !isAdmin);
+      memberFields.classList.toggle('hide', isAdmin);
+    }
+
+    roleSelect.addEventListener('change', updateRoleFields);
+    updateRoleFields();
+
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const role = formData.get('role');
+      if (role === 'admin') {
+        formData.set('team_name', formData.get('admin_team_name') || '');
+      } else {
+        formData.set('team_name', formData.get('member_team_name') || '');
+      }
+      formData.delete('admin_team_name');
+      formData.delete('member_team_name');
+
+      const res = await fetch('/api/v1/auth/signup', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCookie('csrftoken')},
+        credentials: 'same-origin',
+        body: formData,
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        message.textContent = body.detail || '회원가입 실패';
+        return;
+      }
+      message.textContent = `회원가입 완료: ${body.username} (${body.role}) / 팀: ${body.team} / 코드: ${body.join_code}`;
+      e.target.reset();
+      updateRoleFields();
+    });
+  </script>
+</body>
+</html>
