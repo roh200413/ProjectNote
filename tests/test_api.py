@@ -252,16 +252,17 @@ def test_super_admin_can_manage_only_data_tables() -> None:
     assert tables_page.status_code == 200
 
     teams_page = local_client.get("/frontend/admin/teams")
-    assert teams_page.status_code == 403
+    assert teams_page.status_code == 200
 
     users_page = local_client.get("/frontend/admin/users")
-    assert users_page.status_code == 403
+    assert users_page.status_code == 200
 
     teams_api = local_client.get("/api/v1/admin/teams")
     assert teams_api.status_code == 403
 
     users_api = local_client.get("/api/v1/admin/users")
-    assert users_api.status_code == 403
+    assert users_api.status_code == 200
+    assert isinstance(users_api.json(), list)
 
 
 def test_user_without_team_is_blocked_from_home() -> None:
@@ -602,3 +603,38 @@ def test_signup_and_admin_user_management_tables() -> None:
     assert tables.status_code == 200
     tables_payload = tables.json()
     assert any(item["table"] == "workflow_app_useraccount" for item in tables_payload)
+
+
+def test_super_admin_can_search_and_assign_user_team() -> None:
+    reset_db()
+    team = Team.objects.create(name="검색팀", description="검색용", join_code="654321")
+    user = UserAccount.objects.create(
+        username="search-user",
+        display_name="검색 사용자",
+        email="search-user@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+    )
+
+    admin_client = Client()
+    login_response = admin_client.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert login_response.status_code == 302
+
+    search_response = admin_client.get("/api/v1/admin/users", {"q": "search-user"})
+    assert search_response.status_code == 200
+    payload = search_response.json()
+    assert len(payload) == 1
+    assert payload[0]["username"] == "search-user"
+
+    assign_response = admin_client.post(
+        "/api/v1/admin/users",
+        {
+            "user_id": str(user.id),
+            "team_id": str(team.id),
+        },
+    )
+    assert assign_response.status_code == 200
+    assert assign_response.json()["team"] == "검색팀"
+
+    user.refresh_from_db()
+    assert user.team_id == team.id

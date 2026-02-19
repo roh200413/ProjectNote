@@ -61,8 +61,11 @@ class WorkflowRepository:
             team_code=team_code,
         )
 
-    def list_all_users(self) -> list[dict]:
-        return self.admin.list_all_users()
+    def list_all_users(self, keyword: str = "") -> list[dict]:
+        return self.admin.list_all_users(keyword)
+
+    def assign_user_team(self, user_id: int, team_id: int | None) -> dict:
+        return self.admin.assign_user_team(user_id, team_id)
 
     def create_initial_admin(self, username: str, display_name: str, email: str, password: str, team_id: str | None) -> dict:
         return self.admin.create_initial_admin(username, display_name, email, password, team_id)

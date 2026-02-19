@@ -326,7 +326,26 @@ def admin_teams_api(request):
 @require_http_methods(["GET", "POST"])
 @admin_required_page
 def admin_users_api(request):
-    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
+    if request.method == "GET":
+        keyword = request.GET.get("q", "").strip()
+        return JsonResponse(repository.list_all_users(keyword=keyword), safe=False)
+
+    user_id = request.POST.get("user_id", "").strip()
+    team_id_raw = request.POST.get("team_id", "").strip()
+    if not user_id.isdigit():
+        return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
+
+    team_id = None
+    if team_id_raw:
+        if not team_id_raw.isdigit():
+            return JsonResponse({"detail": "유효한 팀 ID가 필요합니다."}, status=400)
+        team_id = int(team_id_raw)
+
+    try:
+        payload = repository.assign_user_team(user_id=int(user_id), team_id=team_id)
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse(payload)
 
 
 @require_http_methods(["GET"])
@@ -433,12 +452,18 @@ def admin_teams_page(request):
 @ensure_csrf_cookie
 @admin_required_page
 def admin_users_page(request):
+    keyword = request.GET.get("q", "").strip()
     return render(
         request,
         "admin/users.html",
         _page_context(
             request,
-            {"admin_accounts": repository.list_all_users(), "admin_nav_items": _admin_navigation("users")},
+            {
+                "admin_accounts": repository.list_all_users(keyword=keyword),
+                "teams": repository.list_teams(),
+                "keyword": keyword,
+                "admin_nav_items": _admin_navigation("users"),
+            },
         ),
     )
 
