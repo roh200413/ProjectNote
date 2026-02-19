@@ -11,6 +11,20 @@ class TimestampedModel(models.Model):
         abstract = True
 
 
+class Team(TimestampedModel):
+    name = models.CharField(max_length=120, unique=True)
+    description = models.CharField(max_length=255, blank=True, default="")
+
+
+class AdminAccount(TimestampedModel):
+    username = models.CharField(max_length=80, unique=True)
+    display_name = models.CharField(max_length=120)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255)
+    team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="admin_accounts")
+    is_super_admin = models.BooleanField(default=True)
+
+
 class Researcher(TimestampedModel):
     name = models.CharField(max_length=100)
     role = models.CharField(max_length=100)

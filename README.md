@@ -60,6 +60,18 @@ sqlite3 projectnote.db "SELECT id, email, organization FROM workflow_app_researc
 현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
 SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
 
+
+
+## 관리자 초기 설정
+```bash
+python manage.py migrate
+python manage.py seed_demo --reset
+```
+
+- `/frontend/admin`에서 팀 생성
+- 최초 관리자 계정 생성(1회 제한)
+- 테이블별 row 수 확인 및 데이터 비우기
+
 ## 주요 API
 - `GET /api/v1/health`
 - `GET /api/v1/frontend/bootstrap`

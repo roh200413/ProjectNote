@@ -1,3 +1,4 @@
+from projectnote.workflow_app.domains.admin import AdminRepository
 from projectnote.workflow_app.domains.dashboard import DashboardService
 from projectnote.workflow_app.domains.data_updates import DataUpdateRepository
 from projectnote.workflow_app.domains.projects import (
@@ -15,11 +16,31 @@ class WorkflowRepository:
     """Facade repository kept for backward compatibility with existing views."""
 
     def __init__(self) -> None:
+        self.admin = AdminRepository()
         self.projects = ProjectRepository()
         self.researchers = ResearcherRepository()
         self.notes = ResearchNoteRepository()
         self.updates = DataUpdateRepository()
         self.signatures = SignatureRepository()
+
+
+    def list_teams(self) -> list[dict]:
+        return self.admin.list_teams()
+
+    def create_team(self, name: str, description: str) -> dict:
+        return self.admin.create_team(name, description)
+
+    def list_admin_accounts(self) -> list[dict]:
+        return self.admin.list_admin_accounts()
+
+    def create_initial_admin(self, username: str, display_name: str, email: str, password: str, team_id: str | None) -> dict:
+        return self.admin.create_initial_admin(username, display_name, email, password, team_id)
+
+    def list_managed_tables(self) -> list[dict]:
+        return self.admin.list_managed_tables()
+
+    def truncate_table(self, table_name: str) -> None:
+        self.admin.truncate_table(table_name)
 
     def list_projects(self) -> list[dict]:
         return self.projects.list_projects()

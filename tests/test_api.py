@@ -338,3 +338,57 @@ def test_ddd_supporting_layers_are_wired() -> None:
 def test_domain_oriented_project_service_exists() -> None:
     service = ProjectService()
     assert hasattr(service, "create_project")
+
+
+def test_admin_team_user_bootstrap_and_table_management() -> None:
+    reset_db()
+    seed_workflow_data()
+    local_client = Client()
+    login(local_client)
+
+    admin_page = local_client.get("/frontend/admin")
+    assert admin_page.status_code == 200
+    html = admin_page.content.decode()
+    assert "팀 생성" in html
+    assert "최초 관리자 생성" in html
+    assert "테이블 관리" in html
+
+    team_create = local_client.post("/api/v1/admin/teams", {"name": "플랫폼팀", "description": "운영팀"})
+    assert team_create.status_code == 201
+    team_id = str(team_create.json()["id"])
+
+    admin_create = local_client.post(
+        "/api/v1/admin/users",
+        {
+            "username": "rootadmin",
+            "display_name": "루트관리자",
+            "email": "root@example.com",
+            "password": "secret123",
+            "team_id": team_id,
+        },
+    )
+    assert admin_create.status_code == 201
+    assert admin_create.json()["username"] == "rootadmin"
+
+    admin_duplicate = local_client.post(
+        "/api/v1/admin/users",
+        {
+            "username": "second",
+            "display_name": "두번째",
+            "email": "second@example.com",
+            "password": "secret123",
+        },
+    )
+    assert admin_duplicate.status_code == 409
+
+    tables = local_client.get("/api/v1/admin/tables")
+    assert tables.status_code == 200
+    tables_payload = tables.json()
+    assert any(item["table"] == "workflow_app_team" for item in tables_payload)
+
+    truncate = local_client.post("/api/v1/admin/tables/workflow_app_team/truncate")
+    assert truncate.status_code == 200
+
+    tables_after = local_client.get("/api/v1/admin/tables").json()
+    team_table = next(item for item in tables_after if item["table"] == "workflow_app_team")
+    assert team_table["rows"] == 0

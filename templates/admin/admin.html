@@ -1,10 +1,166 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}관리자 페이지{% endblock %}
+{% block page_title %}ADMIN 콘솔{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <button class="pn-btn ghost" onclick="location.reload()">새로고침</button>
+</div>
+{% endblock %}
 
-</body>
-</html>
+{% block content %}
+<section class="pn-grid cols-3" style="margin-bottom:12px">
+  <article class="pn-card"><div class="pn-sub">기관 수</div><h3>{{ summary.organizations }}</h3></article>
+  <article class="pn-card"><div class="pn-sub">프로젝트 수</div><h3>{{ summary.projects }}</h3></article>
+  <article class="pn-card"><div class="pn-sub">노트 수</div><h3>{{ summary.notes }}</h3></article>
+</section>
+
+<div class="pn-grid" style="grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+  <section class="pn-card">
+    <h3 style="margin-top:0">팀 생성</h3>
+    <form id="teamForm" class="pn-grid" style="gap:8px">
+      <div><label class="pn-label">팀 이름</label><input class="pn-input" name="name" required /></div>
+      <div><label class="pn-label">설명</label><input class="pn-input" name="description" /></div>
+      <div style="display:flex;justify-content:flex-end"><button class="pn-btn" type="submit">팀 생성</button></div>
+    </form>
+
+    <h4 style="margin:14px 0 8px">팀 목록</h4>
+    <table class="pn-table">
+      <thead><tr><th>ID</th><th>팀 이름</th><th>설명</th></tr></thead>
+      <tbody id="teamTableBody">
+      {% for team in teams %}
+        <tr><td>{{ team.id }}</td><td>{{ team.name }}</td><td>{{ team.description }}</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="pn-sub">생성된 팀이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">최초 관리자 생성</h3>
+    <p class="pn-sub" style="margin-top:0">최초 관리자 계정은 1회만 생성됩니다.</p>
+    <form id="adminForm" class="pn-grid" style="gap:8px">
+      <div><label class="pn-label">아이디(username)</label><input class="pn-input" name="username" required /></div>
+      <div><label class="pn-label">표시 이름</label><input class="pn-input" name="display_name" required /></div>
+      <div><label class="pn-label">이메일</label><input type="email" class="pn-input" name="email" required /></div>
+      <div><label class="pn-label">비밀번호</label><input type="password" class="pn-input" name="password" required /></div>
+      <div>
+        <label class="pn-label">소속 팀</label>
+        <select class="pn-select" name="team_id" id="adminTeamSelect">
+          <option value="">팀 선택(선택)</option>
+          {% for team in teams %}
+          <option value="{{ team.id }}">{{ team.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end"><button class="pn-btn" type="submit">관리자 생성</button></div>
+    </form>
+
+    <h4 style="margin:14px 0 8px">관리자 계정 목록</h4>
+    <table class="pn-table">
+      <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>팀</th></tr></thead>
+      <tbody id="adminTableBody">
+      {% for admin in admin_accounts %}
+        <tr><td>{{ admin.username }}</td><td>{{ admin.display_name }}</td><td>{{ admin.email }}</td><td>{{ admin.team }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="pn-sub">아직 생성된 관리자 계정이 없습니다.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section class="pn-card" style="margin-top:12px">
+  <h3 style="margin-top:0">테이블 관리</h3>
+  <p class="pn-sub">테이블 데이터 건수 확인 및 비우기(truncate) 기능</p>
+  <table class="pn-table">
+    <thead><tr><th>테이블</th><th>행 수</th><th>관리</th></tr></thead>
+    <tbody id="tableManageBody">
+    {% for item in tables %}
+      <tr>
+        <td>{{ item.table }}</td>
+        <td>{{ item.rows }}</td>
+        <td><button class="pn-btn soft" type="button" onclick="truncateTable('{{ item.table }}')">데이터 비우기</button></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="pn-sub">관리 대상 테이블이 없습니다.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div id="adminToast" class="pn-toast" style="margin-top:12px"></div>
+
+<script>
+  function toast(message) {
+    document.getElementById('adminToast').textContent = message;
+  }
+
+  async function refreshAdminTables() {
+    const [teamsRes, adminsRes, tablesRes] = await Promise.all([
+      fetch('/api/v1/admin/teams', {credentials:'same-origin'}),
+      fetch('/api/v1/admin/users', {credentials:'same-origin'}),
+      fetch('/api/v1/admin/tables', {credentials:'same-origin'})
+    ]);
+
+    const teams = await teamsRes.json();
+    const admins = await adminsRes.json();
+    const tables = await tablesRes.json();
+
+    const teamBody = document.getElementById('teamTableBody');
+    const adminBody = document.getElementById('adminTableBody');
+    const tableBody = document.getElementById('tableManageBody');
+    const teamSelect = document.getElementById('adminTeamSelect');
+
+    teamBody.innerHTML = teams.length ? teams.map(team => `<tr><td>${team.id}</td><td>${team.name}</td><td>${team.description || ''}</td></tr>`).join('') : '<tr><td colspan="3" class="pn-sub">생성된 팀이 없습니다.</td></tr>';
+    adminBody.innerHTML = admins.length ? admins.map(admin => `<tr><td>${admin.username}</td><td>${admin.display_name}</td><td>${admin.email}</td><td>${admin.team}</td></tr>`).join('') : '<tr><td colspan="4" class="pn-sub">아직 생성된 관리자 계정이 없습니다.</td></tr>';
+    tableBody.innerHTML = tables.length ? tables.map(item => `<tr><td>${item.table}</td><td>${item.rows}</td><td><button class="pn-btn soft" type="button" onclick="truncateTable('${item.table}')">데이터 비우기</button></td></tr>`).join('') : '<tr><td colspan="3" class="pn-sub">관리 대상 테이블이 없습니다.</td></tr>';
+
+    teamSelect.innerHTML = '<option value="">팀 선택(선택)</option>' + teams.map(team => `<option value="${team.id}">${team.name}</option>`).join('');
+  }
+
+  document.getElementById('teamForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/api/v1/admin/teams', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    if (!res.ok) { toast(body.detail || '팀 생성 실패'); return; }
+    toast(`팀 생성 완료: ${body.name}`);
+    e.target.reset();
+    await refreshAdminTables();
+  });
+
+  document.getElementById('adminForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/api/v1/admin/users', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    if (!res.ok) { toast(body.detail || '관리자 생성 실패'); return; }
+    toast(`최초 관리자 생성 완료: ${body.username}`);
+    e.target.reset();
+    await refreshAdminTables();
+  });
+
+  async function truncateTable(tableName) {
+    if (!confirm(`${tableName} 테이블 데이터를 비우시겠습니까?`)) return;
+    const res = await fetch(`/api/v1/admin/tables/${tableName}/truncate`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    toast(body.message || body.detail || '처리 완료');
+    await refreshAdminTables();
+  }
+</script>
+{% endblock %}

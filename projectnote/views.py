@@ -183,6 +183,62 @@ def signature_api(request):
     return JsonResponse(payload)
 
 
+
+
+@require_http_methods(["GET", "POST"])
+@login_required_page
+def admin_teams_api(request):
+    if request.method == "GET":
+        return JsonResponse(repository.list_teams(), safe=False)
+
+    name = request.POST.get("name", "").strip()
+    if not name:
+        return JsonResponse({"detail": "팀 이름은 필수입니다."}, status=400)
+    team = repository.create_team(name=name, description=request.POST.get("description", "").strip())
+    return JsonResponse(team, status=201)
+
+
+@require_http_methods(["GET", "POST"])
+@login_required_page
+def admin_users_api(request):
+    if request.method == "GET":
+        return JsonResponse(repository.list_admin_accounts(), safe=False)
+
+    username = request.POST.get("username", "").strip()
+    display_name = request.POST.get("display_name", "").strip()
+    email = request.POST.get("email", "").strip()
+    password = request.POST.get("password", "").strip()
+    if not all([username, display_name, email, password]):
+        return JsonResponse({"detail": "username/display_name/email/password는 필수입니다."}, status=400)
+
+    try:
+        admin = repository.create_initial_admin(
+            username=username,
+            display_name=display_name,
+            email=email,
+            password=password,
+            team_id=request.POST.get("team_id") or None,
+        )
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=409)
+    return JsonResponse(admin, status=201)
+
+
+@require_http_methods(["GET"])
+@login_required_page
+def admin_tables_api(_request):
+    return JsonResponse(repository.list_managed_tables(), safe=False)
+
+
+@require_http_methods(["POST"])
+@login_required_page
+def admin_table_truncate_api(_request, table_name: str):
+    try:
+        repository.truncate_table(table_name)
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse({"message": f"{table_name} 테이블 데이터가 삭제되었습니다."})
+
 @require_GET
 def research_notes_api(_request):
     return JsonResponse(repository.list_research_notes(), safe=False)
@@ -226,7 +282,19 @@ def workflow_home_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def admin_page(request):
-    return render(request, "admin/admin.html", _page_context(request, {"summary": repository.dashboard_counts()}))
+    return render(
+        request,
+        "admin/admin.html",
+        _page_context(
+            request,
+            {
+                "summary": repository.dashboard_counts(),
+                "teams": repository.list_teams(),
+                "admin_accounts": repository.list_admin_accounts(),
+                "tables": repository.list_managed_tables(),
+            },
+        ),
+    )
 
 
 @require_GET
