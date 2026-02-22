@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from server.models import (
+from server.application.models import (
     DataUpdate,
     Project,
     ProjectMember,

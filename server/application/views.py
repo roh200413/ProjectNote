@@ -9,9 +9,9 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.models import Project, ResearchNote, SuperAdminAccount
+from server.application.models import Project, ResearchNote, SuperAdminAccount
 from server.infrastructure.repositories import WorkflowRepository
-from server.services import WorkflowService
+from server.application.services import WorkflowService
 from server.core import (
     admin_required_page,
     json_uuid_validation_error,
@@ -23,7 +23,7 @@ from server.core import (
 repository = WorkflowRepository()
 service = WorkflowService(repository)
 
-SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent / "super_admin_accounts.json"
+SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_accounts.json"
 
 
 def _load_super_admin_users() -> dict[str, dict[str, str]]:

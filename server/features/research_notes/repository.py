@@ -1,4 +1,4 @@
-from server.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.application.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
 
 class ResearchNoteRepository:

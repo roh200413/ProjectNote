@@ -1,4 +1,4 @@
-from server.models import Project, ResearchNote, Researcher
+from server.application.models import Project, ResearchNote, Researcher
 
 
 class DashboardService:

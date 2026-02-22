@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
@@ -13,7 +13,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "server.apps.ServerAppConfig",
+    "server.config.apps.ServerAppConfig",
 ]
 
 MIDDLEWARE = [
@@ -26,7 +26,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "server.urls"
+ROOT_URLCONF = "server.config.urls"
 
 TEMPLATES = [
     {
@@ -43,8 +43,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "server.wsgi.application"
-ASGI_APPLICATION = "server.asgi.application"
+WSGI_APPLICATION = "server.config.wsgi.application"
+ASGI_APPLICATION = "server.config.asgi.application"
 
 DATABASES = {
     "default": {

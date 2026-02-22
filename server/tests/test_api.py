@@ -1,7 +1,7 @@
 import os
 import uuid
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.config.settings")
 
 import django
 import pytest
@@ -11,10 +11,10 @@ from django.test import Client
 
 django.setup()
 
-from server.schemas import CreateProjectPayload
+from server.application.schemas import CreateProjectPayload
 from server.features.projects.service import ProjectService
 from server.infrastructure.sqlalchemy_session import sqlalchemy_database_url
-from server.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
+from server.application.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 
 pytestmark = pytest.mark.django_db
 

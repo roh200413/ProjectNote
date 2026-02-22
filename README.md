@@ -19,7 +19,7 @@ python manage.py runserver 0.0.0.0:8000
 
 - `/workspace/ProjectNote/server/projectnote.db`
 
-`server/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
+`server/config/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
 
 ### 2) 테이블 생성(마이그레이션)
 ```bash
@@ -47,6 +47,14 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 - SSH Tunnel: 사용 안 함
 
 
+
+## server 정리 구조
+- `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
+- `server/application/`: 앱 파사드/엔트리(`models.py`, `views.py`, `services.py`, `schemas.py`, `repositories.py`)
+- `server/core/`: 공통 웹 유틸(인증 데코레이터/세션/응답 헬퍼)
+- `server/features/`: 기능별 비즈니스 모듈
+- `server/infrastructure/`: 저장소/SQLAlchemy 어댑터
+
 ## 아키텍처(DDD + ORM)
 - `server/core`: 인증 데코레이터/세션/요청 검증 등 공통 웹 코어
 - `server/features/projects`: 프로젝트 생성/조회 도메인
@@ -55,7 +63,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 - `server/features/data_updates`: 데이터 업데이트 도메인
 - `server/features/signatures`: 서명 도메인
 - `server/features/dashboard`: 대시보드 집계 도메인
-- `server/services.py`, `server/schemas.py`: 유스케이스/입력 스키마 파사드
+- `server/application/services.py`, `server/application/schemas.py`: 유스케이스/입력 스키마 파사드
 - `server/infrastructure`: ORM/SQLAlchemy 어댑터
 
 현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.

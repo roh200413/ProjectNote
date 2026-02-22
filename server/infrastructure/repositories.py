@@ -9,7 +9,7 @@ from server.features.projects import (
 from server.features.research_notes import ResearchNoteRepository
 from server.features.researchers import ResearcherRepository
 from server.features.signatures import SignatureRepository
-from server.models import Project
+from server.application.models import Project
 
 
 class WorkflowRepository:
