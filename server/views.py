@@ -12,7 +12,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from workflow_app.models import Project, ResearchNote, SuperAdminAccount
 from workflow_app.infrastructure.repositories import WorkflowRepository
-from workflow_app.application.services import WorkflowService
+from workflow_app.services import WorkflowService
 
 repository = WorkflowRepository()
 service = WorkflowService(repository)

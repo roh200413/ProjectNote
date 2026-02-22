@@ -11,8 +11,8 @@ from django.test import Client
 
 django.setup()
 
-from workflow_app.application.schemas import CreateProjectPayload
-from workflow_app.domains.projects.service import ProjectService
+from workflow_app.schemas import CreateProjectPayload
+from workflow_app.features.projects.service import ProjectService
 from workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
 from workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 

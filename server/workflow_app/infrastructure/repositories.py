@@ -1,14 +1,14 @@
-from workflow_app.domains.admin import AdminRepository
-from workflow_app.domains.dashboard import DashboardService
-from workflow_app.domains.data_updates import DataUpdateRepository
-from workflow_app.domains.projects import (
+from workflow_app.features.admin import AdminRepository
+from workflow_app.features.dashboard import DashboardService
+from workflow_app.features.data_updates import DataUpdateRepository
+from workflow_app.features.projects import (
     CreateProjectCommand,
     InvitedMemberCommand,
     ProjectRepository,
 )
-from workflow_app.domains.research_notes import ResearchNoteRepository
-from workflow_app.domains.researchers import ResearcherRepository
-from workflow_app.domains.signatures import SignatureRepository
+from workflow_app.features.research_notes import ResearchNoteRepository
+from workflow_app.features.researchers import ResearcherRepository
+from workflow_app.features.signatures import SignatureRepository
 from workflow_app.models import Project
 
 

@@ -1,3 +1,8 @@
-from workflow_app.application.services import WorkflowService
+from workflow_app.features.projects.service import ProjectService
+
+
+class WorkflowService(ProjectService):
+    """Project use-case service facade."""
+
 
 __all__ = ["WorkflowService"]
