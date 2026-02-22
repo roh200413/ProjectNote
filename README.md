@@ -48,6 +48,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 
 ## 아키텍처(DDD + ORM)
+- `server/core`: 인증 데코레이터/세션/요청 검증 등 공통 웹 코어
 - `server/features/projects`: 프로젝트 생성/조회 도메인
 - `server/features/researchers`: 연구자 도메인
 - `server/features/research_notes`: 연구노트 도메인
