@@ -13,7 +13,9 @@ django.setup()
 
 from server.application.schemas import CreateProjectPayload
 from server.domains.projects.service import ProjectService
-from server.infrastructure.sqlalchemy_session import sqlalchemy_database_url
+from server.application.sqlalchemy_session import sqlalchemy_database_url
+from server.application import web_support
+from server.application.mock_data import seed_demo_data
 from server.application.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 
 pytestmark = pytest.mark.django_db
@@ -227,6 +229,22 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert admin_page["Location"].startswith("/admin/login")
 
 
+
+
+def test_super_admin_can_login_from_general_login_page() -> None:
+    reset_db()
+    local_client = Client()
+
+    response = local_client.post("/login", {"username": "admin", "password": "admin1234"})
+
+    assert response.status_code == 302
+    assert response["Location"] == "/frontend/admin/dashboard"
+
+    dashboard_redirect = local_client.get("/frontend/workflows")
+    assert dashboard_redirect.status_code == 302
+    assert dashboard_redirect["Location"] == "/frontend/admin/dashboard"
+
+
 def test_super_admin_cannot_access_regular_workflow_pages() -> None:
     reset_db()
     local_client = Client()
@@ -263,6 +281,16 @@ def test_super_admin_can_manage_only_data_tables() -> None:
     users_api = local_client.get("/api/v1/admin/users")
     assert users_api.status_code == 200
     assert isinstance(users_api.json(), list)
+
+
+def test_super_admin_login_falls_back_when_super_admin_table_missing(monkeypatch) -> None:
+    monkeypatch.setattr(web_support, "_super_admin_table_exists", lambda: False)
+
+    user = web_support.authenticate_super_admin("admin", "admin1234")
+
+    assert user is not None
+    assert user["username"] == "admin"
+    assert user["is_super_admin"] is True
 
 
 def test_user_without_team_is_blocked_from_home() -> None:
@@ -514,9 +542,9 @@ def test_researchers_page_separated_fields() -> None:
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
 
 
-def test_seed_demo_command_populates_tables() -> None:
+def test_seed_demo_data_populates_tables() -> None:
     reset_db()
-    call_command("seed_demo", "--reset", verbosity=0)
+    seed_demo_data(reset=True)
 
     assert Project.objects.count() >= 1
     assert Researcher.objects.count() >= 2

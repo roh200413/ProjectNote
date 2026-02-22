@@ -37,8 +37,8 @@ python manage.py migrate
 
 ### 3) 데모 데이터 생성(옵션)
 ```bash
-python manage.py seed_demo --reset
-python manage.py shell -c "from server.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
+python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
+python manage.py shell -c "from server.application.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
 ```
 
 ### 4) SQLite CLI로 직접 확인
@@ -61,7 +61,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 - `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
 - `server/application/`: 애플리케이션 파사드/조합 계층(`api.py`, `models.py`, `services.py`, `schemas.py`, `repositories.py`, `web_support.py`)
 - `server/domains/`: DDD 도메인별 비즈니스 모듈
-- `server/infrastructure/`: 저장소/SQLAlchemy 어댑터
+- `server/application/sqlalchemy_session.py`: DB 점검용 SQLAlchemy 유틸
 
 ## 아키텍처(DDD + ORM)
 - `application` 역할: 도메인 객체를 HTTP/검증/응답에 맞게 조합하는 유스케이스 계층(도메인 규칙 자체는 `domains`에 유지)
@@ -72,7 +72,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 - `server/domains/data_updates`: 데이터 업데이트 도메인
 - `server/domains/signatures`: 서명 도메인
 - `server/application/services.py`, `server/application/schemas.py`: 유스케이스/입력 스키마 파사드
-- `server/infrastructure`: ORM/SQLAlchemy 어댑터
+- SQLAlchemy 유틸은 `server/application/sqlalchemy_session.py`로 통합
 
 현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
 SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
@@ -82,7 +82,7 @@ SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
 ## 관리자 초기 설정
 ```bash
 python manage.py migrate
-python manage.py seed_demo --reset
+python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
 ```
 
 - `/frontend/admin`에서 팀 생성

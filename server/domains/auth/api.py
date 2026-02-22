@@ -36,7 +36,7 @@ def login_page(request):
     if not user:
         super_admin_user = authenticate_super_admin(username, password)
         if super_admin_user:
-            user = {**super_admin_user, "is_super_admin": False}
+            user = {**super_admin_user, "is_super_admin": True}
     if not user:
         return render(
             request,
@@ -56,6 +56,8 @@ def login_page(request):
     save_login_session(request, username, user)
     if next_url.startswith("/"):
         return redirect(next_url)
+    if user.get("is_super_admin"):
+        return redirect("/frontend/admin/dashboard")
     return redirect("/frontend/workflows")
 
 
