@@ -579,7 +579,8 @@ def test_signup_and_admin_user_management_tables() -> None:
     assert member_signup.json()["team"] == "플랫폼팀"
 
     local_client = Client()
-    login(local_client)
+    admin_login = local_client.post("/admin/login", {"username": "admin", "password": "admin1234"})
+    assert admin_login.status_code == 302
     users = local_client.get("/api/v1/admin/users")
     assert users.status_code == 200
     users_payload = users.json()

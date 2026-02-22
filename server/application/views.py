@@ -90,6 +90,10 @@ def login_page(request):
     next_url = request.POST.get("next", "")
     user = _authenticate_login_user(username, password)
     if not user:
+        super_admin_user = _authenticate_super_admin(username, password)
+        if super_admin_user:
+            user = {**super_admin_user, "is_super_admin": False}
+    if not user:
         return render(
             request,
             "auth/login.html",
