@@ -14,6 +14,8 @@ django.setup()
 from server.application.schemas import CreateProjectPayload
 from server.domains.projects.service import ProjectService
 from server.infrastructure.sqlalchemy_session import sqlalchemy_database_url
+from server.application import web_support
+from server.application.mock_data import seed_demo_data
 from server.application.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 
 pytestmark = pytest.mark.django_db
@@ -265,6 +267,16 @@ def test_super_admin_can_manage_only_data_tables() -> None:
     assert isinstance(users_api.json(), list)
 
 
+def test_super_admin_login_falls_back_when_super_admin_table_missing(monkeypatch) -> None:
+    monkeypatch.setattr(web_support, "_super_admin_table_exists", lambda: False)
+
+    user = web_support.authenticate_super_admin("admin", "admin1234")
+
+    assert user is not None
+    assert user["username"] == "admin"
+    assert user["is_super_admin"] is True
+
+
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()
     client_obj = Client()
@@ -514,9 +526,9 @@ def test_researchers_page_separated_fields() -> None:
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
 
 
-def test_seed_demo_command_populates_tables() -> None:
+def test_seed_demo_data_populates_tables() -> None:
     reset_db()
-    call_command("seed_demo", "--reset", verbosity=0)
+    seed_demo_data(reset=True)
 
     assert Project.objects.count() >= 1
     assert Researcher.objects.count() >= 2
