@@ -1,7 +1,7 @@
 # ProjectNote Backend (Django)
 
 연구노트 통합 플랫폼을 위한 Django 기반 백엔드/프론트 프로토타입입니다.
-모든 화면은 `templates/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
+모든 화면은 `client/templates/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
 
 ## 실행
 ```bash
@@ -17,7 +17,7 @@ python manage.py runserver 0.0.0.0:8000
 ### 1) DB 파일 위치
 이 프로젝트는 Django + SQLite를 사용하며 DB 파일은 아래 경로입니다.
 
-- `/workspace/ProjectNote/projectnote.db`
+- `/workspace/ProjectNote/server/projectnote.db`
 
 `projectnote/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
 
@@ -34,15 +34,15 @@ python manage.py shell -c "from projectnote.workflow_app.infrastructure.sqlalche
 
 ### 4) SQLite CLI로 직접 확인
 ```bash
-sqlite3 projectnote.db ".tables"
-sqlite3 projectnote.db "SELECT id, name, status FROM workflow_app_project;"
-sqlite3 projectnote.db "SELECT id, email, organization FROM workflow_app_researcher;"
+sqlite3 server/projectnote.db ".tables"
+sqlite3 server/projectnote.db "SELECT id, name, status FROM workflow_app_project;"
+sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_researcher;"
 ```
 
 ### 5) JetBrains DB Navigator / Database Tool 설정
 - Database Type: `SQLite`
 - Config Type: `File`
-- Database file: `/workspace/ProjectNote/projectnote.db`
+- Database file: `/workspace/ProjectNote/server/projectnote.db`
 - Schema: `main`
 - SSH Tunnel: 사용 안 함
 
@@ -117,7 +117,7 @@ python manage.py check
 `.env.example` 파일을 참고하세요.
 
 ## 슈퍼 어드민 계정 관리(JSON)
-- 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `super_admin_accounts.json`에서 관리합니다.
+- 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `server/super_admin_accounts.json`에서 관리합니다.
 - 앱 실행 시 JSON 계정은 `SuperAdminAccount` 테이블로 동기화되며, 관리자 콘솔(`/frontend/admin/*`) 진입은 `admin/login`에서 **슈퍼 어드민 계정만** 허용됩니다.
 - 슈퍼 어드민 권한 범위는 **DB 데이터 테이블 관리(조회/비우기)** 전용이며, 팀 관리/가입자 관리/일반 워크플로우 페이지 접근은 제한됩니다.
 - 일반 관리자/일반 사용자 계정은 로그인 시 팀 미할당 상태라면 홈으로 이동하지 않고 `관리자 팀 할당 및 승인이 되지 않았습니다.` 메시지가 표시됩니다.

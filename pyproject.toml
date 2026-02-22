@@ -17,8 +17,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
+pythonpath = ["server", "."]
+testpaths = ["server/tests"]
 DJANGO_SETTINGS_MODULE = "projectnote.settings"
 
 [tool.ruff]
