@@ -3,9 +3,9 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from projectnote.client.interfaces.common import page_context
-from projectnote.server.core.dependencies import authenticate_login_user, authenticate_super_admin, repository
-from projectnote.server.core.http import admin_required_page, login_required_page, save_login_session
+from client.interfaces.common import page_context
+from server.core.dependencies import authenticate_login_user, authenticate_super_admin, repository
+from server.core.http import admin_required_page, login_required_page, save_login_session
 from projectnote.workflow_app.models import Project, ResearchNote
 
 

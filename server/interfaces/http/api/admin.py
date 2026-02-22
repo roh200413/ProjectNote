@@ -1,8 +1,8 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from projectnote.server.core.dependencies import repository
-from projectnote.server.core.http import admin_required_page
+from server.core.dependencies import repository
+from server.core.http import admin_required_page
 
 
 @require_http_methods(["GET", "POST"])

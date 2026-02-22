@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from projectnote.server.core.dependencies import repository
+from server.core.dependencies import repository
 
 
 @require_GET

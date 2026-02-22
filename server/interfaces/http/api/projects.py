@@ -1,8 +1,8 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods
 
-from projectnote.server.core.dependencies import repository, service
-from projectnote.server.core.http import parse_uuid_or_422
+from server.core.dependencies import repository, service
+from server.core.http import parse_uuid_or_422
 
 
 @require_GET

@@ -1,12 +1,12 @@
 """Legacy compatibility module.
 
 Prefer new entrypoints:
-- API: projectnote.server.interfaces.http.api.*
-- Web pages: projectnote.client.interfaces.web
-- Router: projectnote.server.interfaces.http.router
+- API: server.interfaces.http.api.*
+- Web pages: client.interfaces.web
+- Router: server.interfaces.http.router
 """
 
-from projectnote.client.interfaces.web import (  # noqa: F401
+from client.interfaces.web import (  # noqa: F401
     admin_dashboard_page,
     admin_login_page,
     admin_page,
@@ -30,7 +30,7 @@ from projectnote.client.interfaces.web import (  # noqa: F401
     update_my_signature,
     workflow_home_page,
 )
-from projectnote.server.interfaces.http.api import (  # noqa: F401
+from server.interfaces.http.api import (  # noqa: F401
     admin_table_truncate_api,
     admin_tables_api,
     admin_teams_api,

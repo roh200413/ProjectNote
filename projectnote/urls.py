@@ -1,1 +1,1 @@
-from projectnote.server.interfaces.http.router import urlpatterns
+from server.interfaces.http.router import urlpatterns

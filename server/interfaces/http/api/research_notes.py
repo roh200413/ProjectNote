@@ -1,7 +1,7 @@
 from django.http import Http404, JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods
 
-from projectnote.server.core.dependencies import repository
+from server.core.dependencies import repository
 from projectnote.workflow_app.models import ResearchNote
 
 

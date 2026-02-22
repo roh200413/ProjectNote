@@ -1,7 +1,7 @@
 from django.urls import path
 
-from projectnote.client.interfaces import web
-from projectnote.server.interfaces.http.api import (
+from client.interfaces import web
+from server.interfaces.http.api import (
     admin_table_truncate_api,
     admin_tables_api,
     admin_teams_api,
