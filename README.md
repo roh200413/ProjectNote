@@ -51,18 +51,17 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 ## server 정리 구조
 - `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
 - `server/application/`: 앱 파사드/엔트리(`models.py`, `views.py`, `services.py`, `schemas.py`, `repositories.py`)
-- `server/core/`: 공통 웹 유틸(인증 데코레이터/세션/응답 헬퍼)
-- `server/features/`: 기능별 비즈니스 모듈
+- `server/domains/`: DDD 도메인별 비즈니스 모듈
 - `server/infrastructure/`: 저장소/SQLAlchemy 어댑터
 
 ## 아키텍처(DDD + ORM)
-- `server/core`: 인증 데코레이터/세션/요청 검증 등 공통 웹 코어
-- `server/features/projects`: 프로젝트 생성/조회 도메인
-- `server/features/researchers`: 연구자 도메인
-- `server/features/research_notes`: 연구노트 도메인
-- `server/features/data_updates`: 데이터 업데이트 도메인
-- `server/features/signatures`: 서명 도메인
-- `server/features/dashboard`: 대시보드 집계 도메인
+- `server/application/views.py`: 인증 데코레이터/세션/요청 검증 등 공통 웹 헬퍼 포함
+- `server/domains/projects`: 프로젝트 생성/조회 도메인
+- `server/domains/researchers`: 연구자 도메인
+- `server/domains/research_notes`: 연구노트 도메인
+- `server/domains/data_updates`: 데이터 업데이트 도메인
+- `server/domains/signatures`: 서명 도메인
+- `server/domains/dashboard`: 대시보드 집계 도메인
 - `server/application/services.py`, `server/application/schemas.py`: 유스케이스/입력 스키마 파사드
 - `server/infrastructure`: ORM/SQLAlchemy 어댑터
 

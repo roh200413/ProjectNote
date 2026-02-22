@@ -12,7 +12,7 @@ from django.test import Client
 django.setup()
 
 from server.application.schemas import CreateProjectPayload
-from server.features.projects.service import ProjectService
+from server.domains.projects.service import ProjectService
 from server.infrastructure.sqlalchemy_session import sqlalchemy_database_url
 from server.application.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 

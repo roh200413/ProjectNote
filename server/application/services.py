@@ -1,4 +1,4 @@
-from server.features.projects.service import ProjectService
+from server.domains.projects.service import ProjectService
 
 
 class WorkflowService(ProjectService):

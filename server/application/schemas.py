@@ -1,4 +1,4 @@
-from server.features.projects.schemas import (
+from server.domains.projects.schemas import (
     CreateProjectPayload,
     InvitedMemberPayload,
 )

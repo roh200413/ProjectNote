@@ -1,14 +1,14 @@
-from server.features.admin import AdminRepository
-from server.features.dashboard import DashboardService
-from server.features.data_updates import DataUpdateRepository
-from server.features.projects import (
+from server.domains.admin import AdminRepository
+from server.domains.dashboard import DashboardService
+from server.domains.data_updates import DataUpdateRepository
+from server.domains.projects import (
     CreateProjectCommand,
     InvitedMemberCommand,
     ProjectRepository,
 )
-from server.features.research_notes import ResearchNoteRepository
-from server.features.researchers import ResearcherRepository
-from server.features.signatures import SignatureRepository
+from server.domains.research_notes import ResearchNoteRepository
+from server.domains.researchers import ResearcherRepository
+from server.domains.signatures import SignatureRepository
 from server.application.models import Project
 
 
