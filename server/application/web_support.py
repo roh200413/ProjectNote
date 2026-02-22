@@ -3,6 +3,8 @@ import os
 from functools import wraps
 from pathlib import Path
 
+from django.db import connection
+from django.db.utils import OperationalError, ProgrammingError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 
@@ -110,20 +112,55 @@ def _load_super_admin_users() -> dict[str, dict[str, str]]:
 
 
 def _sync_super_admin_accounts() -> None:
+    if not _super_admin_table_exists():
+        return
+
     for username, user in _load_super_admin_users().items():
-        SuperAdminAccount.objects.update_or_create(
-            username=username,
-            defaults={
-                "display_name": user.get("name", username),
-                "email": user.get("email", f"{username}@projectnote.local"),
-                "password": user.get("password", ""),
-                "organization": user.get("organization", "ProjectNote"),
-                "major": user.get("major", "관리"),
-                "is_active": True,
-            },
-        )
+        try:
+            SuperAdminAccount.objects.update_or_create(
+                username=username,
+                defaults={
+                    "display_name": user.get("name", username),
+                    "email": user.get("email", f"{username}@projectnote.local"),
+                    "password": user.get("password", ""),
+                    "organization": user.get("organization", "ProjectNote"),
+                    "major": user.get("major", "관리"),
+                    "is_active": True,
+                },
+            )
+        except (OperationalError, ProgrammingError):
+            return
+
+
+def _super_admin_table_exists() -> bool:
+    table_name = SuperAdminAccount._meta.db_table
+    return table_name in connection.introspection.table_names()
+
+
+def _authenticate_super_admin_from_seed_data(username: str, password: str) -> dict[str, str] | None:
+    users = _load_super_admin_users()
+    account = users.get(username)
+    if not account or account.get("password", "") != password:
+        return None
+
+    return {
+        "username": username,
+        "name": account.get("name", username),
+        "role": "슈퍼관리자",
+        "email": account.get("email", f"{username}@projectnote.local"),
+        "organization": account.get("organization", "ProjectNote"),
+        "major": account.get("major", "관리"),
+        "team": "SUPER_ADMIN",
+        "is_super_admin": True,
+    }
 
 
 def authenticate_super_admin(username: str, password: str) -> dict[str, str] | None:
+    if not _super_admin_table_exists():
+        return _authenticate_super_admin_from_seed_data(username, password)
+
     _sync_super_admin_accounts()
-    return repository.find_super_admin_for_login(username, password)
+    try:
+        return repository.find_super_admin_for_login(username, password)
+    except (OperationalError, ProgrammingError):
+        return _authenticate_super_admin_from_seed_data(username, password)
