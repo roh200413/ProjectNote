@@ -62,7 +62,6 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 - `server/domains/research_notes`: 연구노트 도메인
 - `server/domains/data_updates`: 데이터 업데이트 도메인
 - `server/domains/signatures`: 서명 도메인
-- `server/domains/dashboard`: 대시보드 집계 도메인
 - `server/application/services.py`, `server/application/schemas.py`: 유스케이스/입력 스키마 파사드
 - `server/infrastructure`: ORM/SQLAlchemy 어댑터
 

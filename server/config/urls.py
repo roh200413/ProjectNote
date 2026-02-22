@@ -3,7 +3,6 @@ from django.urls import path
 from server.application import api
 from server.domains.admin import api as admin_api
 from server.domains.auth import api as auth_api
-from server.domains.dashboard import api as dashboard_api
 from server.domains.data_updates import api as data_updates_api
 from server.domains.projects import api as projects_api
 from server.domains.research_notes import api as research_notes_api
@@ -32,7 +31,7 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
-    path("frontend/workflows", dashboard_api.workflow_home_page),
+    path("frontend/workflows", projects_api.workflow_home_page),
     path("frontend/admin", admin_api.admin_page),
     path("frontend/admin/dashboard", admin_api.admin_dashboard_page),
     path("frontend/admin/teams", admin_api.admin_teams_page),
