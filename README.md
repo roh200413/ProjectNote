@@ -8,8 +8,17 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
+cp .env.example .env
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
+```
+
+## 기본 점검
+개발 서버 실행 전에 아래 명령으로 프로젝트 상태를 빠르게 점검할 수 있습니다.
+
+```bash
+python manage.py check
+pytest -q
 ```
 
 ## DB 적용 및 직접 확인
