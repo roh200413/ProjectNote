@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from workflow_app.models import SignatureState
+from server.models import SignatureState
 
 
 class SignatureRepository:

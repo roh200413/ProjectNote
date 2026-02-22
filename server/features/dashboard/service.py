@@ -1,4 +1,4 @@
-from workflow_app.models import Project, ResearchNote, Researcher
+from server.models import Project, ResearchNote, Researcher
 
 
 class DashboardService:

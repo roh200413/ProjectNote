@@ -10,14 +10,14 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from workflow_app.models import Project, ResearchNote, SuperAdminAccount
-from workflow_app.infrastructure.repositories import WorkflowRepository
-from workflow_app.services import WorkflowService
+from server.models import Project, ResearchNote, SuperAdminAccount
+from server.infrastructure.repositories import WorkflowRepository
+from server.services import WorkflowService
 
 repository = WorkflowRepository()
 service = WorkflowService(repository)
 
-SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_accounts.json"
+SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent / "super_admin_accounts.json"
 
 
 def _page_context(request, extra: dict | None = None) -> dict:

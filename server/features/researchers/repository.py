@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from django.utils import timezone
 
-from workflow_app.models import Researcher
+from server.models import Researcher
 
 
 class ResearcherRepository:

@@ -1,4 +1,4 @@
-from workflow_app.features.projects.schemas import (
+from server.features.projects.schemas import (
     CreateProjectPayload,
     InvitedMemberPayload,
 )

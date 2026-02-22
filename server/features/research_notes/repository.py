@@ -1,4 +1,4 @@
-from workflow_app.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
 
 class ResearchNoteRepository:

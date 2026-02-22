@@ -4,7 +4,7 @@ import string
 from django.db import connection
 from django.db.models import Q
 
-from workflow_app.models import AdminAccount, SuperAdminAccount, Team, UserAccount
+from server.models import AdminAccount, SuperAdminAccount, Team, UserAccount
 
 
 class AdminRepository:

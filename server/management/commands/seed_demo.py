@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from workflow_app.models import (
+from server.models import (
     DataUpdate,
     Project,
     ProjectMember,

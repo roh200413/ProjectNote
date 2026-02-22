@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 
-from workflow_app.models import Project, ProjectMember, ResearchNote, Researcher
+from server.models import Project, ProjectMember, ResearchNote, Researcher
 
 from .entities import CreateProjectCommand, InvitedMemberCommand
 

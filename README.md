@@ -29,7 +29,7 @@ python manage.py migrate
 ### 3) 데모 데이터 생성(옵션)
 ```bash
 python manage.py seed_demo --reset
-python manage.py shell -c "from workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
+python manage.py shell -c "from server.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
 ```
 
 ### 4) SQLite CLI로 직접 확인
@@ -48,14 +48,14 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 
 ## 아키텍처(DDD + ORM)
-- `server/workflow_app/features/projects`: 프로젝트 생성/조회 도메인
-- `server/workflow_app/features/researchers`: 연구자 도메인
-- `server/workflow_app/features/research_notes`: 연구노트 도메인
-- `server/workflow_app/features/data_updates`: 데이터 업데이트 도메인
-- `server/workflow_app/features/signatures`: 서명 도메인
-- `server/workflow_app/features/dashboard`: 대시보드 집계 도메인
-- `server/workflow_app/features`: 유스케이스/입력 스키마(파사드)
-- `server/workflow_app/infrastructure`: ORM/SQLAlchemy 어댑터
+- `server/features/projects`: 프로젝트 생성/조회 도메인
+- `server/features/researchers`: 연구자 도메인
+- `server/features/research_notes`: 연구노트 도메인
+- `server/features/data_updates`: 데이터 업데이트 도메인
+- `server/features/signatures`: 서명 도메인
+- `server/features/dashboard`: 대시보드 집계 도메인
+- `server/services.py`, `server/schemas.py`: 유스케이스/입력 스키마 파사드
+- `server/infrastructure`: ORM/SQLAlchemy 어댑터
 
 현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
 SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.

@@ -1,4 +1,4 @@
-from workflow_app.models import DataUpdate
+from server.models import DataUpdate
 
 
 class DataUpdateRepository:
