@@ -19,14 +19,14 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["server", "."]
 testpaths = ["server/tests"]
-DJANGO_SETTINGS_MODULE = "projectnote.settings"
+DJANGO_SETTINGS_MODULE = "settings"
 
 [tool.ruff]
 line-length = 100
 
 
 [tool.setuptools.packages.find]
-include = ["projectnote*"]
+include = ["workflow_app*"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

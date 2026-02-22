@@ -1,7 +1,7 @@
 # ProjectNote Backend (Django)
 
 연구노트 통합 플랫폼을 위한 Django 기반 백엔드/프론트 프로토타입입니다.
-모든 화면은 `client/templates/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
+모든 화면은 `client/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
 
 ## 실행
 ```bash
@@ -19,7 +19,7 @@ python manage.py runserver 0.0.0.0:8000
 
 - `/workspace/ProjectNote/server/projectnote.db`
 
-`projectnote/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
+`server/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
 
 ### 2) 테이블 생성(마이그레이션)
 ```bash
@@ -29,7 +29,7 @@ python manage.py migrate
 ### 3) 데모 데이터 생성(옵션)
 ```bash
 python manage.py seed_demo --reset
-python manage.py shell -c "from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
+python manage.py shell -c "from workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
 ```
 
 ### 4) SQLite CLI로 직접 확인
@@ -48,14 +48,14 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 
 ## 아키텍처(DDD + ORM)
-- `projectnote/workflow_app/domains/projects`: 프로젝트 생성/조회 도메인
-- `projectnote/workflow_app/domains/researchers`: 연구자 도메인
-- `projectnote/workflow_app/domains/research_notes`: 연구노트 도메인
-- `projectnote/workflow_app/domains/data_updates`: 데이터 업데이트 도메인
-- `projectnote/workflow_app/domains/signatures`: 서명 도메인
-- `projectnote/workflow_app/domains/dashboard`: 대시보드 집계 도메인
-- `projectnote/workflow_app/application`: 유스케이스/입력 스키마(파사드)
-- `projectnote/workflow_app/infrastructure`: ORM/SQLAlchemy 어댑터
+- `server/workflow_app/domains/projects`: 프로젝트 생성/조회 도메인
+- `server/workflow_app/domains/researchers`: 연구자 도메인
+- `server/workflow_app/domains/research_notes`: 연구노트 도메인
+- `server/workflow_app/domains/data_updates`: 데이터 업데이트 도메인
+- `server/workflow_app/domains/signatures`: 서명 도메인
+- `server/workflow_app/domains/dashboard`: 대시보드 집계 도메인
+- `server/workflow_app/application`: 유스케이스/입력 스키마(파사드)
+- `server/workflow_app/infrastructure`: ORM/SQLAlchemy 어댑터
 
 현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
 SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.

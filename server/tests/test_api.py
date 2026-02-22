@@ -1,7 +1,7 @@
 import os
 import uuid
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "projectnote.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
 
 import django
 import pytest
@@ -11,10 +11,10 @@ from django.test import Client
 
 django.setup()
 
-from projectnote.workflow_app.application.schemas import CreateProjectPayload
-from projectnote.workflow_app.domains.projects.service import ProjectService
-from projectnote.workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
-from projectnote.workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
+from workflow_app.application.schemas import CreateProjectPayload
+from workflow_app.domains.projects.service import ProjectService
+from workflow_app.infrastructure.sqlalchemy_session import sqlalchemy_database_url
+from workflow_app.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
 
 pytestmark = pytest.mark.django_db
 
