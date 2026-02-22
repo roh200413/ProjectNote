@@ -12,28 +12,18 @@ from django.views.decorators.http import require_GET, require_http_methods
 from server.models import Project, ResearchNote, SuperAdminAccount
 from server.infrastructure.repositories import WorkflowRepository
 from server.services import WorkflowService
-from server.core import web as core_web
+from server.core import (
+    admin_required_page,
+    json_uuid_validation_error,
+    login_required_page,
+    page_context,
+    save_login_session,
+)
 
 repository = WorkflowRepository()
 service = WorkflowService(repository)
 
 SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent / "super_admin_accounts.json"
-
-
-def _page_context(request, extra: dict | None = None) -> dict:
-    return core_web.page_context(request, extra)
-
-
-def login_required_page(view_func):
-    return core_web.login_required_page(view_func)
-
-
-def admin_required_page(view_func):
-    return core_web.admin_required_page(view_func)
-
-
-def _save_login_session(request, username: str, user: dict[str, str]) -> None:
-    core_web.save_login_session(request, username, user)
 
 
 def _load_super_admin_users() -> dict[str, dict[str, str]]:
@@ -79,10 +69,6 @@ def _authenticate_super_admin(username: str, password: str) -> dict[str, str] | 
     return repository.find_super_admin_for_login(username, password)
 
 
-def _json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
-    return core_web.json_uuid_validation_error(field, raw_input)
-
-
 @require_GET
 def health(_request):
     return JsonResponse({"status": "ok"})
@@ -119,7 +105,7 @@ def login_page(request):
             status=403,
         )
 
-    _save_login_session(request, username, user)
+    save_login_session(request, username, user)
     if next_url.startswith("/"):
         return redirect(next_url)
     return redirect("/frontend/workflows")
@@ -145,7 +131,7 @@ def admin_login_page(request):
             status=401,
         )
 
-    _save_login_session(request, username, user)
+    save_login_session(request, username, user)
     if next_url.startswith("/frontend/admin"):
         return redirect(next_url)
     return redirect("/frontend/admin/dashboard")
@@ -217,7 +203,7 @@ def projects(request):
         try:
             uuid.UUID(org_id)
         except ValueError:
-            return _json_uuid_validation_error("org_id", org_id)
+            return json_uuid_validation_error("org_id", org_id)
     return JsonResponse(repository.list_projects(), safe=False)
 
 
@@ -348,7 +334,7 @@ def workflow_home_page(request):
         {"title": "My Page", "href": "/frontend/my-page", "description": "내 상세 정보와 전자서명을 확인합니다."},
         {"title": "ADMIN", "href": "/frontend/admin", "description": "운영 지표와 최근 액션을 조회합니다."},
     ]
-    return render(request, "workflow/home.html", _page_context(request, {"cards": cards}))
+    return render(request, "workflow/home.html", page_context(request, {"cards": cards}))
 
 
 @require_GET
@@ -377,7 +363,7 @@ def admin_dashboard_page(request):
     return render(
         request,
         "admin/dashboard.html",
-        _page_context(
+        page_context(
             request,
             {
                 "summary": repository.dashboard_counts(),
@@ -394,7 +380,7 @@ def admin_teams_page(request):
     return render(
         request,
         "admin/teams.html",
-        _page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+        page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
     )
 
 @require_GET
@@ -405,7 +391,7 @@ def admin_users_page(request):
     return render(
         request,
         "admin/users.html",
-        _page_context(
+        page_context(
             request,
             {
                 "admin_accounts": repository.list_all_users(keyword=keyword),
@@ -423,7 +409,7 @@ def admin_tables_page(request):
     return render(
         request,
         "admin/tables.html",
-        _page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
+        page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
     )
 
 
@@ -431,7 +417,7 @@ def admin_tables_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def project_management_page(request):
-    return render(request, "workflow/projects.html", _page_context(request, {"projects": repository.list_projects()}))
+    return render(request, "workflow/projects.html", page_context(request, {"projects": repository.list_projects()}))
 
 
 @require_GET
@@ -441,7 +427,7 @@ def project_create_page(request):
     return render(
         request,
         "workflow/project_create.html",
-        _page_context(request, {"researcher_groups": repository.researcher_groups_for_selection()}),
+        page_context(request, {"researcher_groups": repository.researcher_groups_for_selection()}),
     )
 
 
@@ -462,7 +448,7 @@ def project_detail_page(request, project_id: str):
     return render(
         request,
         "workflow/project_detail.html",
-        _page_context(
+        page_context(
             request,
             {
                 "project": project,
@@ -479,14 +465,14 @@ def project_detail_page(request, project_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def researchers_page(request):
-    return render(request, "workflow/researchers.html", _page_context(request, {"researchers": repository.list_researchers()}))
+    return render(request, "workflow/researchers.html", page_context(request, {"researchers": repository.list_researchers()}))
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def data_updates_page(request):
-    return render(request, "workflow/data_updates.html", _page_context(request, {"updates": repository.list_data_updates()}))
+    return render(request, "workflow/data_updates.html", page_context(request, {"updates": repository.list_data_updates()}))
 
 
 @require_GET
@@ -496,7 +482,7 @@ def final_download_page(request):
     return render(
         request,
         "workflow/final_download.html",
-        _page_context(request, {"report_name": "projectnote-final-report.pdf"}),
+        page_context(request, {"report_name": "projectnote-final-report.pdf"}),
     )
 
 
@@ -504,7 +490,7 @@ def final_download_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    return render(request, "workflow/signatures.html", _page_context(request, {"signature": repository.read_signature()}))
+    return render(request, "workflow/signatures.html", page_context(request, {"signature": repository.read_signature()}))
 
 
 @require_GET
@@ -513,7 +499,7 @@ def signature_page(request):
 def my_page(request):
     profile = request.session.get("user_profile", {}).copy()
     profile["signature"] = profile.get("signature_data_url", "")
-    return render(request, "workflow/my_page.html", _page_context(request, {"profile": profile}))
+    return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
 
 
 @require_http_methods(["POST"])
@@ -533,7 +519,7 @@ def update_my_signature(request):
 @ensure_csrf_cookie
 @login_required_page
 def research_notes_page(request):
-    return render(request, "research_notes/list.html", _page_context(request, {"notes": repository.list_research_notes()}))
+    return render(request, "research_notes/list.html", page_context(request, {"notes": repository.list_research_notes()}))
 
 
 @require_GET
@@ -547,7 +533,7 @@ def research_note_detail_page(request, note_id: str):
     return render(
         request,
         "research_notes/detail.html",
-        _page_context(
+        page_context(
             request,
             {
                 "note": note,
@@ -570,5 +556,5 @@ def research_note_viewer_page(request, note_id: str):
     return render(
         request,
         "research_notes/viewer.html",
-        _page_context(request, {"note": note, "file": files[0] if files else None}),
+        page_context(request, {"note": note, "file": files[0] if files else None}),
     )
