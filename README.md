@@ -37,7 +37,7 @@ python manage.py migrate
 
 ### 3) 데모 데이터 생성(옵션)
 ```bash
-python manage.py seed_demo --reset
+python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
 python manage.py shell -c "from server.infrastructure.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
 ```
 
@@ -82,7 +82,7 @@ SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
 ## 관리자 초기 설정
 ```bash
 python manage.py migrate
-python manage.py seed_demo --reset
+python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
 ```
 
 - `/frontend/admin`에서 팀 생성
