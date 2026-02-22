@@ -50,7 +50,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 ## server 정리 구조
 - `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
-- `server/application/`: 앱 파사드/엔트리(`models.py`, `views.py`, `services.py`, `schemas.py`, `repositories.py`)
+- `server/application/`: 앱 파사드/엔트리(`api.py`, `models.py`, `views.py`, `services.py`, `schemas.py`, `repositories.py`)
 - `server/domains/`: DDD 도메인별 비즈니스 모듈
 - `server/infrastructure/`: 저장소/SQLAlchemy 어댑터
 
