@@ -50,12 +50,13 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 ## server 정리 구조
 - `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
-- `server/application/`: 앱 파사드/엔트리(`api.py`, `models.py`, `views.py`, `services.py`, `schemas.py`, `repositories.py`)
+- `server/application/`: 애플리케이션 파사드/조합 계층(`api.py`, `models.py`, `services.py`, `schemas.py`, `repositories.py`, `web_support.py`)
 - `server/domains/`: DDD 도메인별 비즈니스 모듈
 - `server/infrastructure/`: 저장소/SQLAlchemy 어댑터
 
 ## 아키텍처(DDD + ORM)
-- `server/application/views.py`: 인증 데코레이터/세션/요청 검증 등 공통 웹 헬퍼 포함
+- `application` 역할: 도메인 객체를 HTTP/검증/응답에 맞게 조합하는 유스케이스 계층(도메인 규칙 자체는 `domains`에 유지)
+- `server/domains/*/http.py`: 도메인별 API/페이지 엔드포인트
 - `server/domains/projects`: 프로젝트 생성/조회 도메인
 - `server/domains/researchers`: 연구자 도메인
 - `server/domains/research_notes`: 연구노트 도메인

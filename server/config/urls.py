@@ -1,12 +1,20 @@
 from django.urls import path
 
-from server.application import api, views
+from server.application import api
+from server.domains.admin import http as admin_http
+from server.domains.auth import http as auth_http
+from server.domains.dashboard import http as dashboard_http
+from server.domains.data_updates import http as data_updates_http
+from server.domains.projects import http as projects_http
+from server.domains.research_notes import http as research_notes_http
+from server.domains.researchers import http as researchers_http
+from server.domains.signatures import http as signatures_http
 
 urlpatterns = [
-    path("login", views.login_page),
-    path("admin/login", views.admin_login_page),
-    path("signup", views.signup_page),
-    path("logout", views.logout_page),
+    path("login", auth_http.login_page),
+    path("admin/login", auth_http.admin_login_page),
+    path("signup", auth_http.signup_page),
+    path("logout", auth_http.logout_page),
     path("api/v1/auth/signup", api.signup_api),
     path("api/v1/health", api.health),
     path("api/v1/frontend/bootstrap", api.frontend_bootstrap),
@@ -24,22 +32,22 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
-    path("frontend/workflows", views.workflow_home_page),
-    path("frontend/admin", views.admin_page),
-    path("frontend/admin/dashboard", views.admin_dashboard_page),
-    path("frontend/admin/teams", views.admin_teams_page),
-    path("frontend/admin/users", views.admin_users_page),
-    path("frontend/admin/tables", views.admin_tables_page),
-    path("frontend/projects", views.project_management_page),
-    path("frontend/projects/create", views.project_create_page),
-    path("frontend/projects/<str:project_id>", views.project_detail_page),
-    path("frontend/my-page", views.my_page),
-    path("frontend/my-page/signature", views.update_my_signature),
-    path("frontend/researchers", views.researchers_page),
-    path("frontend/data-updates", views.data_updates_page),
-    path("frontend/final-download", views.final_download_page),
-    path("frontend/signatures", views.signature_page),
-    path("frontend/research-notes", views.research_notes_page),
-    path("frontend/research-notes/<str:note_id>", views.research_note_detail_page),
-    path("frontend/research-notes/<str:note_id>/viewer", views.research_note_viewer_page),
+    path("frontend/workflows", dashboard_http.workflow_home_page),
+    path("frontend/admin", admin_http.admin_page),
+    path("frontend/admin/dashboard", admin_http.admin_dashboard_page),
+    path("frontend/admin/teams", admin_http.admin_teams_page),
+    path("frontend/admin/users", admin_http.admin_users_page),
+    path("frontend/admin/tables", admin_http.admin_tables_page),
+    path("frontend/projects", projects_http.project_management_page),
+    path("frontend/projects/create", projects_http.project_create_page),
+    path("frontend/projects/<str:project_id>", projects_http.project_detail_page),
+    path("frontend/my-page", signatures_http.my_page),
+    path("frontend/my-page/signature", signatures_http.update_my_signature),
+    path("frontend/researchers", researchers_http.researchers_page),
+    path("frontend/data-updates", data_updates_http.data_updates_page),
+    path("frontend/final-download", signatures_http.final_download_page),
+    path("frontend/signatures", signatures_http.signature_page),
+    path("frontend/research-notes", research_notes_http.research_notes_page),
+    path("frontend/research-notes/<str:note_id>", research_notes_http.research_note_detail_page),
+    path("frontend/research-notes/<str:note_id>/viewer", research_notes_http.research_note_viewer_page),
 ]
