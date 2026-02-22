@@ -1,4 +1,4 @@
-from server.domains.auth.http import (
+from server.domains.auth.api import (
     admin_login_page,
     frontend_bootstrap,
     health,

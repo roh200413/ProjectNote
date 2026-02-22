@@ -56,7 +56,7 @@ sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_
 
 ## 아키텍처(DDD + ORM)
 - `application` 역할: 도메인 객체를 HTTP/검증/응답에 맞게 조합하는 유스케이스 계층(도메인 규칙 자체는 `domains`에 유지)
-- `server/domains/*/http.py`: 도메인별 API/페이지 엔드포인트
+- `server/domains/*/api.py`: 도메인별 API/페이지 엔드포인트
 - `server/domains/projects`: 프로젝트 생성/조회 도메인
 - `server/domains/researchers`: 연구자 도메인
 - `server/domains/research_notes`: 연구노트 도메인
