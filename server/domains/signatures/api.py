@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import login_required_page, page_context, repository
+from server.application.web_support import login_required_page, page_context, signature_repository
 
 
 @require_GET
@@ -21,8 +21,8 @@ def final_download_api(_request):
 @require_http_methods(["GET", "POST"])
 def signature_api(request):
     if request.method == "GET":
-        return JsonResponse(repository.read_signature())
-    payload = repository.update_signature(
+        return JsonResponse(signature_repository.read_signature())
+    payload = signature_repository.update_signature(
         signed_by=request.POST.get("signed_by", ""), status=request.POST.get("status", "valid")
     )
     return JsonResponse(payload)
@@ -43,7 +43,7 @@ def final_download_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    return render(request, "workflow/signatures.html", page_context(request, {"signature": repository.read_signature()}))
+    return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature()}))
 
 
 @require_GET

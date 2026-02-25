@@ -4,7 +4,7 @@ import string
 from django.db import connection
 from django.db.models import Q
 
-from server.application.models import AdminAccount, SuperAdminAccount, Team, UserAccount
+from .models import AdminAccount, SuperAdminAccount, Team, UserAccount
 
 
 class AdminRepository:
