@@ -1,4 +1,4 @@
-from server.application.models import DataUpdate
+from .models import DataUpdate
 
 
 class DataUpdateRepository:

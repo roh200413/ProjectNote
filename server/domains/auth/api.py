@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from server.application.web_support import (
     authenticate_login_user,
     authenticate_super_admin,
-    repository,
+    admin_repository,
     save_login_session,
 )
 
@@ -112,7 +112,7 @@ def signup_api(request):
         return JsonResponse({"detail": "username/display_name/email/password는 필수입니다."}, status=400)
 
     try:
-        registered = repository.register_user(
+        registered = admin_repository.register_user(
             username=username,
             display_name=display_name,
             email=email,

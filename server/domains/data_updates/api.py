@@ -3,18 +3,18 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import login_required_page, page_context, repository
+from server.application.web_support import data_update_repository, login_required_page, page_context
 
 
 @require_http_methods(["GET", "POST"])
 def data_updates_api(request):
     if request.method == "GET":
-        return JsonResponse(repository.list_data_updates(), safe=False)
-    return JsonResponse(repository.create_data_update(dict(request.POST)), status=201)
+        return JsonResponse(data_update_repository.list_data_updates(), safe=False)
+    return JsonResponse(data_update_repository.create_data_update(dict(request.POST)), status=201)
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def data_updates_page(request):
-    return render(request, "workflow/data_updates.html", page_context(request, {"updates": repository.list_data_updates()}))
+    return render(request, "workflow/data_updates.html", page_context(request, {"updates": data_update_repository.list_data_updates()}))

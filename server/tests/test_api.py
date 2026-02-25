@@ -11,12 +11,15 @@ from django.test import Client
 
 django.setup()
 
-from server.application.schemas import CreateProjectPayload
+from server.domains.projects.schemas import CreateProjectPayload
 from server.domains.projects.service import ProjectService
 from server.application.sqlalchemy_session import sqlalchemy_database_url
 from server.application import web_support
 from server.application.mock_data import seed_demo_data
-from server.application.models import Project, ProjectMember, ResearchNote, ResearchNoteFile, ResearchNoteFolder, Researcher, Team, UserAccount
+from server.domains.admin.models import Team, UserAccount
+from server.domains.projects.models import Project, ProjectMember
+from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.researchers.models import Researcher
 
 pytestmark = pytest.mark.django_db
 
