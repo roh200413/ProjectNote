@@ -4,18 +4,18 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import ResearchNote
-from server.application.web_support import login_required_page, page_context, repository
+from server.application.web_support import login_required_page, page_context, research_note_repository
 
 
 @require_GET
 def research_notes_api(_request):
-    return JsonResponse(repository.list_research_notes(), safe=False)
+    return JsonResponse(research_note_repository.list_research_notes(), safe=False)
 
 
 @require_GET
 def research_note_detail_api(_request, note_id: str):
     try:
-        return JsonResponse(repository.get_research_note(note_id))
+        return JsonResponse(research_note_repository.get_research_note(note_id))
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
@@ -23,7 +23,7 @@ def research_note_detail_api(_request, note_id: str):
 @require_http_methods(["POST"])
 def research_note_update_api(request, note_id: str):
     try:
-        note = repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"))
+        note = research_note_repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"))
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
     return JsonResponse({"message": "연구노트가 업데이트되었습니다.", "note": note})
@@ -33,7 +33,7 @@ def research_note_update_api(request, note_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_notes_page(request):
-    return render(request, "research_notes/list.html", page_context(request, {"notes": repository.list_research_notes()}))
+    return render(request, "research_notes/list.html", page_context(request, {"notes": research_note_repository.list_research_notes()}))
 
 
 @require_GET
@@ -41,7 +41,7 @@ def research_notes_page(request):
 @login_required_page
 def research_note_detail_page(request, note_id: str):
     try:
-        note = repository.get_research_note(note_id)
+        note = research_note_repository.get_research_note(note_id)
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
     return render(
@@ -51,8 +51,8 @@ def research_note_detail_page(request, note_id: str):
             request,
             {
                 "note": note,
-                "files": repository.list_note_files(note_id),
-                "folders": repository.list_note_folders(note_id),
+                "files": research_note_repository.list_note_files(note_id),
+                "folders": research_note_repository.list_note_folders(note_id),
             },
         ),
     )
@@ -63,11 +63,11 @@ def research_note_detail_page(request, note_id: str):
 @login_required_page
 def research_note_viewer_page(request, note_id: str):
     try:
-        note = repository.get_research_note(note_id)
+        note = research_note_repository.get_research_note(note_id)
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
-    files = repository.list_note_files(note_id)
+    files = research_note_repository.list_note_files(note_id)
     if not files:
         raise Http404("Research note file not found")
 
@@ -87,7 +87,7 @@ def research_note_viewer_page(request, note_id: str):
                 "note": note,
                 "files": files,
                 "selected_file": selected_file,
-                "folders": repository.list_note_folders(note_id),
+                "folders": research_note_repository.list_note_folders(note_id),
             },
         ),
     )

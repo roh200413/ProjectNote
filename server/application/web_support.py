@@ -8,13 +8,33 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 
+from server.domains.admin import AdminRepository
 from server.domains.admin.models import SuperAdminAccount
-from server.application.repositories import WorkflowRepository
-from server.application.services import WorkflowService
+from server.domains.data_updates import DataUpdateRepository
+from server.domains.projects import ProjectRepository, ProjectService
+from server.domains.projects.models import Project
+from server.domains.research_notes import ResearchNoteRepository
+from server.domains.research_notes.models import ResearchNote
+from server.domains.researchers import ResearcherRepository
+from server.domains.researchers.models import Researcher
+from server.domains.signatures import SignatureRepository
 
-repository = WorkflowRepository()
-service = WorkflowService(repository)
+admin_repository = AdminRepository()
+project_repository = ProjectRepository()
+researcher_repository = ResearcherRepository()
+research_note_repository = ResearchNoteRepository()
+data_update_repository = DataUpdateRepository()
+signature_repository = SignatureRepository()
+project_service = ProjectService(project_repository)
 SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_accounts.json"
+
+
+def dashboard_counts() -> dict:
+    return {
+        "projects": Project.objects.count(),
+        "researchers": Researcher.objects.count(),
+        "notes": ResearchNote.objects.count(),
+    }
 
 
 def page_context(request, extra: dict | None = None) -> dict:
@@ -89,7 +109,7 @@ def json_uuid_validation_error(field: str, raw_input: str) -> JsonResponse:
 
 
 def authenticate_login_user(username: str, password: str) -> dict[str, str] | None:
-    return repository.find_user_for_login(username, password)
+    return admin_repository.find_user_for_login(username, password)
 
 
 def _load_super_admin_users() -> dict[str, dict[str, str]]:
@@ -161,6 +181,6 @@ def authenticate_super_admin(username: str, password: str) -> dict[str, str] | N
 
     _sync_super_admin_accounts()
     try:
-        return repository.find_super_admin_for_login(username, password)
+        return admin_repository.find_super_admin_for_login(username, password)
     except (OperationalError, ProgrammingError):
         return _authenticate_super_admin_from_seed_data(username, password)
