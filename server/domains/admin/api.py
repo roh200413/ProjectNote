@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import admin_required_page, page_context, repository
+from server.application.web_support import admin_repository, admin_required_page, dashboard_counts, page_context
 
 
 def _admin_navigation(current: str) -> list[dict[str, str]]:
@@ -29,7 +29,7 @@ def admin_teams_api(request):
 def admin_users_api(request):
     if request.method == "GET":
         keyword = request.GET.get("q", "").strip()
-        return JsonResponse(repository.list_all_users(keyword=keyword), safe=False)
+        return JsonResponse(admin_repository.list_all_users(keyword=keyword), safe=False)
 
     user_id = request.POST.get("user_id", "").strip()
     team_id_raw = request.POST.get("team_id", "").strip()
@@ -43,7 +43,7 @@ def admin_users_api(request):
         team_id = int(team_id_raw)
 
     try:
-        payload = repository.assign_user_team(user_id=int(user_id), team_id=team_id)
+        payload = admin_repository.assign_user_team(user_id=int(user_id), team_id=team_id)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     return JsonResponse(payload)
@@ -52,14 +52,14 @@ def admin_users_api(request):
 @require_GET
 @admin_required_page
 def admin_tables_api(_request):
-    return JsonResponse(repository.list_managed_tables(), safe=False)
+    return JsonResponse(admin_repository.list_managed_tables(), safe=False)
 
 
 @require_http_methods(["POST"])
 @admin_required_page
 def admin_table_truncate_api(_request, table_name: str):
     try:
-        repository.truncate_table(table_name)
+        admin_repository.truncate_table(table_name)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     return JsonResponse({"message": f"{table_name} 테이블 데이터가 삭제되었습니다."})
@@ -82,7 +82,7 @@ def admin_dashboard_page(request):
         page_context(
             request,
             {
-                "summary": repository.dashboard_counts(),
+                "summary": dashboard_counts(),
                 "admin_nav_items": _admin_navigation("dashboard"),
             },
         ),
@@ -96,7 +96,7 @@ def admin_teams_page(request):
     return render(
         request,
         "admin/teams.html",
-        page_context(request, {"teams": repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
+        page_context(request, {"teams": admin_repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
     )
 
 
@@ -111,8 +111,8 @@ def admin_users_page(request):
         page_context(
             request,
             {
-                "admin_accounts": repository.list_all_users(keyword=keyword),
-                "teams": repository.list_teams(),
+                "admin_accounts": admin_repository.list_all_users(keyword=keyword),
+                "teams": admin_repository.list_teams(),
                 "keyword": keyword,
                 "admin_nav_items": _admin_navigation("users"),
             },
@@ -127,5 +127,5 @@ def admin_tables_page(request):
     return render(
         request,
         "admin/tables.html",
-        page_context(request, {"tables": repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
+        page_context(request, {"tables": admin_repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
     )
