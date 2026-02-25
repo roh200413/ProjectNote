@@ -1,15 +1,10 @@
 from django.utils import timezone
 
-from server.application.models import (
-    DataUpdate,
-    Project,
-    ProjectMember,
-    ResearchNote,
-    ResearchNoteFile,
-    ResearchNoteFolder,
-    Researcher,
-    SignatureState,
-)
+from server.domains.data_updates.models import DataUpdate
+from server.domains.projects.models import Project, ProjectMember
+from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.researchers.models import Researcher
+from server.domains.signatures.models import SignatureState
 
 
 def seed_demo_data(reset: bool = False) -> dict[str, int]:
