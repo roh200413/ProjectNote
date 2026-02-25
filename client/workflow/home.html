@@ -43,22 +43,6 @@
   </div>
 </section>
 
-<aside
-  id="projectQuickPanel"
-  class="pn-card"
-  style="position:fixed;left:260px;bottom:16px;width:220px;display:none;z-index:20"
->
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
-    <strong id="projectQuickTitle">프로젝트 메뉴</strong>
-    <button class="pn-btn ghost" id="closeProjectQuickPanel" type="button" style="padding:4px 8px">닫기</button>
-  </div>
-  <div class="pn-grid" style="gap:8px">
-    <a id="btnProjectDetail" class="pn-side-list" href="#">프로젝트 상세</a>
-    <a id="btnProjectNotes" class="pn-side-list" href="#">연구노트</a>
-    <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">연구자</a>
-    <a id="btnProjectGit" class="pn-side-list" href="/frontend/signatures">GIT</a>
-  </div>
-</aside>
 
 <script>
   (function () {
@@ -70,7 +54,8 @@
     const selects = document.querySelectorAll('.js-project-select');
 
     function openPanel(projectId, projectName) {
-      panel.style.display = 'block';
+      if (!panel) return;
+      panel.classList.add('active');
       panelTitle.textContent = projectName + ' 메뉴';
       detailButton.href = '/frontend/projects/' + projectId;
       notesButton.href = '/frontend/research-notes';
@@ -84,7 +69,7 @@
 
     if (closeButton) {
       closeButton.addEventListener('click', function () {
-        panel.style.display = 'none';
+        panel.classList.remove('active');
       });
     }
   })();
