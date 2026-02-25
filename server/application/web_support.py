@@ -8,7 +8,7 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 
-from server.application.models import SuperAdminAccount
+from server.domains.admin.models import SuperAdminAccount
 from server.application.repositories import WorkflowRepository
 from server.application.services import WorkflowService
 

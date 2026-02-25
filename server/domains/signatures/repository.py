@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from server.application.models import SignatureState
+from .models import SignatureState
 
 
 class SignatureRepository:

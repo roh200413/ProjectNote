@@ -8,7 +8,9 @@ from server.domains.projects import (
 from server.domains.research_notes import ResearchNoteRepository
 from server.domains.researchers import ResearcherRepository
 from server.domains.signatures import SignatureRepository
-from server.application.models import Project, ResearchNote, Researcher
+from server.domains.projects.models import Project
+from server.domains.research_notes.models import ResearchNote
+from server.domains.researchers.models import Researcher
 
 
 class WorkflowRepository:

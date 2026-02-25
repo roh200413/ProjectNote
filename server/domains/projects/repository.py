@@ -1,7 +1,10 @@
 from collections import defaultdict
 from datetime import datetime
 
-from server.application.models import Project, ProjectMember, ResearchNote, Researcher
+from server.domains.research_notes.models import ResearchNote
+from server.domains.researchers.models import Researcher
+
+from .models import Project, ProjectMember
 
 from .entities import CreateProjectCommand, InvitedMemberCommand
 
