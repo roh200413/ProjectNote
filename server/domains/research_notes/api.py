@@ -3,7 +3,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.models import ResearchNote
+from .models import ResearchNote
 from server.application.web_support import login_required_page, page_context, repository
 
 
