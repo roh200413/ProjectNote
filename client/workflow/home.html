@@ -46,32 +46,17 @@
 
 <script>
   (function () {
-    const panel = document.getElementById('projectQuickPanel');
-    const panelTitle = document.getElementById('projectQuickTitle');
-    const closeButton = document.getElementById('closeProjectQuickPanel');
-    const detailButton = document.getElementById('btnProjectDetail');
-    const notesButton = document.getElementById('btnProjectNotes');
     const selects = document.querySelectorAll('.js-project-select');
-
-    function openPanel(projectId, projectName) {
-      if (!panel) return;
-      panel.classList.add('active');
-      panelTitle.textContent = projectName + ' 메뉴';
-      detailButton.href = '/frontend/projects/' + projectId;
-      notesButton.href = '/frontend/research-notes';
-    }
 
     selects.forEach((button) => {
       button.addEventListener('click', function () {
-        openPanel(button.dataset.projectId, button.dataset.projectName);
+        const projectId = button.dataset.projectId;
+        const projectName = button.dataset.projectName;
+        sessionStorage.setItem('pnSelectedProjectId', projectId);
+        sessionStorage.setItem('pnSelectedProjectName', projectName);
+        window.location.href = '/frontend/projects/' + projectId;
       });
     });
-
-    if (closeButton) {
-      closeButton.addEventListener('click', function () {
-        panel.classList.remove('active');
-      });
-    }
   })();
 </script>
 {% endblock %}

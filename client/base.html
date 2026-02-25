@@ -145,11 +145,41 @@
   <script>
     const sidebarToggle = document.getElementById('sidebarToggle');
     const layout = document.querySelector('.pn-layout');
+    const panel = document.getElementById('projectQuickPanel');
+    const panelTitle = document.getElementById('projectQuickTitle');
+    const closeButton = document.getElementById('closeProjectQuickPanel');
+    const detailButton = document.getElementById('btnProjectDetail');
+    const notesButton = document.getElementById('btnProjectNotes');
+
+    function syncProjectQuickPanel() {
+      if (!panel || !panelTitle || !detailButton || !notesButton) return;
+      const projectId = sessionStorage.getItem('pnSelectedProjectId');
+      const projectName = sessionStorage.getItem('pnSelectedProjectName');
+      if (!projectId || !projectName) {
+        panel.classList.remove('active');
+        return;
+      }
+      panel.classList.add('active');
+      panelTitle.textContent = projectName + ' 메뉴';
+      detailButton.href = '/frontend/projects/' + projectId;
+      notesButton.href = '/frontend/research-notes';
+    }
+
     if (sidebarToggle && layout) {
       sidebarToggle.addEventListener('click', () => {
         layout.classList.toggle('sidebar-collapsed');
       });
     }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        sessionStorage.removeItem('pnSelectedProjectId');
+        sessionStorage.removeItem('pnSelectedProjectName');
+        panel?.classList.remove('active');
+      });
+    }
+
+    syncProjectQuickPanel();
   </script>
 </body>
 </html>
