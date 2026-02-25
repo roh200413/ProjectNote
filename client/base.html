@@ -18,11 +18,23 @@
     }
     * { box-sizing:border-box; }
     body { margin:0; font-family:Pretendard,Inter,Arial,sans-serif; background:var(--bg); color:var(--text); }
-    .pn-layout { display:grid; grid-template-columns:66px 1fr; min-height:100vh; }
-    .pn-sidebar { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:12px 8px; gap:12px; }
-    .pn-logo { font-size:12px; font-weight:800; color:#2563eb; margin-bottom:8px; }
-    .pn-sidebtn { width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:#f7f9fc; display:flex; align-items:center; justify-content:center; text-decoration:none; color:#4b5563; }
-    .pn-sidebtn.active,.pn-sidebtn:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; }
+    .pn-layout { display:grid; grid-template-columns:240px 1fr; min-height:100vh; transition:grid-template-columns .25s ease; }
+    .pn-layout.sidebar-collapsed { grid-template-columns:76px 1fr; }
+    .pn-sidebar { background:#fff; border-right:1px solid var(--line); display:flex; flex-direction:column; padding:12px 10px; gap:12px; overflow:hidden; }
+    .pn-side-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; }
+    .pn-logo { font-size:14px; font-weight:800; color:#2563eb; white-space:nowrap; }
+    .pn-collapse-btn { width:32px; height:32px; border-radius:10px; border:1px solid var(--line); background:#f8fafc; color:#334155; cursor:pointer; }
+    .pn-collapse-btn:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; }
+    .pn-menu { display:flex; flex-direction:column; gap:8px; }
+    .pn-side-link { display:flex; align-items:center; gap:10px; border:1px solid var(--line); background:#f8fafc; border-radius:10px; color:#334155; text-decoration:none; padding:10px 12px; font-size:14px; font-weight:600; }
+    .pn-side-link:hover,.pn-side-link.active { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; }
+    .pn-side-icon { width:20px; text-align:center; font-size:16px; }
+    .pn-side-text { white-space:nowrap; }
+
+    .sidebar-collapsed .pn-logo,
+    .sidebar-collapsed .pn-side-text { display:none; }
+    .sidebar-collapsed .pn-side-head { justify-content:center; }
+    .sidebar-collapsed .pn-side-link { justify-content:center; padding:10px; }
 
     .pn-main { padding:12px 18px 28px; }
     .pn-top { height:52px; display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; box-shadow:var(--shadow); }
@@ -55,6 +67,10 @@
     .pn-side-list { display:block; padding:10px 12px; border:1px solid var(--line); border-radius:9px; color:#334155; text-decoration:none; font-size:14px; }
     .pn-side-list.active,.pn-side-list:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; font-weight:700; }
 
+    .pn-sidebar-quick { display:none; margin-top:6px; }
+    .pn-sidebar-quick.active { display:block; }
+    .sidebar-collapsed .pn-sidebar-quick { display:none !important; }
+
     @media (max-width: 900px) {
       .pn-layout { grid-template-columns:1fr; }
       .pn-sidebar { display:none; }
@@ -76,11 +92,33 @@
 <body>
   <div class="pn-layout">
     <aside class="pn-sidebar">
-      <div class="pn-logo">Project Note</div>
-      <a class="pn-sidebtn active" href="/frontend/workflows">🏠</a>
-      <a class="pn-sidebtn" href="/frontend/projects">📁</a>
-      <a class="pn-sidebtn" href="/frontend/research-notes">🗂️</a>
-      <a class="pn-sidebtn" href="/frontend/researchers">👥</a>
+      <div class="pn-side-head">
+        <div class="pn-logo">Project Note</div>
+        <button class="pn-collapse-btn" type="button" id="sidebarToggle" aria-label="사이드바 접기/펼치기">☰</button>
+      </div>
+      <nav class="pn-menu">
+        <a class="pn-side-link {% if request.path == '/frontend/workflows' %}active{% endif %}" href="/frontend/workflows">
+          <span class="pn-side-icon">🏠</span>
+          <span class="pn-side-text">대시보드</span>
+        </a>
+        <a class="pn-side-link {% if '/frontend/researchers' in request.path %}active{% endif %}" href="/frontend/researchers">
+          <span class="pn-side-icon">📊</span>
+          <span class="pn-side-text">연구자 등록</span>
+        </a>
+      </nav>
+
+      <aside id="projectQuickPanel" class="pn-card pn-sidebar-quick">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+          <strong id="projectQuickTitle">프로젝트 메뉴</strong>
+          <button class="pn-btn ghost" id="closeProjectQuickPanel" type="button" style="padding:4px 8px">닫기</button>
+        </div>
+        <div class="pn-grid" style="gap:8px">
+          <a id="btnProjectDetail" class="pn-side-list" href="#">프로젝트 상세</a>
+          <a id="btnProjectNotes" class="pn-side-list" href="#">연구노트</a>
+          <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">연구자</a>
+          <a id="btnProjectGit" class="pn-side-list" href="/frontend/signatures">GIT</a>
+        </div>
+      </aside>
     </aside>
     <section class="pn-main">
       <header class="pn-top">
@@ -104,5 +142,44 @@
       </main>
     </section>
   </div>
+  <script>
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const layout = document.querySelector('.pn-layout');
+    const panel = document.getElementById('projectQuickPanel');
+    const panelTitle = document.getElementById('projectQuickTitle');
+    const closeButton = document.getElementById('closeProjectQuickPanel');
+    const detailButton = document.getElementById('btnProjectDetail');
+    const notesButton = document.getElementById('btnProjectNotes');
+
+    function syncProjectQuickPanel() {
+      if (!panel || !panelTitle || !detailButton || !notesButton) return;
+      const projectId = sessionStorage.getItem('pnSelectedProjectId');
+      const projectName = sessionStorage.getItem('pnSelectedProjectName');
+      if (!projectId || !projectName) {
+        panel.classList.remove('active');
+        return;
+      }
+      panel.classList.add('active');
+      panelTitle.textContent = projectName + ' 메뉴';
+      detailButton.href = '/frontend/projects/' + projectId;
+      notesButton.href = '/frontend/research-notes';
+    }
+
+    if (sidebarToggle && layout) {
+      sidebarToggle.addEventListener('click', () => {
+        layout.classList.toggle('sidebar-collapsed');
+      });
+    }
+
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        sessionStorage.removeItem('pnSelectedProjectId');
+        sessionStorage.removeItem('pnSelectedProjectName');
+        panel?.classList.remove('active');
+      });
+    }
+
+    syncProjectQuickPanel();
+  </script>
 </body>
 </html>
