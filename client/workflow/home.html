@@ -4,15 +4,15 @@
 {% block content %}
 <section class="pn-card" style="margin-bottom:12px">
   <h3 style="margin:0 0 8px">내가 관리중인 전체 프로젝트</h3>
-  <p class="pn-sub" style="margin:0 0 12px">현재 로그인한 사용자 기준으로 관리중인 프로젝트를 확인할 수 있습니다.</p>
+  <p class="pn-sub" style="margin:0 0 12px">프로젝트를 클릭하면 좌측 하단에 프로젝트 관련 메뉴가 열립니다.</p>
   {% if managed_projects %}
-  <table class="pn-table">
+  <table class="pn-table" id="managedProjectTable">
     <thead>
       <tr>
         <th>프로젝트명</th>
         <th>상태</th>
         <th>기관</th>
-        <th>상세</th>
+        <th>선택</th>
       </tr>
     </thead>
     <tbody>
@@ -21,7 +21,15 @@
         <td>{{ p.name }}</td>
         <td><span class="pn-badge {% if p.status != 'active' %}gray{% endif %}">{{ p.status }}</span></td>
         <td>{{ p.organization|default:'미지정' }}</td>
-        <td><a class="pn-btn soft" style="text-decoration:none;padding:6px 10px" href="/frontend/projects/{{ p.id }}">보기</a></td>
+        <td>
+          <button
+            class="pn-btn soft js-project-select"
+            style="padding:6px 10px"
+            type="button"
+            data-project-id="{{ p.id }}"
+            data-project-name="{{ p.name }}"
+          >열기</button>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -29,15 +37,56 @@
   {% else %}
     <div class="pn-sub">관리중인 프로젝트가 없습니다.</div>
   {% endif %}
+  <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+    <button class="pn-btn ghost" onclick="location.href='/frontend/data-updates'">활동내역</button>
+    <button class="pn-btn" onclick="location.href='/frontend/projects/create'">프로젝트 생성</button>
+  </div>
 </section>
 
-<section class="pn-grid cols-2">
-  {% for card in cards %}
-    <article class="pn-card">
-      <h3 style="margin:0 0 8px">{{ card.title }}</h3>
-      <p class="pn-sub" style="margin:0 0 12px">{{ card.description }}</p>
-      <a class="pn-btn" style="display:inline-block;text-decoration:none" href="{{ card.href }}">바로가기</a>
-    </article>
-  {% endfor %}
-</section>
+<aside
+  id="projectQuickPanel"
+  class="pn-card"
+  style="position:fixed;left:260px;bottom:16px;width:220px;display:none;z-index:20"
+>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+    <strong id="projectQuickTitle">프로젝트 메뉴</strong>
+    <button class="pn-btn ghost" id="closeProjectQuickPanel" type="button" style="padding:4px 8px">닫기</button>
+  </div>
+  <div class="pn-grid" style="gap:8px">
+    <a id="btnProjectDetail" class="pn-side-list" href="#">프로젝트 상세</a>
+    <a id="btnProjectNotes" class="pn-side-list" href="#">연구노트</a>
+    <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">연구자</a>
+    <a id="btnProjectGit" class="pn-side-list" href="/frontend/signatures">GIT</a>
+  </div>
+</aside>
+
+<script>
+  (function () {
+    const panel = document.getElementById('projectQuickPanel');
+    const panelTitle = document.getElementById('projectQuickTitle');
+    const closeButton = document.getElementById('closeProjectQuickPanel');
+    const detailButton = document.getElementById('btnProjectDetail');
+    const notesButton = document.getElementById('btnProjectNotes');
+    const selects = document.querySelectorAll('.js-project-select');
+
+    function openPanel(projectId, projectName) {
+      panel.style.display = 'block';
+      panelTitle.textContent = projectName + ' 메뉴';
+      detailButton.href = '/frontend/projects/' + projectId;
+      notesButton.href = '/frontend/research-notes';
+    }
+
+    selects.forEach((button) => {
+      button.addEventListener('click', function () {
+        openPanel(button.dataset.projectId, button.dataset.projectName);
+      });
+    });
+
+    if (closeButton) {
+      closeButton.addEventListener('click', function () {
+        panel.style.display = 'none';
+      });
+    }
+  })();
+</script>
 {% endblock %}
