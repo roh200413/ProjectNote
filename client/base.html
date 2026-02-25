@@ -67,6 +67,10 @@
     .pn-side-list { display:block; padding:10px 12px; border:1px solid var(--line); border-radius:9px; color:#334155; text-decoration:none; font-size:14px; }
     .pn-side-list.active,.pn-side-list:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; font-weight:700; }
 
+    .pn-sidebar-quick { display:none; margin-top:6px; }
+    .pn-sidebar-quick.active { display:block; }
+    .sidebar-collapsed .pn-sidebar-quick { display:none !important; }
+
     @media (max-width: 900px) {
       .pn-layout { grid-template-columns:1fr; }
       .pn-sidebar { display:none; }
@@ -102,6 +106,19 @@
           <span class="pn-side-text">연구자 등록</span>
         </a>
       </nav>
+
+      <aside id="projectQuickPanel" class="pn-card pn-sidebar-quick">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+          <strong id="projectQuickTitle">프로젝트 메뉴</strong>
+          <button class="pn-btn ghost" id="closeProjectQuickPanel" type="button" style="padding:4px 8px">닫기</button>
+        </div>
+        <div class="pn-grid" style="gap:8px">
+          <a id="btnProjectDetail" class="pn-side-list" href="#">프로젝트 상세</a>
+          <a id="btnProjectNotes" class="pn-side-list" href="#">연구노트</a>
+          <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">연구자</a>
+          <a id="btnProjectGit" class="pn-side-list" href="/frontend/signatures">GIT</a>
+        </div>
+      </aside>
     </aside>
     <section class="pn-main">
       <header class="pn-top">
