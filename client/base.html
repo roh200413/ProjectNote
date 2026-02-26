@@ -103,7 +103,7 @@
         </a>
         <a class="pn-side-link {% if '/frontend/researchers' in request.path %}active{% endif %}" href="/frontend/researchers">
           <span class="pn-side-icon">📊</span>
-          <span class="pn-side-text">연구자 등록</span>
+          <span class="pn-side-text">연구자 통합 관리</span>
         </a>
       </nav>
 
@@ -115,7 +115,7 @@
         <div class="pn-grid" style="gap:8px">
           <a id="btnProjectDetail" class="pn-side-list" href="#">프로젝트 상세</a>
           <a id="btnProjectNotes" class="pn-side-list" href="#">연구노트</a>
-          <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">연구자</a>
+          <a id="btnProjectResearchers" class="pn-side-list" href="/frontend/researchers">프로젝트 연구자</a>
           <a id="btnProjectGit" class="pn-side-list" href="/frontend/signatures">GIT</a>
         </div>
       </aside>
@@ -150,9 +150,10 @@
     const closeButton = document.getElementById('closeProjectQuickPanel');
     const detailButton = document.getElementById('btnProjectDetail');
     const notesButton = document.getElementById('btnProjectNotes');
+    const researchersButton = document.getElementById('btnProjectResearchers');
 
     function syncProjectQuickPanel() {
-      if (!panel || !panelTitle || !detailButton || !notesButton) return;
+      if (!panel || !panelTitle || !detailButton || !notesButton || !researchersButton) return;
       const projectId = sessionStorage.getItem('pnSelectedProjectId');
       const projectName = sessionStorage.getItem('pnSelectedProjectName');
       if (!projectId || !projectName) {
@@ -163,6 +164,7 @@
       panelTitle.textContent = projectName + ' 메뉴';
       detailButton.href = '/frontend/projects/' + projectId;
       notesButton.href = '/frontend/research-notes';
+      researchersButton.href = '/frontend/projects/' + projectId + '#projectResearchersSection';
     }
 
     if (sidebarToggle && layout) {
