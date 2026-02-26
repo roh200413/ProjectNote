@@ -85,6 +85,29 @@ def project_detail_page(request, project_id: str):
     )
 
 
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def project_researchers_page(request, project_id: str):
+    try:
+        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
+    except Project.DoesNotExist as exc:
+        raise Http404("Project not found") from exc
+
+    return render(
+        request,
+        "workflow/project_researchers.html",
+        page_context(
+            request,
+            {
+                "project": project,
+                "researcher_groups": project_repository.project_researcher_groups(project_id),
+            },
+        ),
+    )
+
 @require_GET
 def dashboard_summary(_request):
     return JsonResponse(dashboard_counts())
