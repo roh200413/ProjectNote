@@ -47,23 +47,6 @@
     </form>
     <div id="noteUpdateToast" class="pn-toast"></div>
 
-    <h3 style="margin:0 0 8px">연구파일</h3>
-    <table class="pn-table">
-      <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일</th><th>작성자</th><th>뷰어</th></tr></thead>
-      <tbody>
-      {% for file in selected_note_files %}
-        <tr>
-          <td>{{ file.name }}</td>
-          <td>{{ file.format }}</td>
-          <td>{{ file.created }}</td>
-          <td>{{ file.author }}</td>
-          <td>{% if selected_note %}<a href="/frontend/research-notes/{{ selected_note.id }}/viewer">열기</a>{% endif %}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5" class="pn-sub">등록된 파일이 없습니다.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
   </section>
 </div>
 
