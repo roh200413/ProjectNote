@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}프로젝트 연구노트{% endblock %}
+{% block page_title %}프로젝트 연구노트{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects/{{ project.id }}">프로젝트 상세</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/projects/{{ project.id }}/researchers">프로젝트 연구자</a>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <h3 style="margin:0 0 6px">연구폴더 ({{ note_count }})</h3>
+      <div class="pn-sub">연구폴더는 최대 50개까지 생성 가능합니다.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="pn-btn ghost" type="button">생성일자 최신</button>
+      <button class="pn-btn" type="button">연구폴더 생성</button>
+    </div>
+  </div>
+</section>
+
+<section class="pn-grid cols-3" style="margin-bottom:12px">
+  {% for note in project_notes %}
+  <article class="pn-card" style="min-height:150px;display:flex;flex-direction:column;justify-content:space-between">
+    <div>
+      <div style="font-size:24px">📁</div>
+      <h4 style="margin:8px 0 4px">[{{ note.title }}]</h4>
+      <div class="pn-sub">Update {{ note.last_updated_at|slice:':10' }}</div>
+    </div>
+    <div class="pn-sub">파일 {{ note.files }}</div>
+  </article>
+  {% empty %}
+  <article class="pn-card"><div class="pn-sub">등록된 연구폴더가 없습니다.</div></article>
+  {% endfor %}
+</section>
+
+<section class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <h3 style="margin:0">연구파일 ({{ file_count }})</h3>
+    <div style="display:flex;gap:8px">
+      <button class="pn-btn ghost" type="button">파일 이동</button>
+      <button class="pn-btn ghost" type="button">파일 삭제</button>
+      <button class="pn-btn" type="button">연구파일 추가</button>
+    </div>
+  </div>
+
+  <div style="margin-top:10px;padding:28px 12px;border:1px dashed #4f79ff;border-radius:12px;background:#f7faff;text-align:center;color:#1d4ed8;font-weight:700">
+    마우스로 드래그 해서 연구파일을 추가해주세요.
+    <div class="pn-sub" style="margin-top:8px">추가 가능한 파일 유형: Jpeg, Jpg, Png, SVG, tiff, Webp, Heif, Heic, Doc, Docx, PPTX, PPT, Xls, Xlsx, PDF</div>
+  </div>
+
+  <table class="pn-table" style="margin-top:12px">
+    <thead>
+      <tr>
+        <th>연구파일 정보</th>
+        <th>형식</th>
+        <th>작성일자</th>
+        <th>작성자</th>
+        <th>뷰어</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for file in project_files %}
+      <tr>
+        <td>[{{ file.note_title }}] {{ file.name }}</td>
+        <td>{{ file.format }}</td>
+        <td>{{ file.created }}</td>
+        <td>{{ file.author }}</td>
+        <td><a href="/frontend/research-notes/{{ file.note_id }}/viewer">열기</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="pn-sub">등록된 연구파일이 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
