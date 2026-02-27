@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}프로젝트 연구자{% endblock %}
+{% block page_title %}프로젝트 연구자{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects/{{ project.id }}">프로젝트 상세</a>
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects">프로젝트 목록</a>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 8px">{{ project.name }}</h3>
+  <p class="pn-sub" style="margin:0">해당 프로젝트에 속한 연구자 목록입니다.</p>
+</section>
+
+<section class="pn-card" id="projectResearchersSection">
+  <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
+  {% for group in researcher_groups %}
+  <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>{{ group.group }}</strong>
+      <small class="pn-sub">리드 {{ group.lead }}</small>
+    </div>
+    <table class="pn-table">
+      <thead><tr><th>이름</th><th>권한</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
+      <tbody>
+      {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.role }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.major }}</td>
+          <td>{{ member.contribution }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </article>
+  {% empty %}
+  <div class="pn-sub">등록된 프로젝트 연구자가 없습니다.</div>
+  {% endfor %}
+</section>
+{% endblock %}
