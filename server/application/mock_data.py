@@ -1,9 +1,9 @@
 from django.utils import timezone
 
+from server.domains.admin.models import Team, UserAccount
 from server.domains.data_updates.models import DataUpdate
 from server.domains.projects.models import Project, ProjectMember
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
-from server.domains.researchers.models import Researcher
 from server.domains.signatures.models import SignatureState
 
 
@@ -15,28 +15,32 @@ def seed_demo_data(reset: bool = False) -> dict[str, int]:
         ResearchNoteFolder.objects.all().delete()
         ResearchNote.objects.all().delete()
         Project.objects.all().delete()
-        Researcher.objects.all().delete()
         DataUpdate.objects.all().delete()
         SignatureState.objects.all().delete()
+        UserAccount.objects.all().delete()
+        Team.objects.all().delete()
 
-    researcher1, _ = Researcher.objects.get_or_create(
+    team1, _ = Team.objects.get_or_create(name="딥테크딥스", defaults={"description": "R&D 팀", "join_code": "100001"})
+    team2, _ = Team.objects.get_or_create(name="ProjectNote Lab", defaults={"description": "Product 팀", "join_code": "100002"})
+
+    user1, _ = UserAccount.objects.get_or_create(
         email="kim@example.com",
         defaults={
-            "name": "김기수",
-            "role": "PI",
-            "organization": "딥테크딥스",
-            "major": "R&D",
-            "status": "활성",
+            "username": "kim",
+            "display_name": "김기수",
+            "password": "secret123",
+            "role": UserAccount.Role.ADMIN,
+            "team": team1,
         },
     )
-    researcher2, _ = Researcher.objects.get_or_create(
+    user2, _ = UserAccount.objects.get_or_create(
         email="choi@example.com",
         defaults={
-            "name": "최재혁",
-            "role": "연구원",
-            "organization": "ProjectNote Lab",
-            "major": "프론트엔드",
-            "status": "활성",
+            "username": "choi",
+            "display_name": "최재혁",
+            "password": "secret123",
+            "role": UserAccount.Role.MEMBER,
+            "team": team2,
         },
     )
 
@@ -47,18 +51,19 @@ def seed_demo_data(reset: bool = False) -> dict[str, int]:
             "status": "active",
             "manager": "노승희",
             "organization": "ProjectNote Lab",
+            "company": team2,
             "description": "DB 확인 및 화면 데모용 샘플 프로젝트",
         },
     )
 
     ProjectMember.objects.get_or_create(
         project=project,
-        researcher=researcher1,
+        user=user1,
         defaults={"role": "admin", "contribution": "연구 총괄"},
     )
     ProjectMember.objects.get_or_create(
         project=project,
-        researcher=researcher2,
+        user=user2,
         defaults={"role": "member", "contribution": "UI/뷰어 개발"},
     )
 
@@ -85,9 +90,9 @@ def seed_demo_data(reset: bool = False) -> dict[str, int]:
     DataUpdate.objects.get_or_create(target="연구노트 메타데이터", defaults={"status": "completed"})
 
     SignatureState.objects.update_or_create(
-        id=1,
+        user=user1,
         defaults={
-            "last_signed_by": "노승희",
+            "signature_data_url": "",
             "last_signed_at": timezone.now(),
             "status": "valid",
         },
@@ -95,6 +100,6 @@ def seed_demo_data(reset: bool = False) -> dict[str, int]:
 
     return {
         "projects": Project.objects.count(),
-        "researchers": Researcher.objects.count(),
+        "researchers": UserAccount.objects.count(),
         "notes": ResearchNote.objects.count(),
     }

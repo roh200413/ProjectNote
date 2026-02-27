@@ -9,14 +9,13 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 
 from server.domains.admin import AdminRepository
-from server.domains.admin.models import SuperAdminAccount
+from server.domains.admin.models import SuperAdminAccount, UserAccount
 from server.domains.data_updates import DataUpdateRepository
 from server.domains.projects import ProjectRepository, ProjectService
 from server.domains.projects.models import Project
 from server.domains.research_notes import ResearchNoteRepository
 from server.domains.research_notes.models import ResearchNote
 from server.domains.researchers import ResearcherRepository
-from server.domains.researchers.models import Researcher
 from server.domains.signatures import SignatureRepository
 
 admin_repository = AdminRepository()
@@ -32,7 +31,7 @@ SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_ac
 def dashboard_counts() -> dict:
     return {
         "projects": Project.objects.count(),
-        "researchers": Researcher.objects.count(),
+        "researchers": UserAccount.objects.count(),
         "notes": ResearchNote.objects.count(),
     }
 
@@ -166,7 +165,7 @@ def _authenticate_super_admin_from_seed_data(username: str, password: str) -> di
         return None
 
     return {
-        "id": user.get("id"),
+        "id": account.get("id"),
         "username": username,
         "name": account.get("name", username),
         "role": "슈퍼관리자",

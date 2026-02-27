@@ -13,7 +13,6 @@ class AdminRepository:
         "workflow_app_superadminaccount",
         "workflow_app_useraccount",
         "workflow_app_project",
-        "workflow_app_researcher",
         "workflow_app_projectmember",
         "workflow_app_researchnote",
         "workflow_app_researchnotefile",

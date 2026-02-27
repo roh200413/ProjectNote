@@ -12,7 +12,6 @@ from server.application.web_support import (
     page_context,
     project_repository,
     project_service,
-    researcher_repository,
     admin_repository,
     research_note_repository,
     dashboard_counts,
