@@ -20,10 +20,15 @@ def final_download_api(_request):
 
 @require_http_methods(["GET", "POST"])
 def signature_api(request):
+    username = request.session.get("user_profile", {}).get("username", "")
+    if not username:
+        return JsonResponse({"detail": "로그인이 필요합니다."}, status=401)
     if request.method == "GET":
-        return JsonResponse(signature_repository.read_signature())
+        return JsonResponse(signature_repository.read_signature(username))
     payload = signature_repository.update_signature(
-        signed_by=request.POST.get("signed_by", ""), status=request.POST.get("status", "valid")
+        username=username,
+        status=request.POST.get("status", "valid"),
+        signature_data_url=request.POST.get("signature_data_url", ""),
     )
     return JsonResponse(payload)
 
@@ -43,7 +48,8 @@ def final_download_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature()}))
+    username = request.session.get("user_profile", {}).get("username", "")
+    return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature(username)}))
 
 
 @require_GET
@@ -51,7 +57,8 @@ def signature_page(request):
 @login_required_page
 def my_page(request):
     profile = request.session.get("user_profile", {}).copy()
-    profile["signature"] = profile.get("signature_data_url", "")
+    username = profile.get("username", "")
+    profile["signature"] = signature_repository.read_signature(username).get("signature_data_url", "") if username else ""
     return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
 
 
@@ -62,7 +69,8 @@ def update_my_signature(request):
     if not signature_data_url.startswith("data:image/"):
         return JsonResponse({"message": "유효한 이미지 데이터가 아닙니다."}, status=400)
 
-    profile = request.session.get("user_profile", {}).copy()
-    profile["signature_data_url"] = signature_data_url
-    request.session["user_profile"] = profile
+    username = request.session.get("user_profile", {}).get("username", "")
+    if not username:
+        return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
+    signature_repository.update_signature(username=username, signature_data_url=signature_data_url)
     return JsonResponse({"message": "서명이 업데이트되었습니다."})
