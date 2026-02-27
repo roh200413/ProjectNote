@@ -89,6 +89,7 @@ def save_login_session(request, username: str, user: dict) -> None:
         "team": user.get("team", "-"),
         "team_id": user.get("team_id"),
         "is_super_admin": bool(user.get("is_super_admin", False)),
+        "is_approved": bool(user.get("is_approved", True)),
         "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
     }
 

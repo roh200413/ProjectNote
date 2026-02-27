@@ -40,6 +40,7 @@ def login(client_obj: Client) -> None:
             "password": "admin1234",
             "role": UserAccount.Role.MEMBER,
             "team": team,
+            "is_approved": True,
         },
     )
     response = client_obj.post("/login", {"username": "member-login", "password": "admin1234"})
@@ -56,6 +57,7 @@ def seed_workflow_data() -> tuple[str, str]:
             "password": "secret123",
             "role": UserAccount.Role.MEMBER,
             "team": team,
+            "is_approved": True,
         },
     )
     project = Project.objects.create(
@@ -634,7 +636,7 @@ def test_signup_and_admin_user_management_tables() -> None:
 
     users_page = local_client.get("/frontend/admin/users")
     assert users_page.status_code == 200
-    assert "모든 가입자 관리" in users_page.content.decode()
+    assert "연구자(사용자) 통합 관리" in users_page.content.decode()
 
     tables = local_client.get("/api/v1/admin/tables")
     assert tables.status_code == 200
@@ -675,3 +677,30 @@ def test_super_admin_can_search_and_assign_user_team() -> None:
 
     user.refresh_from_db()
     assert user.team_id == team.id
+
+
+def test_super_admin_can_approve_grant_and_expel_user() -> None:
+    reset_db()
+    team = Team.objects.create(name="승인팀", description="승인용", join_code="777777")
+    user = UserAccount.objects.create(
+        username="pending-user",
+        display_name="대기 사용자",
+        email="pending-user@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=False,
+    )
+
+    admin_client = Client()
+    assert admin_client.post("/admin/login", {"username": "admin", "password": "admin1234"}).status_code == 302
+
+    approve = admin_client.post("/api/v1/admin/users", {"action": "approve", "user_id": str(user.id)})
+    assert approve.status_code == 200
+
+    grant = admin_client.post("/api/v1/admin/users", {"action": "grant_role", "user_id": str(user.id), "role": "admin"})
+    assert grant.status_code == 200
+
+    expel = admin_client.post("/api/v1/admin/users", {"action": "expel", "user_id": str(user.id)})
+    assert expel.status_code == 200
+    assert not UserAccount.objects.filter(id=user.id).exists()

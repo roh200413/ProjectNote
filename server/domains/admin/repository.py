@@ -58,6 +58,7 @@ class AdminRepository:
             "major": "미지정",
             "team": user.team.name if user.team else "-",
             "team_id": user.team.id if user.team else None,
+            "is_approved": user.is_approved,
         }
 
     def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
@@ -99,6 +100,7 @@ class AdminRepository:
                 "role": user.get_role_display(),
                 "team": user.team.name if user.team else "-",
                 "join_code": user.team.join_code if user.team else "-",
+                "is_approved": user.is_approved,
             }
             for user in users.distinct().order_by("id")
         ]
@@ -184,6 +186,7 @@ class AdminRepository:
             password=password,
             role=normalized_role,
             team=team,
+            is_approved=(normalized_role == UserAccount.Role.ADMIN),
         )
         return {
             "id": user.id,
@@ -193,7 +196,36 @@ class AdminRepository:
             "role": user.get_role_display(),
             "team": team.name if team else "-",
             "join_code": team.join_code if team else "-",
+            "is_approved": user.is_approved,
         }
+    def approve_user(self, user_id: int) -> dict:
+        user = UserAccount.objects.select_related("team").filter(id=user_id).first()
+        if not user:
+            raise ValueError("사용자를 찾을 수 없습니다.")
+        if not user.team_id:
+            raise ValueError("승인하려면 먼저 팀을 지정해야 합니다.")
+        user.is_approved = True
+        user.save(update_fields=["is_approved", "updated_at"])
+        return {"id": user.id, "username": user.username, "is_approved": user.is_approved}
+
+    def change_user_role(self, user_id: int, role: str) -> dict:
+        user = UserAccount.objects.select_related("team").filter(id=user_id).first()
+        if not user:
+            raise ValueError("사용자를 찾을 수 없습니다.")
+        if role not in {UserAccount.Role.ADMIN, UserAccount.Role.MEMBER}:
+            raise ValueError("유효한 권한이 아닙니다.")
+        user.role = role
+        user.save(update_fields=["role", "updated_at"])
+        return {"id": user.id, "username": user.username, "role": user.get_role_display()}
+
+    def remove_user(self, user_id: int) -> dict:
+        user = UserAccount.objects.filter(id=user_id).first()
+        if not user:
+            raise ValueError("사용자를 찾을 수 없습니다.")
+        username = user.username
+        user.delete()
+        return {"username": username}
+
     def list_managed_tables(self) -> list[dict]:
         rows = []
         with connection.cursor() as cursor:
