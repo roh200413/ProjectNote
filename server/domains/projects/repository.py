@@ -41,6 +41,7 @@ class ProjectRepository:
             user = users.get(item.user_id)
             if not user:
                 continue
+            researcher = self._get_or_create_researcher_for_user(user)
             ProjectMember.objects.get_or_create(
                 project=project,
                 user=user,
