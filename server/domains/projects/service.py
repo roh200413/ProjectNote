@@ -9,7 +9,7 @@ class ProjectService:
     def __init__(self, project_repository: ProjectRepository | None = None) -> None:
         self.project_repository = project_repository or ProjectRepository()
 
-    def create_project(self, post_data) -> dict:
+    def create_project(self, post_data, user_profile: dict | None = None) -> dict:
         invited_payload = post_data.get("invited_members", "[]")
         invited_members = []
         try:
@@ -23,6 +23,7 @@ class ProjectService:
             name=post_data.get("name", "새 프로젝트"),
             manager=post_data.get("manager", "미지정"),
             organization=post_data.get("organization", "미지정"),
+            company_id=int(post_data.get("company_id")) if str(post_data.get("company_id", "")).isdigit() else None,
             code=post_data.get("code", ""),
             description=post_data.get("description", ""),
             start_date=post_data.get("start_date", ""),
@@ -35,6 +36,7 @@ class ProjectService:
             name=payload.name,
             manager=payload.manager,
             organization=payload.organization,
+            company_id=payload.company_id,
             code=payload.code,
             description=payload.description,
             start_date=payload.start_date,
@@ -48,4 +50,5 @@ class ProjectService:
             for member in payload.invited_members
         ]
         self.project_repository.create_project_members(project, invited_commands)
+        self.project_repository.ensure_creator_member(project, user_profile)
         return self.project_repository.project_to_dict(project)

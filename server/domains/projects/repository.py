@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from server.domains.research_notes.models import ResearchNote
+from server.domains.admin.models import Team
 from server.domains.researchers.models import Researcher
 
 from .models import Project, ProjectMember
@@ -19,10 +20,13 @@ class ProjectRepository:
     def create_project(self, command: CreateProjectCommand) -> Project:
         start_date = datetime.strptime(command.start_date, "%Y-%m-%d").date() if command.start_date else None
         end_date = datetime.strptime(command.end_date, "%Y-%m-%d").date() if command.end_date else None
+        company = Team.objects.filter(id=command.company_id).first() if command.company_id else None
+        organization = company.name if company else command.organization
         return Project.objects.create(
             name=command.name,
             manager=command.manager,
-            organization=command.organization,
+            organization=organization,
+            company=company,
             code=command.code,
             description=command.description,
             start_date=start_date,
@@ -42,6 +46,35 @@ class ProjectRepository:
                 researcher=researcher,
                 defaults={"role": item.role, "contribution": "프로젝트 참여"},
             )
+
+    def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
+        if not user_profile:
+            return
+
+        email = user_profile.get("email", "").strip()
+        if not email:
+            return
+
+        name = user_profile.get("name", "미지정").strip() or "미지정"
+        organization = user_profile.get("organization", "미지정").strip() or "미지정"
+        major = user_profile.get("major", "미지정").strip() or "미지정"
+
+        researcher, _ = Researcher.objects.get_or_create(
+            email=email,
+            defaults={
+                "name": name,
+                "role": "관리자",
+                "organization": organization,
+                "major": major,
+                "status": "활성",
+            },
+        )
+
+        ProjectMember.objects.get_or_create(
+            project=project,
+            researcher=researcher,
+            defaults={"role": "admin", "contribution": "프로젝트 생성자"},
+        )
 
     def project_note_ids(self, project_id: str) -> list[str]:
         return [str(i) for i in ResearchNote.objects.filter(project_id=project_id).values_list("id", flat=True)]
@@ -80,6 +113,8 @@ class ProjectRepository:
             "status": project.status,
             "manager": project.manager,
             "organization": project.organization,
+            "company_id": project.company_id,
+            "company_name": project.company.name if project.company else project.organization,
             "code": project.code,
             "description": project.description,
             "start_date": project.start_date.isoformat() if project.start_date else "",
