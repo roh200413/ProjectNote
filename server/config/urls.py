@@ -40,6 +40,8 @@ urlpatterns = [
     path("frontend/projects", projects_api.project_management_page),
     path("frontend/projects/create", projects_api.project_create_page),
     path("frontend/projects/<str:project_id>", projects_api.project_detail_page),
+    path("frontend/projects/<str:project_id>/researchers", projects_api.project_researchers_page),
+    path("frontend/projects/<str:project_id>/research-notes", projects_api.project_research_notes_page),
     path("frontend/my-page", signatures_api.my_page),
     path("frontend/my-page/signature", signatures_api.update_my_signature),
     path("frontend/researchers", researchers_api.researchers_page),

@@ -10,6 +10,7 @@ class CreateProjectPayload(BaseModel):
     name: str = "새 프로젝트"
     manager: str = "미지정"
     organization: str = "미지정"
+    company_id: int | None = None
     code: str = ""
     description: str = ""
     start_date: str = ""
