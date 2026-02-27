@@ -52,6 +52,13 @@ def login_page(request):
             {"error": "관리자 팀 할당 및 승인이 되지 않았습니다.", "next": next_url},
             status=403,
         )
+    if not user.get("is_super_admin") and not bool(user.get("is_approved", False)):
+        return render(
+            request,
+            "auth/login.html",
+            {"error": "관리자 승인 대기 중입니다.", "next": next_url},
+            status=403,
+        )
 
     save_login_session(request, username, user)
     if next_url.startswith("/"):

@@ -29,13 +29,7 @@
   </div>
 </section>
 
-<div class="pn-grid" style="grid-template-columns:230px 1fr;align-items:start">
-  <aside class="pn-card">
-    <h3 style="margin-top:0">연구폴더 목록</h3>
-    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구자 목록</div>
-    <div style="padding:8px 10px;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;margin-bottom:8px">연구폴더</div>
-  </aside>
-
+<div style="grid-template-columns:230px 1fr;align-items:start">
   <section class="pn-card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
       <h3 style="margin:0">연구노트 업데이트</h3>
@@ -73,7 +67,7 @@
   </section>
 </div>
 
-<section class="pn-card" style="margin-top:12px">
+<section class="pn-card" id="projectResearchersSection" style="margin-top:12px">
   <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
   {% for group in researcher_groups %}
   <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">

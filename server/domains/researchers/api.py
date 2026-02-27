@@ -10,7 +10,11 @@ from server.application.web_support import login_required_page, page_context, re
 def researchers_api(request):
     if request.method == "GET":
         return JsonResponse(researcher_repository.list_researchers(), safe=False)
-    return JsonResponse(researcher_repository.create_researcher(dict(request.POST)), status=201)
+    try:
+        created = researcher_repository.create_researcher(dict(request.POST))
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse(created, status=201)
 
 
 @require_GET

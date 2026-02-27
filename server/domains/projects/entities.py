@@ -6,6 +6,7 @@ class CreateProjectCommand:
     name: str
     manager: str
     organization: str
+    company_id: int | None
     code: str
     description: str
     start_date: str
@@ -15,5 +16,5 @@ class CreateProjectCommand:
 
 @dataclass(frozen=True)
 class InvitedMemberCommand:
-    researcher_id: int
+    user_id: int
     role: str

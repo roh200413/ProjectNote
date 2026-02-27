@@ -4,6 +4,7 @@ from server.domains.common_models import TimestampedModel
 
 
 class SignatureState(TimestampedModel):
-    last_signed_by = models.CharField(max_length=100, default="")
+    user = models.OneToOneField("workflow_app.UserAccount", on_delete=models.CASCADE, related_name="signature_state", null=True, blank=True)
+    signature_data_url = models.TextField(blank=True, default="")
     last_signed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=50, default="valid")
