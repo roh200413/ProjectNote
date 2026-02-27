@@ -33,7 +33,11 @@ def projects(request):
 def project_management_api(request):
     if request.method == "GET":
         return JsonResponse(project_repository.list_projects(), safe=False)
-    project = project_service.create_project(request.POST)
+    payload = request.POST.copy()
+    team_id = request.session.get("user_profile", {}).get("team_id")
+    if team_id:
+        payload["company_id"] = str(team_id)
+    project = project_service.create_project(payload)
     return JsonResponse(project, status=201)
 
 

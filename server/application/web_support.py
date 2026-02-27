@@ -78,8 +78,9 @@ def admin_required_page(view_func):
     return _wrapped
 
 
-def save_login_session(request, username: str, user: dict[str, str]) -> None:
+def save_login_session(request, username: str, user: dict) -> None:
     request.session["user_profile"] = {
+        "id": user.get("id"),
         "username": username,
         "name": user["name"],
         "role": user["role"],
@@ -87,6 +88,7 @@ def save_login_session(request, username: str, user: dict[str, str]) -> None:
         "organization": user["organization"],
         "major": user["major"],
         "team": user.get("team", "-"),
+        "team_id": user.get("team_id"),
         "is_super_admin": bool(user.get("is_super_admin", False)),
         "signature_data_url": request.session.get("user_profile", {}).get("signature_data_url", ""),
     }
@@ -164,6 +166,7 @@ def _authenticate_super_admin_from_seed_data(username: str, password: str) -> di
         return None
 
     return {
+        "id": user.get("id"),
         "username": username,
         "name": account.get("name", username),
         "role": "슈퍼관리자",

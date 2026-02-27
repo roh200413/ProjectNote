@@ -15,6 +15,7 @@ class Project(TimestampedModel):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
     manager = models.CharField(max_length=100, default="미지정")
     organization = models.CharField(max_length=255, default="미지정")
+    company = models.ForeignKey("workflow_app.Team", on_delete=models.SET_NULL, null=True, blank=True, related_name="projects")
     code = models.CharField(max_length=100, blank=True, default="")
     description = models.TextField(blank=True, default="")
     start_date = models.DateField(null=True, blank=True)

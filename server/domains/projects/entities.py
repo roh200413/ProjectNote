@@ -6,6 +6,7 @@ class CreateProjectCommand:
     name: str
     manager: str
     organization: str
+    company_id: int | None
     code: str
     description: str
     start_date: str
