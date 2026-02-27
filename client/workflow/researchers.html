@@ -1,28 +1,12 @@
 {% extends "base.html" %}
 {% block title %}연구자 관리{% endblock %}
 {% block page_title %}연구자 통합 관리{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">프로젝트 보기</button>
-</div>
-{% endblock %}
-{% block content %}
-<section class="pn-card" style="margin-bottom:12px">
-  <h3 style="margin-top:0">연구자 추가</h3>
-  <form id="researcherForm" class="pn-row">
-    <input type="hidden" name="action" value="create" />
-    <div><label class="pn-label">이름</label><input class="pn-input" name="name" required /></div>
-    <div><label class="pn-label">이메일</label><input class="pn-input" name="email" type="email" required /></div>
-    <div><label class="pn-label">소속/기관(회사)</label><input class="pn-input" name="organization" required /></div>
-    <div style="display:flex;align-items:flex-end"><button class="pn-btn" type="submit" style="width:100%">연구자 추가</button></div>
-  </form>
-  <div id="researcherToast" class="pn-toast">회원가입/추가된 사용자를 승인, 권한부여, 내보내기까지 이 화면에서 관리합니다.</div>
-</section>
 
+{% block content %}
 <section class="pn-card">
   <h3 style="margin-top:0">연구자 목록</h3>
   <table class="pn-table" id="researcherTable">
-    <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>소속/기관</th><th>전공/부서명</th><th>상태</th><th>관리</th></tr></thead>
+    <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>전공/부서명</th><th>상태</th><th>관리</th><th></th></tr></thead>
     <tbody>
     {% for r in researchers %}
       <tr>
@@ -30,24 +14,11 @@
         <td>{{ r.username }}</td>
         <td>{{ r.role }}</td>
         <td>{{ r.email }}</td>
-        <td>{{ r.organization }}</td>
         <td>{{ r.major }}</td>
         <td><span class="pn-badge">{{ r.status }}</span></td>
         <td>
           {% if can_manage_researchers %}
           <div style="display:grid;gap:6px">
-            <form class="manage-form" data-action="assign_team" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
-              <select class="pn-input" name="team_id" style="min-width:120px;padding:6px 8px">
-                <option value="">미지정</option>
-                {% for team in teams %}
-                  <option value="{{ team.id }}" {% if r.team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
-                {% endfor %}
-              </select>
-              <button class="pn-btn" type="submit">회사지정</button>
-            </form>
-            <form class="manage-form" data-action="approve" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
-              <button class="pn-btn" type="submit" {% if r.is_approved %}disabled{% endif %}>승인</button>
-            </form>
             <form class="manage-form" data-action="grant_role" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
               <select class="pn-input" name="role" style="min-width:100px;padding:6px 8px">
                 <option value="member" {% if r.role != '관리자' %}selected{% endif %}>일반</option>
@@ -55,13 +26,15 @@
               </select>
               <button class="pn-btn" type="submit">권한부여</button>
             </form>
-            <form class="manage-form" data-action="expel" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
-              <button class="pn-btn" type="submit" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b">내보내기</button>
-            </form>
           </div>
           {% else %}
           <span class="pn-sub">권한 없음</span>
           {% endif %}
+        </td>
+        <td>
+            <form class="manage-form" data-action="expel" data-user-id="{{ r.id }}" style="display:flex;gap:1px;align-items:center">
+              <button class="pn-btn" type="submit" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b">내보내기</button>
+            </form>
         </td>
       </tr>
     {% endfor %}

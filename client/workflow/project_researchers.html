@@ -8,11 +8,6 @@
 </div>
 {% endblock %}
 {% block content %}
-<section class="pn-card" style="margin-bottom:12px">
-  <h3 style="margin:0 0 8px">{{ project.name }}</h3>
-  <p class="pn-sub" style="margin:0">해당 프로젝트에 속한 연구자 목록입니다.</p>
-</section>
-
 <section class="pn-card" id="projectResearchersSection">
   <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
   {% for group in researcher_groups %}
