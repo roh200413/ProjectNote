@@ -10,10 +10,6 @@ from server.domains.researchers import api as researchers_api
 from server.domains.signatures import api as signatures_api
 
 urlpatterns = [
-    path("login", auth_api.login_page),
-    path("admin/login", auth_api.admin_login_page),
-    path("signup", auth_api.signup_page),
-    path("logout", auth_api.logout_page),
     path("api/v1/auth/signup", api.signup_api),
     path("api/v1/health", api.health),
     path("api/v1/frontend/bootstrap", api.frontend_bootstrap),
@@ -31,12 +27,18 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
-    path("frontend/workflows", projects_api.workflow_home_page),
+
+    path("admin/login", auth_api.admin_login_page),
     path("frontend/admin", admin_api.admin_page),
     path("frontend/admin/dashboard", admin_api.admin_dashboard_page),
     path("frontend/admin/teams", admin_api.admin_teams_page),
     path("frontend/admin/users", admin_api.admin_users_page),
     path("frontend/admin/tables", admin_api.admin_tables_page),
+
+    path("login", auth_api.login_page),
+    path("signup", auth_api.signup_page),
+    path("logout", auth_api.logout_page),
+    path("frontend/workflows", projects_api.workflow_home_page),
     path("frontend/projects", projects_api.project_management_page),
     path("frontend/projects/create", projects_api.project_create_page),
     path("frontend/projects/<str:project_id>", projects_api.project_detail_page),
