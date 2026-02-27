@@ -9,7 +9,7 @@ class ProjectService:
     def __init__(self, project_repository: ProjectRepository | None = None) -> None:
         self.project_repository = project_repository or ProjectRepository()
 
-    def create_project(self, post_data) -> dict:
+    def create_project(self, post_data, user_profile: dict | None = None) -> dict:
         invited_payload = post_data.get("invited_members", "[]")
         invited_members = []
         try:
@@ -50,4 +50,5 @@ class ProjectService:
             for member in payload.invited_members
         ]
         self.project_repository.create_project_members(project, invited_commands)
+        self.project_repository.ensure_creator_member(project, user_profile)
         return self.project_repository.project_to_dict(project)

@@ -37,7 +37,7 @@ def project_management_api(request):
     team_id = request.session.get("user_profile", {}).get("team_id")
     if team_id:
         payload["company_id"] = str(team_id)
-    project = project_service.create_project(payload)
+    project = project_service.create_project(payload, request.session.get("user_profile", {}))
     return JsonResponse(project, status=201)
 
 

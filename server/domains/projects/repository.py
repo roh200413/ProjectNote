@@ -47,6 +47,35 @@ class ProjectRepository:
                 defaults={"role": item.role, "contribution": "프로젝트 참여"},
             )
 
+    def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
+        if not user_profile:
+            return
+
+        email = user_profile.get("email", "").strip()
+        if not email:
+            return
+
+        name = user_profile.get("name", "미지정").strip() or "미지정"
+        organization = user_profile.get("organization", "미지정").strip() or "미지정"
+        major = user_profile.get("major", "미지정").strip() or "미지정"
+
+        researcher, _ = Researcher.objects.get_or_create(
+            email=email,
+            defaults={
+                "name": name,
+                "role": "관리자",
+                "organization": organization,
+                "major": major,
+                "status": "활성",
+            },
+        )
+
+        ProjectMember.objects.get_or_create(
+            project=project,
+            researcher=researcher,
+            defaults={"role": "admin", "contribution": "프로젝트 생성자"},
+        )
+
     def project_note_ids(self, project_id: str) -> list[str]:
         return [str(i) for i in ResearchNote.objects.filter(project_id=project_id).values_list("id", flat=True)]
 
