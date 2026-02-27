@@ -13,6 +13,7 @@ from server.application.web_support import (
     project_repository,
     project_service,
     researcher_repository,
+    admin_repository,
     research_note_repository,
     dashboard_counts,
 )
@@ -33,7 +34,11 @@ def projects(request):
 def project_management_api(request):
     if request.method == "GET":
         return JsonResponse(project_repository.list_projects(), safe=False)
-    project = project_service.create_project(request.POST)
+    payload = request.POST.copy()
+    team_id = request.session.get("user_profile", {}).get("team_id")
+    if team_id:
+        payload["company_id"] = str(team_id)
+    project = project_service.create_project(payload, request.session.get("user_profile", {}))
     return JsonResponse(project, status=201)
 
 
@@ -51,7 +56,10 @@ def project_create_page(request):
     return render(
         request,
         "workflow/project_create.html",
-        page_context(request, {"researcher_groups": researcher_repository.researcher_groups_for_selection()}),
+        page_context(
+            request,
+            {"user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id"))},
+        ),
     )
 
 
@@ -85,6 +93,71 @@ def project_detail_page(request, project_id: str):
     )
 
 
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def project_researchers_page(request, project_id: str):
+    try:
+        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
+    except Project.DoesNotExist as exc:
+        raise Http404("Project not found") from exc
+
+    return render(
+        request,
+        "workflow/project_researchers.html",
+        page_context(
+            request,
+            {
+                "project": project,
+                "researcher_groups": project_repository.project_researcher_groups(project_id),
+            },
+        ),
+    )
+
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def project_research_notes_page(request, project_id: str):
+    try:
+        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
+    except Project.DoesNotExist as exc:
+        raise Http404("Project not found") from exc
+
+    note_ids = project_repository.project_note_ids(project_id)
+    all_notes = research_note_repository.list_research_notes()
+    project_notes = [note for note in all_notes if note["id"] in note_ids]
+
+    file_rows = []
+    for note in project_notes:
+        for file in research_note_repository.list_note_files(note["id"]):
+            file_rows.append({
+                "note_title": note["title"],
+                "name": file["name"],
+                "format": file["format"],
+                "created": file["created"],
+                "author": file["author"],
+                "note_id": note["id"],
+            })
+
+    return render(
+        request,
+        "workflow/project_research_notes.html",
+        page_context(
+            request,
+            {
+                "project": project,
+                "project_notes": project_notes,
+                "project_files": file_rows,
+                "note_count": len(project_notes),
+                "file_count": len(file_rows),
+            },
+        ),
+    )
+
 @require_GET
 def dashboard_summary(_request):
     return JsonResponse(dashboard_counts())
@@ -100,4 +173,11 @@ def workflow_home_page(request):
         {"title": "연구자 관리", "href": "/frontend/researchers", "description": "연구자 등록 및 소속/역할 정보를 관리합니다."},
         {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
     ]
-    return render(request, "workflow/home.html", page_context(request, {"cards": cards}))
+    projects = project_repository.list_projects()
+    current_name = request.session.get("user_profile", {}).get("name", "")
+    managed_projects = [project for project in projects if project.get("manager") == current_name]
+    return render(
+        request,
+        "workflow/home.html",
+        page_context(request, {"cards": cards, "managed_projects": managed_projects}),
+    )
