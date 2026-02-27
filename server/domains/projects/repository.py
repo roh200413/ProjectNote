@@ -3,7 +3,6 @@ from datetime import datetime
 
 from server.domains.research_notes.models import ResearchNote
 from server.domains.admin.models import Team, UserAccount
-from server.domains.researchers.models import Researcher
 
 from .models import Project, ProjectMember
 
@@ -35,28 +34,6 @@ class ProjectRepository:
         )
 
 
-    @staticmethod
-    def _get_or_create_researcher_for_user(user: UserAccount) -> Researcher:
-        researcher = Researcher.objects.filter(user=user).first()
-        if researcher:
-            return researcher
-
-        researcher = Researcher.objects.filter(email=user.email).first()
-        if researcher:
-            if researcher.user_id is None:
-                researcher.user = user
-                researcher.save(update_fields=["user", "updated_at"])
-            return researcher
-
-        return Researcher.objects.create(
-            user=user,
-            name=user.display_name,
-            role="관리자" if user.role == UserAccount.Role.ADMIN else "연구원",
-            email=user.email,
-            organization=user.team.name if user.team else "미지정",
-            major="미지정",
-            status="활성",
-        )
     def create_project_members(self, project: Project, invited: list[InvitedMemberCommand]) -> None:
         ids = [item.user_id for item in invited]
         users = {user.id: user for user in UserAccount.objects.select_related("team").filter(id__in=ids)}
@@ -67,7 +44,6 @@ class ProjectRepository:
             researcher = self._get_or_create_researcher_for_user(user)
             ProjectMember.objects.get_or_create(
                 project=project,
-                researcher=researcher,
                 user=user,
                 defaults={"role": item.role, "contribution": "프로젝트 참여"},
             )
@@ -87,10 +63,8 @@ class ProjectRepository:
         if not user:
             return
 
-        researcher = self._get_or_create_researcher_for_user(user)
         ProjectMember.objects.get_or_create(
             project=project,
-            researcher=researcher,
             user=user,
             defaults={"role": "admin", "contribution": "프로젝트 생성자"},
         )
@@ -99,28 +73,18 @@ class ProjectRepository:
         return [str(i) for i in ResearchNote.objects.filter(project_id=project_id).values_list("id", flat=True)]
 
     def project_researcher_groups(self, project_id: str) -> list[dict]:
-        memberships = ProjectMember.objects.filter(project_id=project_id).select_related("researcher", "user", "user__team")
+        memberships = ProjectMember.objects.filter(project_id=project_id).select_related("user", "user__team")
         grouped = defaultdict(list)
         for member in memberships:
-            if member.user:
-                org = member.user.team.name if member.user.team else "미지정"
-                grouped[org].append(
-                    {
-                        "name": member.user.display_name,
-                        "role": member.role,
-                        "organization": org,
-                        "major": "미지정",
-                        "contribution": member.contribution,
-                    }
-                )
+            if not member.user:
                 continue
-
-            grouped[member.researcher.organization].append(
+            org = member.user.team.name if member.user.team else "미지정"
+            grouped[org].append(
                 {
-                    "name": member.researcher.name,
+                    "name": member.user.display_name,
                     "role": member.role,
-                    "organization": member.researcher.organization,
-                    "major": member.researcher.major,
+                    "organization": org,
+                    "major": "미지정",
                     "contribution": member.contribution,
                 }
             )
