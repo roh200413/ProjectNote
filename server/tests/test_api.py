@@ -544,12 +544,62 @@ def test_researchers_page_separated_fields() -> None:
     response = local_client.get("/frontend/researchers")
     assert response.status_code == 200
     html = response.content.decode()
-    assert "소속/기관" in html
-    assert "전공/부서명" in html
+    assert "미소속 사용자 초대" in html
+    assert "연구자 목록" in html
+    assert "회사 코드 기반 승인 대기 사용자 승인" in html
 
     projects_page = local_client.get("/frontend/projects")
     assert projects_page.status_code == 200
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
+
+
+def test_researchers_support_unassigned_and_pending_queries() -> None:
+    reset_db()
+    team = Team.objects.create(name="코드팀", description="코드기반", join_code="555555")
+    UserAccount.objects.create(
+        username="no-team",
+        display_name="무소속",
+        email="no-team@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=None,
+        is_approved=False,
+    )
+    pending = UserAccount.objects.create(
+        username="pending-code",
+        display_name="코드대기",
+        email="pending-code@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=False,
+    )
+    UserAccount.objects.create(
+        username="approved-code",
+        display_name="코드승인",
+        email="approved-code@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    local_client = Client()
+    login(local_client)
+
+    unassigned_response = local_client.get("/api/v1/researchers", {"action": "unassigned"})
+    assert unassigned_response.status_code == 200
+    unassigned_payload = unassigned_response.json()
+    assert any(item["username"] == "no-team" for item in unassigned_payload)
+
+    pending_response = local_client.get(
+        "/api/v1/researchers",
+        {"action": "pending_by_code", "join_code": "555555"},
+    )
+    assert pending_response.status_code == 200
+    pending_payload = pending_response.json()
+    assert len(pending_payload) == 1
+    assert pending_payload[0]["id"] == pending.id
 
 
 def test_seed_demo_data_populates_tables() -> None:

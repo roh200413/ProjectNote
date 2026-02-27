@@ -35,6 +35,37 @@ class ResearcherRepository:
     def list_teams(self) -> list[dict]:
         return [{"id": team.id, "name": team.name} for team in Team.objects.order_by("name", "id")]
 
+    def list_unassigned_users(self) -> list[dict]:
+        users = UserAccount.objects.filter(team__isnull=True).order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "email": user.email,
+                "status": "승인" if user.is_approved else "승인대기",
+            }
+            for user in users
+        ]
+
+    def list_pending_users_by_join_code(self, join_code: str) -> list[dict]:
+        team = Team.objects.filter(join_code=join_code).first()
+        if not team:
+            return []
+
+        users = UserAccount.objects.filter(team=team, is_approved=False).order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "email": user.email,
+                "team": team.name,
+                "join_code": team.join_code,
+            }
+            for user in users
+        ]
+
     def create_researcher(self, payload: dict) -> dict:
         email = _as_text(payload.get("email")).strip()
         if not email:
