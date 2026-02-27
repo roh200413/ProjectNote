@@ -4,17 +4,15 @@ import string
 from django.db import connection
 from django.db.models import Q
 
-from .models import AdminAccount, SuperAdminAccount, Team, UserAccount
+from .models import SuperAdminAccount, Team, UserAccount
 
 
 class AdminRepository:
     MANAGED_TABLES = [
-        "workflow_app_team",
-        "workflow_app_adminaccount",
+        "workflow_app_company",
         "workflow_app_superadminaccount",
         "workflow_app_useraccount",
         "workflow_app_project",
-        "workflow_app_researcher",
         "workflow_app_projectmember",
         "workflow_app_researchnote",
         "workflow_app_researchnotefile",
@@ -46,25 +44,12 @@ class AdminRepository:
             if not Team.objects.filter(join_code=code).exists():
                 return code
         raise ValueError("팀 코드 생성에 실패했습니다. 다시 시도해주세요.")
-
-    def list_admin_accounts(self) -> list[dict]:
-        return [
-            {
-                "id": admin.id,
-                "username": admin.username,
-                "display_name": admin.display_name,
-                "email": admin.email,
-                "team": admin.team.name if admin.team else "-",
-                "is_super_admin": admin.is_super_admin,
-            }
-            for admin in AdminAccount.objects.select_related("team").order_by("id")
-        ]
-
     def find_user_for_login(self, username: str, password: str) -> dict | None:
         user = UserAccount.objects.select_related("team").filter(username=username, password=password).first()
         if not user:
             return None
         return {
+            "id": user.id,
             "username": user.username,
             "name": user.display_name,
             "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
@@ -72,6 +57,7 @@ class AdminRepository:
             "organization": user.team.name if user.team else "미지정",
             "major": "미지정",
             "team": user.team.name if user.team else "-",
+            "team_id": user.team.id if user.team else None,
         }
 
     def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
@@ -83,6 +69,7 @@ class AdminRepository:
         if not account:
             return None
         return {
+            "id": account.id,
             "username": account.username,
             "name": account.display_name,
             "role": "슈퍼관리자",
@@ -116,6 +103,29 @@ class AdminRepository:
             for user in users.distinct().order_by("id")
         ]
 
+
+
+    def user_groups_for_selection(self, team_id: int | None = None) -> list[dict]:
+        users = UserAccount.objects.select_related("team").order_by("team__name", "id")
+        if team_id is not None:
+            users = users.filter(team_id=team_id)
+
+        grouped: dict[str, list[dict]] = {}
+        for user in users:
+            group_name = user.team.name if user.team else "미지정"
+            grouped.setdefault(group_name, []).append(
+                {
+                    "id": user.id,
+                    "name": user.display_name,
+                    "organization": group_name,
+                    "email": user.email,
+                }
+            )
+
+        payload = []
+        for group, members in grouped.items():
+            payload.append({"group": f"{group} 사용자그룹", "lead": members[0]["name"], "members": members})
+        return payload
     def assign_user_team(self, user_id: int, team_id: int | None) -> dict:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
         if not user:
@@ -184,29 +194,6 @@ class AdminRepository:
             "team": team.name if team else "-",
             "join_code": team.join_code if team else "-",
         }
-
-    def create_initial_admin(self, username: str, display_name: str, email: str, password: str, team_id: str | None) -> dict:
-        if AdminAccount.objects.exists():
-            raise ValueError("최초 관리자 계정은 이미 생성되었습니다.")
-
-        team = Team.objects.filter(id=team_id).first() if team_id else None
-        admin = AdminAccount.objects.create(
-            username=username,
-            display_name=display_name,
-            email=email,
-            password=password,
-            team=team,
-            is_super_admin=True,
-        )
-        return {
-            "id": admin.id,
-            "username": admin.username,
-            "display_name": admin.display_name,
-            "email": admin.email,
-            "team": admin.team.name if admin.team else "-",
-            "is_super_admin": admin.is_super_admin,
-        }
-
     def list_managed_tables(self) -> list[dict]:
         rows = []
         with connection.cursor() as cursor:
@@ -233,6 +220,4 @@ class AdminRepository:
             )
             if not cursor.fetchone():
                 raise ValueError("테이블이 존재하지 않습니다.")
-            if table_name == "workflow_app_team":
-                cursor.execute('DELETE FROM "workflow_app_adminaccount" WHERE team_id IS NOT NULL')
             cursor.execute(f'DELETE FROM "{table_name}"')
