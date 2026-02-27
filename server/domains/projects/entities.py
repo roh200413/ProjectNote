@@ -16,5 +16,5 @@ class CreateProjectCommand:
 
 @dataclass(frozen=True)
 class InvitedMemberCommand:
-    researcher_id: int
+    user_id: int
     role: str

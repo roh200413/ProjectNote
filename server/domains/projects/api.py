@@ -13,6 +13,7 @@ from server.application.web_support import (
     project_repository,
     project_service,
     researcher_repository,
+    admin_repository,
     research_note_repository,
     dashboard_counts,
 )
@@ -55,7 +56,10 @@ def project_create_page(request):
     return render(
         request,
         "workflow/project_create.html",
-        page_context(request, {"researcher_groups": researcher_repository.researcher_groups_for_selection()}),
+        page_context(
+            request,
+            {"user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id"))},
+        ),
     )
 
 

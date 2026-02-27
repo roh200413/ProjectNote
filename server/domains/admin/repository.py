@@ -104,6 +104,29 @@ class AdminRepository:
             for user in users.distinct().order_by("id")
         ]
 
+
+
+    def user_groups_for_selection(self, team_id: int | None = None) -> list[dict]:
+        users = UserAccount.objects.select_related("team").order_by("team__name", "id")
+        if team_id is not None:
+            users = users.filter(team_id=team_id)
+
+        grouped: dict[str, list[dict]] = {}
+        for user in users:
+            group_name = user.team.name if user.team else "미지정"
+            grouped.setdefault(group_name, []).append(
+                {
+                    "id": user.id,
+                    "name": user.display_name,
+                    "organization": group_name,
+                    "email": user.email,
+                }
+            )
+
+        payload = []
+        for group, members in grouped.items():
+            payload.append({"group": f"{group} 사용자그룹", "lead": members[0]["name"], "members": members})
+        return payload
     def assign_user_team(self, user_id: int, team_id: int | None) -> dict:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
         if not user:

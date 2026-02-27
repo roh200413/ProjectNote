@@ -25,8 +25,12 @@ class Project(TimestampedModel):
 class ProjectMember(TimestampedModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="memberships")
     researcher = models.ForeignKey("workflow_app.Researcher", on_delete=models.CASCADE, related_name="project_memberships")
+    user = models.ForeignKey("workflow_app.UserAccount", on_delete=models.SET_NULL, null=True, blank=True, related_name="project_memberships")
     role = models.CharField(max_length=100, default="member")
     contribution = models.CharField(max_length=255, default="프로젝트 참여")
 
     class Meta:
         unique_together = ("project", "researcher")
+        constraints = [
+            models.UniqueConstraint(fields=["project", "user"], name="unique_project_user_member"),
+        ]

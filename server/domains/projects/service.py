@@ -46,7 +46,7 @@ class ProjectService:
         project = self.project_repository.create_project(command)
 
         invited_commands = [
-            InvitedMemberCommand(researcher_id=member.id, role=member.role)
+            InvitedMemberCommand(user_id=member.id, role=member.role)
             for member in payload.invited_members
         ]
         self.project_repository.create_project_members(project, invited_commands)
