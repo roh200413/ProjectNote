@@ -31,19 +31,29 @@ def admin_users_api(request):
         keyword = request.GET.get("q", "").strip()
         return JsonResponse(admin_repository.list_all_users(keyword=keyword), safe=False)
 
+    action = request.POST.get("action", "assign_team").strip()
     user_id = request.POST.get("user_id", "").strip()
-    team_id_raw = request.POST.get("team_id", "").strip()
     if not user_id.isdigit():
         return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
 
-    team_id = None
-    if team_id_raw:
-        if not team_id_raw.isdigit():
-            return JsonResponse({"detail": "유효한 팀 ID가 필요합니다."}, status=400)
-        team_id = int(team_id_raw)
-
     try:
-        payload = admin_repository.assign_user_team(user_id=int(user_id), team_id=team_id)
+        if action == "assign_team":
+            team_id_raw = request.POST.get("team_id", "").strip()
+            team_id = None
+            if team_id_raw:
+                if not team_id_raw.isdigit():
+                    return JsonResponse({"detail": "유효한 팀 ID가 필요합니다."}, status=400)
+                team_id = int(team_id_raw)
+            payload = admin_repository.assign_user_team(user_id=int(user_id), team_id=team_id)
+        elif action == "approve":
+            payload = admin_repository.approve_user(user_id=int(user_id))
+        elif action == "grant_role":
+            role = request.POST.get("role", "").strip()
+            payload = admin_repository.change_user_role(user_id=int(user_id), role=role)
+        elif action == "expel":
+            payload = admin_repository.remove_user(user_id=int(user_id))
+        else:
+            return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     return JsonResponse(payload)
