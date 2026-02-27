@@ -8,6 +8,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterUniqueTogether(
+            name="projectmember",
+            unique_together=set(),
+        ),
         migrations.RemoveField(
             model_name="projectmember",
             name="researcher",
