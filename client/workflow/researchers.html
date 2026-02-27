@@ -3,8 +3,31 @@
 {% block page_title %}연구자 통합 관리{% endblock %}
 
 {% block content %}
-<section class="pn-card">
-  <h3 style="margin-top:0">연구자 목록</h3>
+<section class="pn-card" style="margin-bottom:14px">
+  <h3 style="margin-top:0">1) 미소속 사용자 초대</h3>
+  <p class="pn-sub" style="margin-top:0">가입은 완료했지만 팀 등록이 없는 사용자를 선택해 팀에 초대(배정)합니다.</p>
+  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+    <div>
+      <label class="pn-sub" for="unassignedUserSelect">사용자</label>
+      <select id="unassignedUserSelect" class="pn-input" style="min-width:220px">
+        <option value="">미소속 사용자 선택</option>
+      </select>
+    </div>
+    <div>
+      <label class="pn-sub" for="inviteTeamSelect">팀</label>
+      <select id="inviteTeamSelect" class="pn-input" style="min-width:200px">
+        <option value="">팀 선택</option>
+        {% for t in teams %}
+        <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="pn-btn" id="inviteButton" type="button">초대/배정</button>
+  </div>
+</section>
+
+<section class="pn-card" style="margin-bottom:14px">
+  <h3 style="margin-top:0">2) 연구자 목록</h3>
   <table class="pn-table" id="researcherTable">
     <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>전공/부서명</th><th>상태</th><th>관리</th><th></th></tr></thead>
     <tbody>
@@ -42,41 +65,43 @@
   </table>
 </section>
 
+<section class="pn-card">
+  <h3 style="margin-top:0">3) 회사 코드 기반 승인 대기 사용자 승인</h3>
+  <p class="pn-sub" style="margin-top:0">회사 코드를 입력하면 해당 코드로 가입했지만 아직 승인되지 않은 사용자를 표시합니다.</p>
+  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
+    <div>
+      <label class="pn-sub" for="joinCodeInput">회사 코드</label>
+      <input id="joinCodeInput" class="pn-input" placeholder="6자리 코드 입력" maxlength="6" />
+    </div>
+    <button class="pn-btn" id="pendingSearchButton" type="button">조회</button>
+  </div>
+  <table class="pn-table" id="pendingApprovalTable">
+    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>코드</th><th>관리</th></tr></thead>
+    <tbody id="pendingApprovalBody">
+      <tr><td colspan="6" class="pn-sub">회사 코드를 입력하면 승인 대기 사용자가 표시됩니다.</td></tr>
+    </tbody>
+  </table>
+</section>
+
 <script>
-  const researcherForm = document.getElementById('researcherForm');
-  researcherForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(researcherForm);
-    const response = await fetch('/api/v1/researchers', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-      credentials: 'same-origin'
-    });
+  async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {credentials: 'same-origin', ...options});
     const body = await response.json();
     if (!response.ok) {
-      document.getElementById('researcherToast').textContent = body.detail || '연구자 추가 실패';
-      return;
+      throw new Error(body.detail || '요청 처리에 실패했습니다.');
     }
-    document.getElementById('researcherToast').textContent = `추가 완료: ${body.name} (승인대기)`;
-    window.location.reload();
-  });
+    return body;
+  }
 
   async function submitManage(form) {
     const formData = new FormData(form);
     formData.append('action', form.dataset.action);
     formData.append('user_id', form.dataset.userId);
-    const response = await fetch('/api/v1/researchers', {
+    await fetchJson('/api/v1/researchers', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
       body: formData,
-      credentials: 'same-origin'
     });
-    const body = await response.json();
-    if (!response.ok) {
-      document.getElementById('researcherToast').textContent = body.detail || '처리 실패';
-      return;
-    }
     document.getElementById('researcherToast').textContent = '처리 완료';
     window.location.reload();
   }
@@ -85,8 +110,109 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (form.dataset.action === 'expel' && !confirm('정말 내보내시겠습니까?')) return;
-      await submitManage(form);
+      try {
+        await submitManage(form);
+      } catch (error) {
+        document.getElementById('researcherToast').textContent = error.message;
+      }
     });
   });
+
+  async function loadUnassignedUsers() {
+    const users = await fetchJson('/api/v1/researchers?action=unassigned');
+    const select = document.getElementById('unassignedUserSelect');
+    select.innerHTML = '<option value="">미소속 사용자 선택</option>';
+    users.forEach((user) => {
+      const option = document.createElement('option');
+      option.value = String(user.id);
+      option.textContent = `${user.name} (${user.username})`;
+      select.appendChild(option);
+    });
+  }
+
+  document.getElementById('inviteButton').addEventListener('click', async () => {
+    const userId = document.getElementById('unassignedUserSelect').value;
+    const teamId = document.getElementById('inviteTeamSelect').value;
+    if (!userId || !teamId) {
+      document.getElementById('researcherToast').textContent = '사용자와 팀을 모두 선택해주세요.';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'assign_team');
+    formData.append('user_id', userId);
+    formData.append('team_id', teamId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      document.getElementById('researcherToast').textContent = '팀 초대(배정) 완료';
+      window.location.reload();
+    } catch (error) {
+      document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
+
+  async function loadPendingUsersByCode() {
+    const joinCode = document.getElementById('joinCodeInput').value.trim();
+    const tbody = document.getElementById('pendingApprovalBody');
+    if (!joinCode) {
+      tbody.innerHTML = '<tr><td colspan="6" class="pn-sub">회사 코드를 입력해주세요.</td></tr>';
+      return;
+    }
+
+    try {
+      const users = await fetchJson(`/api/v1/researchers?action=pending_by_code&join_code=${encodeURIComponent(joinCode)}`);
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="pn-sub">승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td>${user.join_code}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="6" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('pendingSearchButton').addEventListener('click', loadPendingUsersByCode);
+  document.getElementById('joinCodeInput').addEventListener('input', loadPendingUsersByCode);
+
+  document.getElementById('pendingApprovalBody').addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    const formData = new FormData();
+    formData.append('action', 'approve');
+    formData.append('user_id', button.dataset.userId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      document.getElementById('researcherToast').textContent = '승인 완료';
+      await loadPendingUsersByCode();
+    } catch (error) {
+      document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
+
+  loadUnassignedUsers();
 </script>
 {% endblock %}
