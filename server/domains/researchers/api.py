@@ -9,7 +9,8 @@ from server.domains.admin.models import Team
 
 def _can_manage(request) -> bool:
     profile = request.session.get("user_profile", {})
-    return bool(profile.get("is_super_admin") or profile.get("role") == "관리자")
+    role = profile.get("role")
+    return bool(profile.get("is_super_admin") or role in {"관리자", "admin"})
 
 
 def _resolve_team_id_from_session(profile: dict) -> int | None:
@@ -80,9 +81,25 @@ def researchers_api(request):
             if action == "approve":
                 payload = researcher_repository.approve_user(user_id)
             elif action == "grant_role":
-                payload = researcher_repository.grant_role(user_id, request.POST.get("role", "").strip())
-            elif action == "expel":
-                payload = researcher_repository.expel_user(user_id)
+                role_raw = request.POST.get("role", "").strip()
+
+                # ✅ repository가 기대하는 값으로 정규화: admin / member
+                if role_raw in {"admin", "관리자"}:
+                    role = "admin"
+                elif role_raw in {"member", "일반"}:
+                    role = "member"
+                else:
+                    return JsonResponse({"detail": "권한 값이 올바르지 않습니다."}, status=400)
+
+                # ✅ 관리자 최대 3명 제한 (admin 기준)
+                if role == "admin":
+                    admin_count = researcher_repository.count_admins_by_team_id(team_id)
+                    if admin_count >= 3:
+                        return JsonResponse({"detail": "관리자는 팀당 최대 3명까지만 지정할 수 있습니다."}, status=400)
+
+                payload = researcher_repository.grant_role(user_id, role)
+            elif action == "remove_from_company":
+                payload = researcher_repository.remove_from_company(user_id, team_id)
             else:
                 return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
     except ValueError as exc:

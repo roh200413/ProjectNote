@@ -31,6 +31,12 @@ class ResearcherRepository:
             "is_approved": user.is_approved,
         }
 
+
+    def count_admins_by_team_id(self, team_id: int | None) -> int:
+        if not team_id:
+            return 0
+        return UserAccount.objects.filter(team_id=team_id, role="관리자").count()
+
     def list_researchers_for_team(self, team_id: int | None, approved_only: bool = True) -> list[dict]:
         if not team_id:
             return []
@@ -211,13 +217,24 @@ class ResearcherRepository:
         user.save(update_fields=["team", "updated_at"])
         return {"id": user.id, "team": user.team.name if user.team else "미지정"}
 
-    def expel_user(self, user_id: int) -> dict:
+    def remove_from_company(self, user_id: int, team_id: int | None):
         user = UserAccount.objects.filter(id=user_id).first()
         if not user:
             raise ValueError("사용자를 찾을 수 없습니다.")
-        username = user.username
-        user.delete()
-        return {"username": username}
+
+        # (선택) 같은 팀만 제외 가능
+        if team_id and user.team_id != team_id:
+            raise ValueError("같은 팀 사용자만 제외할 수 있습니다.")
+
+        # ✅ FK 해제: Team 인스턴스가 아니라 None으로
+        user.team = None  # 또는 user.team_id = None
+        user.is_approved = False  # 또는 user.team_id = None
+
+        # (선택) 상태가 있다면 정책에 맞게
+        # user.status = "미소속"  # status가 CharField면 OK
+
+        user.save(update_fields=["team", "is_approved"])  # status까지 바꾸면 ["team","status"]
+        return {"ok": True, "message": "회사(팀)에서 제외했습니다."}
 
     def researcher_groups_for_selection(self) -> list[dict]:
         groups = []
