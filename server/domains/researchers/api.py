@@ -15,12 +15,20 @@ def _can_manage(request) -> bool:
 def _resolve_team_id_from_session(profile: dict) -> int | None:
     team_id = profile.get("team_id")
     if team_id:
-        return int(team_id)
+        try:
+            return int(team_id)
+        except (TypeError, ValueError):
+            pass
+
     team_name = str(profile.get("team", "")).strip()
-    if not team_name or team_name == "-":
-        return None
-    team = Team.objects.filter(name=team_name).first()
-    return team.id if team else None
+    organization_name = str(profile.get("organization", "")).strip()
+    for candidate in (team_name, organization_name):
+        if not candidate or candidate in {"-", "미지정"}:
+            continue
+        team = Team.objects.filter(name=candidate).first()
+        if team:
+            return team.id
+    return None
 
 
 @require_http_methods(["GET", "POST"])
@@ -98,6 +106,7 @@ def researchers_page(request):
             request,
             {
                 "researchers": researcher_repository.list_researchers_for_team(team_id=team_id, approved_only=True),
+                "pending_researchers": researcher_repository.list_pending_users_by_team_id(team_id),
                 "teams": researcher_repository.list_teams(),
                 "can_manage_researchers": _can_manage(request),
             },

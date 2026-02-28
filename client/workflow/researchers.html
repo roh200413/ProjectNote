@@ -66,7 +66,17 @@
   <table class="pn-table" id="pendingApprovalTable">
     <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>관리</th></tr></thead>
     <tbody id="pendingApprovalBody">
-      <tr><td colspan="5" class="pn-sub">승인 대기 사용자를 불러오는 중입니다.</td></tr>
+      {% for u in pending_researchers %}
+      <tr>
+        <td>{{ u.name }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.team }}</td>
+        <td><button class="pn-btn approve-btn" data-user-id="{{ u.id }}" type="button">승인</button></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>
+      {% endfor %}
     </tbody>
   </table>
 </section>
@@ -470,6 +480,52 @@
       setToast(error.message);
     }
   });
-  loadPendingUsersForMyTeam();
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('pendingApprovalBody').addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    const formData = new FormData();
+    formData.append('action', 'approve');
+    formData.append('user_id', button.dataset.userId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message);
+    }
+  });
 </script>
 {% endblock %}
