@@ -3,8 +3,24 @@
 {% block page_title %}연구자 통합 관리{% endblock %}
 
 {% block content %}
-<section class="pn-card">
-  <h3 style="margin-top:0">연구자 목록</h3>
+<div id="researcherToast" class="pn-toast" style="margin-bottom:10px;"></div>
+
+<section class="pn-card" style="margin-bottom:14px">
+  <h3 style="margin-top:0">1) 미소속 사용자 초대</h3>
+  <p class="pn-sub" style="margin-top:0">가입은 했지만 팀 미등록 상태인 사용자를 아이디 검증 후 초대합니다.</p>
+  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
+    <div>
+      <label class="pn-sub" for="inviteIdInput">사용자 아이디</label>
+      <input id="inviteIdInput" class="pn-input" style="width:420px;" placeholder="초대할 사용자 아이디" maxlength="80" />
+    </div>
+    <button class="pn-btn" id="verifyIdButton" type="button">아이디 검증</button>
+    <button class="pn-btn" id="inviteButton" type="button" disabled>초대</button>
+  </div>
+</section>
+
+<section class="pn-card" style="margin-bottom:14px">
+  <h3 style="margin-top:0">2) 연구자 목록</h3>
+  <p class="pn-sub" style="margin-top:0">현재 로그인한 관리자와 같은 회사 코드(팀)이며 승인 완료된 사용자만 표시됩니다.</p>
   <table class="pn-table" id="researcherTable">
     <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>전공/부서명</th><th>상태</th><th>관리</th><th></th></tr></thead>
     <tbody>
@@ -37,47 +53,150 @@
             </form>
         </td>
       </tr>
+    {% empty %}
+      <tr><td colspan="8" class="pn-sub">현재 팀의 승인된 사용자가 없습니다.</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </section>
 
+<section class="pn-card">
+  <h3 style="margin-top:0">3) 회사 연계 승인 대기 사용자 승인</h3>
+  <p class="pn-sub" style="margin-top:0">현재 로그인한 관리자와 같은 회사(팀)에 연계되어 있고 아직 승인되지 않은 사용자를 표시합니다.</p>
+  <table class="pn-table" id="pendingApprovalTable">
+    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>관리</th></tr></thead>
+    <tbody id="pendingApprovalBody">
+      {% for u in pending_researchers %}
+      <tr>
+        <td>{{ u.name }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.team }}</td>
+        <td><button class="pn-btn approve-btn" data-user-id="{{ u.id }}" type="button">승인</button></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
 <script>
-  const researcherForm = document.getElementById('researcherForm');
-  researcherForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(researcherForm);
-    const response = await fetch('/api/v1/researchers', {
+  window.addEventListener('error', function (event) {
+    var message = '화면 스크립트 오류가 발생했습니다.';
+    if (event && event.error && event.error.message) {
+      message = event.error.message;
+    } else if (event && event.message) {
+      message = event.message;
+    }
+    setToast(message, true);
+  });
+
+  function setToast(message, isError = false) {
+    let toast = document.getElementById('researcherToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'researcherToast';
+      toast.className = 'pn-toast';
+      toast.style.marginBottom = '10px';
+      const shell = document.querySelector('.pn-shell');
+      if (shell) shell.prepend(toast);
+    }
+    if (!toast) {
+      alert(message);
+      return;
+    }
+    toast.style.display = 'block';
+    toast.style.color = isError ? '#b91c1c' : '#1f2937';
+    toast.textContent = message;
+  }
+
+  async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {credentials: 'same-origin', ...options});
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.detail || '요청 처리에 실패했습니다.');
+    return body;
+  }
+
+  async function postResearcherAction(payload) {
+    const formData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    return fetchJson('/api/v1/researchers', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
       body: formData,
-      credentials: 'same-origin'
     });
-    const body = await response.json();
-    if (!response.ok) {
-      document.getElementById('researcherToast').textContent = body.detail || '연구자 추가 실패';
+  }
+
+  function setInviteEnabled(enabled) {
+    const inviteBtn = document.getElementById('inviteButton');
+    inviteBtn.disabled = !enabled;
+    inviteBtn.style.opacity = enabled ? '1' : '0.5';
+    inviteBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  }
+
+  const inviteIdInput = document.getElementById('inviteIdInput');
+  const verifyIdButton = document.getElementById('verifyIdButton');
+  const inviteButton = document.getElementById('inviteButton');
+  let verifiedInviteId = '';
+  if (inviteButton) setInviteEnabled(false);
+
+  if (inviteIdInput) {
+    inviteIdInput.addEventListener('input', function () {
+      verifiedInviteId = '';
+      setInviteEnabled(false);
+    });
+  }
+
+  if (verifyIdButton) verifyIdButton.addEventListener('click', async function () {
+    const username = inviteIdInput.value.trim();
+    if (!username) {
+      setToast('아이디를 입력해주세요.');
+      setInviteEnabled(false);
       return;
     }
-    document.getElementById('researcherToast').textContent = `추가 완료: ${body.name} (승인대기)`;
-    window.location.reload();
+
+    try {
+      const body = await postResearcherAction({action: 'verify_id', username});
+      if (body.can_invite) {
+        verifiedInviteId = username;
+        setInviteEnabled(true);
+      } else {
+        verifiedInviteId = '';
+        setInviteEnabled(false);
+      }
+      setToast(body.message || '검증이 완료되었습니다.');
+    } catch (error) {
+      verifiedInviteId = '';
+      setInviteEnabled(false);
+      setToast(error.message, true);
+    }
+  });
+
+  if (inviteButton) inviteButton.addEventListener('click', async function () {
+    if (!verifiedInviteId) return;
+
+    try {
+      await postResearcherAction({action: 'assign_team', username: verifiedInviteId});
+      setToast('팀 초대(배정) 완료');
+      window.location.reload();
+    } catch (error) {
+      setToast(error.message, true);
+    }
   });
 
   async function submitManage(form) {
-    const formData = new FormData(form);
-    formData.append('action', form.dataset.action);
-    formData.append('user_id', form.dataset.userId);
-    const response = await fetch('/api/v1/researchers', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-      credentials: 'same-origin'
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      document.getElementById('researcherToast').textContent = body.detail || '처리 실패';
-      return;
-    }
-    document.getElementById('researcherToast').textContent = '처리 완료';
+    const roleField = form.querySelector('[name="role"]');
+    const role = roleField ? roleField.value : '';
+    const payload = {
+      action: form.dataset.action,
+      user_id: form.dataset.userId,
+    };
+    if (role) payload.role = role;
+    await postResearcherAction(payload);
+    setToast('처리 완료');
     window.location.reload();
   }
 
@@ -85,8 +204,52 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (form.dataset.action === 'expel' && !confirm('정말 내보내시겠습니까?')) return;
-      await submitManage(form);
+      try {
+        await submitManage(form);
+      } catch (error) {
+        setToast(error.message, true);
+      }
     });
+  });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  const pendingBody = document.getElementById('pendingApprovalBody');
+  if (pendingBody) pendingBody.addEventListener('click', async function (event) {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    try {
+      await postResearcherAction({action: 'approve', user_id: button.dataset.userId});
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message, true);
+    }
   });
 </script>
 {% endblock %}
