@@ -547,6 +547,7 @@ def test_researchers_page_separated_fields() -> None:
     assert "미소속 사용자 초대" in html
     assert "연구자 목록" in html
     assert "회사 연계 승인 대기 사용자 승인" in html
+    assert "researcherToast" in html
     assert "member-login" in html
     assert "tester" not in html
 

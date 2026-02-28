@@ -3,6 +3,8 @@
 {% block page_title %}연구자 통합 관리{% endblock %}
 
 {% block content %}
+<div id="researcherToast" class="pn-toast" style="margin-bottom:10px;"></div>
+
 <section class="pn-card" style="margin-bottom:14px">
   <h3 style="margin-top:0">1) 미소속 사용자 초대</h3>
   <p class="pn-sub" style="margin-top:0">가입은 했지만 팀 미등록 상태인 사용자를 아이디 검증 후 초대합니다.</p>
@@ -70,6 +72,12 @@
 </section>
 
 <script>
+  function setToast(message) {
+    const toast = document.getElementById('researcherToast');
+    if (!toast) return;
+    toast.textContent = message;
+  }
+
   async function fetchJson(url, options = {}) {
     const response = await fetch(url, {credentials: 'same-origin', ...options});
     const body = await response.json();
@@ -97,7 +105,7 @@
   verifyIdButton.addEventListener('click', async () => {
     const username = inviteIdInput.value.trim();
     if (!username) {
-      document.getElementById('researcherToast').textContent = '아이디를 입력해주세요.';
+      setToast('아이디를 입력해주세요.');
       setInviteEnabled(false);
       return;
     }
@@ -119,11 +127,11 @@
         verifiedInviteId = '';
         setInviteEnabled(false);
       }
-      document.getElementById('researcherToast').textContent = body.message || '검증이 완료되었습니다.';
+      setToast(body.message || '검증이 완료되었습니다.');
     } catch (error) {
       verifiedInviteId = '';
       setInviteEnabled(false);
-      document.getElementById('researcherToast').textContent = error.message;
+      setToast(error.message);
     }
   });
 
@@ -140,10 +148,10 @@
         headers: {'X-CSRFToken': getCsrfToken()},
         body: formData,
       });
-      document.getElementById('researcherToast').textContent = '팀 초대(배정) 완료';
+      setToast('팀 초대(배정) 완료');
       window.location.reload();
     } catch (error) {
-      document.getElementById('researcherToast').textContent = error.message;
+      setToast(error.message);
     }
   });
 
@@ -156,7 +164,7 @@
       headers: {'X-CSRFToken': getCsrfToken()},
       body: formData,
     });
-    document.getElementById('researcherToast').textContent = '처리 완료';
+    setToast('처리 완료');
     window.location.reload();
   }
 
@@ -167,7 +175,7 @@
       try {
         await submitManage(form);
       } catch (error) {
-        document.getElementById('researcherToast').textContent = error.message;
+        setToast(error.message);
       }
     });
   }
@@ -413,6 +421,53 @@
       await loadPendingUsersForMyTeam();
     } catch (error) {
       document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('pendingApprovalBody').addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    const formData = new FormData();
+    formData.append('action', 'approve');
+    formData.append('user_id', button.dataset.userId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message);
     }
   });
   loadPendingUsersForMyTeam();
