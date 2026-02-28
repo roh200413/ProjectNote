@@ -82,8 +82,13 @@
 </section>
 
 <script>
-  window.addEventListener('error', (event) => {
-    const message = event?.error?.message || event.message || '화면 스크립트 오류가 발생했습니다.';
+  window.addEventListener('error', function (event) {
+    var message = '화면 스크립트 오류가 발생했습니다.';
+    if (event && event.error && event.error.message) {
+      message = event.error.message;
+    } else if (event && event.message) {
+      message = event.message;
+    }
     setToast(message, true);
   });
 
@@ -138,12 +143,14 @@
   let verifiedInviteId = '';
   if (inviteButton) setInviteEnabled(false);
 
-  inviteIdInput?.addEventListener('input', () => {
-    verifiedInviteId = '';
-    setInviteEnabled(false);
-  });
+  if (inviteIdInput) {
+    inviteIdInput.addEventListener('input', function () {
+      verifiedInviteId = '';
+      setInviteEnabled(false);
+    });
+  }
 
-  verifyIdButton?.addEventListener('click', async () => {
+  if (verifyIdButton) verifyIdButton.addEventListener('click', async function () {
     const username = inviteIdInput.value.trim();
     if (!username) {
       setToast('아이디를 입력해주세요.');
@@ -168,7 +175,7 @@
     }
   });
 
-  inviteButton?.addEventListener('click', async () => {
+  if (inviteButton) inviteButton.addEventListener('click', async function () {
     if (!verifiedInviteId) return;
 
     try {
@@ -181,7 +188,8 @@
   });
 
   async function submitManage(form) {
-    const role = form.querySelector('[name="role"]')?.value;
+    const roleField = form.querySelector('[name="role"]');
+    const role = roleField ? roleField.value : '';
     const payload = {
       action: form.dataset.action,
       user_id: form.dataset.userId,
@@ -618,6 +626,46 @@
 
   const pendingBody = document.getElementById('pendingApprovalBody');
   pendingBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    try {
+      await postResearcherAction({action: 'approve', user_id: button.dataset.userId});
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message, true);
+    }
+  });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  const pendingBody = document.getElementById('pendingApprovalBody');
+  if (pendingBody) pendingBody.addEventListener('click', async function (event) {
     const button = event.target.closest('.approve-btn');
     if (!button) return;
 
