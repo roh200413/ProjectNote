@@ -15,6 +15,14 @@ def _can_manage(request) -> bool:
 @login_required_page
 def researchers_api(request):
     if request.method == "GET":
+        action = request.GET.get("action", "").strip()
+        if action == "unassigned":
+            query = request.GET.get("q", "").strip()
+            return JsonResponse(researcher_repository.list_unassigned_users(query), safe=False)
+        if action == "pending_for_my_team":
+            profile = request.session.get("user_profile", {})
+            team_id = profile.get("team_id")
+            return JsonResponse(researcher_repository.list_pending_users_by_team_id(team_id), safe=False)
         return JsonResponse(researcher_repository.list_researchers(), safe=False)
 
     action = request.POST.get("action", "create").strip()

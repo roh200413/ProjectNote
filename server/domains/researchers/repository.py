@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from django.db import models
+
 from server.domains.admin.models import Team, UserAccount
 
 
@@ -34,6 +36,48 @@ class ResearcherRepository:
 
     def list_teams(self) -> list[dict]:
         return [{"id": team.id, "name": team.name} for team in Team.objects.order_by("name", "id")]
+
+    def list_unassigned_users(self, query: str = "") -> list[dict]:
+        normalized_query = query.strip()
+        if len(normalized_query) < 2:
+            return []
+
+        users = UserAccount.objects.filter(team__isnull=True).order_by("id")
+        users = users.filter(
+            models.Q(username__icontains=normalized_query)
+            | models.Q(display_name__icontains=normalized_query)
+            | models.Q(email__icontains=normalized_query)
+        )
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "email": user.email,
+                "status": "승인" if user.is_approved else "승인대기",
+            }
+            for user in users
+        ]
+
+    def list_pending_users_by_team_id(self, team_id: int | None) -> list[dict]:
+        if not team_id:
+            return []
+
+        team = Team.objects.filter(id=team_id).first()
+        if not team:
+            return []
+
+        users = UserAccount.objects.filter(team=team, is_approved=False).order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "email": user.email,
+                "team": team.name,
+            }
+            for user in users
+        ]
 
     def create_researcher(self, payload: dict) -> dict:
         email = _as_text(payload.get("email")).strip()
