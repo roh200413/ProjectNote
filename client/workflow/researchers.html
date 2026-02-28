@@ -113,6 +113,18 @@
     return body;
   }
 
+  async function postResearcherAction(payload) {
+    const formData = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    return fetchJson('/api/v1/researchers', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+    });
+  }
+
   function setInviteEnabled(enabled) {
     const inviteBtn = document.getElementById('inviteButton');
     inviteBtn.disabled = !enabled;
@@ -139,16 +151,8 @@
       return;
     }
 
-    const formData = new FormData();
-    formData.append('action', 'verify_id');
-    formData.append('username', username);
-
     try {
-      const body = await fetchJson('/api/v1/researchers', {
-        method: 'POST',
-        headers: {'X-CSRFToken': getCsrfToken()},
-        body: formData,
-      });
+      const body = await postResearcherAction({action: 'verify_id', username});
       if (body.can_invite) {
         verifiedInviteId = username;
         setInviteEnabled(true);
@@ -167,16 +171,8 @@
   inviteButton?.addEventListener('click', async () => {
     if (!verifiedInviteId) return;
 
-    const formData = new FormData();
-    formData.append('action', 'assign_team');
-    formData.append('username', verifiedInviteId);
-
     try {
-      await fetchJson('/api/v1/researchers', {
-        method: 'POST',
-        headers: {'X-CSRFToken': getCsrfToken()},
-        body: formData,
-      });
+      await postResearcherAction({action: 'assign_team', username: verifiedInviteId});
       setToast('팀 초대(배정) 완료');
       window.location.reload();
     } catch (error) {
@@ -185,14 +181,13 @@
   });
 
   async function submitManage(form) {
-    const formData = new FormData(form);
-    formData.append('action', form.dataset.action);
-    formData.append('user_id', form.dataset.userId);
-    await fetchJson('/api/v1/researchers', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-    });
+    const role = form.querySelector('[name="role"]')?.value;
+    const payload = {
+      action: form.dataset.action,
+      user_id: form.dataset.userId,
+    };
+    if (role) payload.role = role;
+    await postResearcherAction(payload);
     setToast('처리 완료');
     window.location.reload();
   }
@@ -588,6 +583,46 @@
         headers: {'X-CSRFToken': getCsrfToken()},
         body: formData,
       });
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message, true);
+    }
+  });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  const pendingBody = document.getElementById('pendingApprovalBody');
+  pendingBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    try {
+      await postResearcherAction({action: 'approve', user_id: button.dataset.userId});
       setToast('승인 완료');
       await loadPendingUsersForMyTeam();
     } catch (error) {
