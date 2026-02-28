@@ -59,19 +59,12 @@
 </section>
 
 <section class="pn-card">
-  <h3 style="margin-top:0">3) 회사 코드 기반 승인 대기 사용자 승인</h3>
-  <p class="pn-sub" style="margin-top:0">회사 코드를 입력해 해당 코드로 가입한 승인 대기 사용자 목록을 조회하고 승인합니다.</p>
-  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
-    <div>
-      <label class="pn-sub" for="joinCodeInput">회사 코드</label>
-      <input id="joinCodeInput" class="pn-input" placeholder="6자리 코드 입력" maxlength="6" />
-    </div>
-    <button class="pn-btn" id="pendingSearchButton" type="button">조회</button>
-  </div>
+  <h3 style="margin-top:0">3) 회사 연계 승인 대기 사용자 승인</h3>
+  <p class="pn-sub" style="margin-top:0">현재 로그인한 관리자와 같은 회사(팀)에 연계되어 있고 아직 승인되지 않은 사용자를 표시합니다.</p>
   <table class="pn-table" id="pendingApprovalTable">
-    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>코드</th><th>관리</th></tr></thead>
+    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>관리</th></tr></thead>
     <tbody id="pendingApprovalBody">
-      <tr><td colspan="6" class="pn-sub">회사 코드를 입력하면 승인 대기 사용자가 표시됩니다.</td></tr>
+      <tr><td colspan="5" class="pn-sub">승인 대기 사용자를 불러오는 중입니다.</td></tr>
     </tbody>
   </table>
 </section>
@@ -375,5 +368,53 @@
       document.getElementById('researcherToast').textContent = error.message;
     }
   });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('pendingApprovalBody').addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    const formData = new FormData();
+    formData.append('action', 'approve');
+    formData.append('user_id', button.dataset.userId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      document.getElementById('researcherToast').textContent = '승인 완료';
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
+  loadPendingUsersForMyTeam();
 </script>
 {% endblock %}

@@ -546,7 +546,7 @@ def test_researchers_page_separated_fields() -> None:
     html = response.content.decode()
     assert "미소속 사용자 초대" in html
     assert "연구자 목록" in html
-    assert "회사 코드 기반 승인 대기 사용자 승인" in html
+    assert "회사 연계 승인 대기 사용자 승인" in html
     assert "member-login" in html
     assert "tester" not in html
 
@@ -555,7 +555,7 @@ def test_researchers_page_separated_fields() -> None:
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
 
 
-def test_researchers_support_unassigned_verify_id_and_pending_by_code_queries() -> None:
+def test_researchers_support_unassigned_verify_id_and_pending_for_my_team_queries() -> None:
     reset_db()
     team = Team.objects.create(name="코드팀", description="코드기반", join_code="555555")
     UserAccount.objects.create(
@@ -598,11 +598,33 @@ def test_researchers_support_unassigned_verify_id_and_pending_by_code_queries() 
     assert verify_response.status_code == 200
     assert verify_response.json()["can_invite"] is True
 
-    pending_response = local_client.get("/api/v1/researchers", {"action": "pending_by_code", "join_code": "555555"})
+    pending_response = local_client.get("/api/v1/researchers", {"action": "pending_for_my_team"})
     assert pending_response.status_code == 200
     pending_payload = pending_response.json()
-    assert len(pending_payload) == 1
-    assert pending_payload[0]["id"] == team_pending.id
+    assert not any(item["id"] == team_pending.id for item in pending_payload)
+
+
+
+def test_researchers_pending_for_my_team_includes_linked_unapproved_user() -> None:
+    reset_db()
+    my_team = Team.objects.create(name="기본팀", description="기본", join_code="123456")
+    pending_user = UserAccount.objects.create(
+        username="mine-pending",
+        display_name="내팀대기",
+        email="mine-pending@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=my_team,
+        is_approved=False,
+    )
+
+    local_client = Client()
+    login(local_client)
+
+    response = local_client.get("/api/v1/researchers", {"action": "pending_for_my_team"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert any(item["id"] == pending_user.id for item in payload)
 
 
 def test_researchers_list_only_my_team_approved_users() -> None:

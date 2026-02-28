@@ -34,6 +34,8 @@ def researchers_api(request):
         if action == "unassigned":
             query = request.GET.get("q", "").strip()
             return JsonResponse(researcher_repository.list_unassigned_users(query), safe=False)
+        if action == "pending_for_my_team":
+            return JsonResponse(researcher_repository.list_pending_users_by_team_id(team_id), safe=False)
         if action == "pending_by_code":
             join_code = request.GET.get("join_code", "").strip()
             return JsonResponse(researcher_repository.list_pending_users_by_join_code(join_code), safe=False)
