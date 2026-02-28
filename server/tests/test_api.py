@@ -546,14 +546,16 @@ def test_researchers_page_separated_fields() -> None:
     html = response.content.decode()
     assert "미소속 사용자 초대" in html
     assert "연구자 목록" in html
-    assert "우리 회사 승인 대기 사용자" in html
+    assert "회사 코드 기반 승인 대기 사용자 승인" in html
+    assert "member-login" in html
+    assert "tester" not in html
 
     projects_page = local_client.get("/frontend/projects")
     assert projects_page.status_code == 200
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
 
 
-def test_researchers_support_unassigned_search_and_my_team_pending_queries() -> None:
+def test_researchers_support_unassigned_verify_and_pending_by_code_queries() -> None:
     reset_db()
     team = Team.objects.create(name="코드팀", description="코드기반", join_code="555555")
     UserAccount.objects.create(
@@ -565,7 +567,7 @@ def test_researchers_support_unassigned_search_and_my_team_pending_queries() -> 
         team=None,
         is_approved=False,
     )
-    pending = UserAccount.objects.create(
+    team_pending = UserAccount.objects.create(
         username="pending-code",
         display_name="코드대기",
         email="pending-code@example.com",
@@ -592,46 +594,57 @@ def test_researchers_support_unassigned_search_and_my_team_pending_queries() -> 
     unassigned_payload = unassigned_response.json()
     assert any(item["username"] == "no-team" for item in unassigned_payload)
 
-    pending_response = local_client.get(
-        "/api/v1/researchers",
-        {"action": "pending_for_my_team"},
-    )
+    verify_response = local_client.post("/api/v1/researchers", {"action": "verify_email", "email": "no-team@example.com"})
+    assert verify_response.status_code == 200
+    assert verify_response.json()["can_invite"] is True
+
+    pending_response = local_client.get("/api/v1/researchers", {"action": "pending_by_code", "join_code": "555555"})
     assert pending_response.status_code == 200
     pending_payload = pending_response.json()
-    assert all(item["team"] == "기본팀" for item in pending_payload)
-    assert not any(item["id"] == pending.id for item in pending_payload)
+    assert len(pending_payload) == 1
+    assert pending_payload[0]["id"] == team_pending.id
 
 
-def test_researchers_pending_for_my_team_shows_only_my_team() -> None:
+def test_researchers_list_only_my_team_approved_users() -> None:
     reset_db()
     my_team = Team.objects.create(name="기본팀", description="기본", join_code="123456")
     other_team = Team.objects.create(name="다른팀", description="다름", join_code="654321")
     mine = UserAccount.objects.create(
+        username="mine-approved",
+        display_name="내팀승인",
+        email="mine-pending@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=my_team,
+        is_approved=True,
+    )
+    UserAccount.objects.create(
+        username="other-approved",
+        display_name="타팀승인",
+        email="other-pending@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=other_team,
+        is_approved=True,
+    )
+    UserAccount.objects.create(
         username="mine-pending",
         display_name="내팀대기",
-        email="mine-pending@example.com",
+        email="mine-pending2@example.com",
         password="secret123",
         role=UserAccount.Role.MEMBER,
         team=my_team,
         is_approved=False,
     )
-    UserAccount.objects.create(
-        username="other-pending",
-        display_name="타팀대기",
-        email="other-pending@example.com",
-        password="secret123",
-        role=UserAccount.Role.MEMBER,
-        team=other_team,
-        is_approved=False,
-    )
 
     local_client = Client()
     login(local_client)
-    response = local_client.get("/api/v1/researchers", {"action": "pending_for_my_team"})
+    response = local_client.get("/api/v1/researchers")
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["id"] == mine.id
+    assert any(item["id"] == mine.id for item in payload)
+    assert not any(item["username"] == "other-approved" for item in payload)
+    assert not any(item["username"] == "mine-pending" for item in payload)
 
 
 def test_seed_demo_data_populates_tables() -> None:

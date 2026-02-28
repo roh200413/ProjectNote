@@ -34,6 +34,29 @@ class ResearcherRepository:
             for user in users
         ]
 
+    def list_researchers_for_team(self, team_id: int | None, approved_only: bool = True) -> list[dict]:
+        if not team_id:
+            return []
+        users = UserAccount.objects.select_related("team").filter(team_id=team_id)
+        if approved_only:
+            users = users.filter(is_approved=True)
+        users = users.order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "role": "관리자" if user.role == UserAccount.Role.ADMIN else "연구원",
+                "email": user.email,
+                "organization": user.team.name if user.team else "미지정",
+                "team_id": user.team_id,
+                "major": "미지정",
+                "status": "승인" if user.is_approved else "승인대기",
+                "is_approved": user.is_approved,
+            }
+            for user in users
+        ]
+
     def list_teams(self) -> list[dict]:
         return [{"id": team.id, "name": team.name} for team in Team.objects.order_by("name", "id")]
 
@@ -78,6 +101,66 @@ class ResearcherRepository:
             }
             for user in users
         ]
+
+    def list_pending_users_by_join_code(self, join_code: str) -> list[dict]:
+        normalized_code = join_code.strip()
+        if len(normalized_code) != 6:
+            return []
+        team = Team.objects.filter(join_code=normalized_code).first()
+        if not team:
+            return []
+
+        users = UserAccount.objects.filter(team=team, is_approved=False).order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "email": user.email,
+                "team": team.name,
+                "join_code": team.join_code,
+            }
+            for user in users
+        ]
+
+    def verify_unassigned_user_email(self, email: str) -> dict:
+        normalized_email = email.strip().lower()
+        if not normalized_email:
+            raise ValueError("이메일은 필수입니다.")
+
+        user = UserAccount.objects.filter(email=normalized_email).first()
+        if not user:
+            return {"can_invite": False, "message": "가입된 사용자가 아닙니다."}
+        if user.team_id:
+            return {"can_invite": False, "message": "이미 팀에 소속된 사용자입니다."}
+        if user.is_approved:
+            return {"can_invite": False, "message": "이미 승인된 사용자입니다."}
+        return {
+            "can_invite": True,
+            "message": "검증 완료. 초대 가능합니다.",
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "name": user.display_name,
+        }
+
+    def assign_team_by_email(self, email: str, team_id: int | None) -> dict:
+        if not team_id:
+            raise ValueError("관리자 소속 팀이 없습니다.")
+        team = Team.objects.filter(id=team_id).first()
+        if not team:
+            raise ValueError("팀을 찾을 수 없습니다.")
+
+        normalized_email = email.strip().lower()
+        user = UserAccount.objects.filter(email=normalized_email).first()
+        if not user:
+            raise ValueError("사용자를 찾을 수 없습니다.")
+        if user.team_id:
+            raise ValueError("이미 팀에 소속된 사용자입니다.")
+
+        user.team = team
+        user.save(update_fields=["team", "updated_at"])
+        return {"id": user.id, "team": team.name, "email": user.email}
 
     def create_researcher(self, payload: dict) -> dict:
         email = _as_text(payload.get("email")).strip()

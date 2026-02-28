@@ -5,36 +5,20 @@
 {% block content %}
 <section class="pn-card" style="margin-bottom:14px">
   <h3 style="margin-top:0">1) 미소속 사용자 초대</h3>
-  <p class="pn-sub" style="margin-top:0">검색으로 대상 사용자를 찾아 초대하세요. 검색 전에는 사용자 목록을 노출하지 않습니다.</p>
-  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:8px">
+  <p class="pn-sub" style="margin-top:0">가입은 했지만 팀 미등록 상태인 사용자를 이메일 검증 후 초대합니다.</p>
+  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
     <div>
-      <label class="pn-sub" for="unassignedSearchInput">사용자 검색</label>
-      <input id="unassignedSearchInput" class="pn-input" placeholder="이름/아이디/이메일 (2글자 이상)" style="min-width:260px" />
+      <label class="pn-sub" for="inviteEmailInput">사용자 이메일</label>
+      <input id="inviteEmailInput" class="pn-input" style="width:420px;" placeholder="user@example.com" maxlength="120" />
     </div>
-    <button class="pn-btn" id="unassignedSearchButton" type="button">검색</button>
-  </div>
-  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-    <div>
-      <label class="pn-sub" for="unassignedUserSelect">검색 결과 사용자</label>
-      <select id="unassignedUserSelect" class="pn-input" style="min-width:260px">
-        <option value="">먼저 사용자를 검색해주세요</option>
-      </select>
-    </div>
-    <div>
-      <label class="pn-sub" for="inviteTeamSelect">팀</label>
-      <select id="inviteTeamSelect" class="pn-input" style="min-width:200px">
-        <option value="">팀 선택</option>
-        {% for t in teams %}
-        <option value="{{ t.id }}">{{ t.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button class="pn-btn" id="inviteButton" type="button">초대/배정</button>
+    <button class="pn-btn" id="verifyEmailButton" type="button">이메일 검증</button>
+    <button class="pn-btn" id="inviteButton" type="button" disabled>초대</button>
   </div>
 </section>
 
 <section class="pn-card" style="margin-bottom:14px">
   <h3 style="margin-top:0">2) 연구자 목록</h3>
+  <p class="pn-sub" style="margin-top:0">현재 로그인한 관리자와 같은 회사 코드(팀)이며 승인 완료된 사용자만 표시됩니다.</p>
   <table class="pn-table" id="researcherTable">
     <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>전공/부서명</th><th>상태</th><th>관리</th><th></th></tr></thead>
     <tbody>
@@ -67,18 +51,27 @@
             </form>
         </td>
       </tr>
+    {% empty %}
+      <tr><td colspan="8" class="pn-sub">현재 팀의 승인된 사용자가 없습니다.</td></tr>
     {% endfor %}
     </tbody>
   </table>
 </section>
 
 <section class="pn-card">
-  <h3 style="margin-top:0">3) 우리 회사 승인 대기 사용자</h3>
-  <p class="pn-sub" style="margin-top:0">내 회사(현재 로그인 계정 소속)로 가입한 승인 대기 사용자를 자동으로 표시합니다.</p>
+  <h3 style="margin-top:0">3) 회사 코드 기반 승인 대기 사용자 승인</h3>
+  <p class="pn-sub" style="margin-top:0">회사 코드를 입력해 해당 코드로 가입한 승인 대기 사용자 목록을 조회하고 승인합니다.</p>
+  <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px">
+    <div>
+      <label class="pn-sub" for="joinCodeInput">회사 코드</label>
+      <input id="joinCodeInput" class="pn-input" placeholder="6자리 코드 입력" maxlength="6" />
+    </div>
+    <button class="pn-btn" id="pendingSearchButton" type="button">조회</button>
+  </div>
   <table class="pn-table" id="pendingApprovalTable">
-    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>관리</th></tr></thead>
+    <thead><tr><th>이름</th><th>아이디</th><th>이메일</th><th>팀</th><th>코드</th><th>관리</th></tr></thead>
     <tbody id="pendingApprovalBody">
-      <tr><td colspan="5" class="pn-sub">승인 대기 사용자를 불러오는 중입니다.</td></tr>
+      <tr><td colspan="6" class="pn-sub">회사 코드를 입력하면 승인 대기 사용자가 표시됩니다.</td></tr>
     </tbody>
   </table>
 </section>
@@ -90,6 +83,77 @@
     if (!response.ok) throw new Error(body.detail || '요청 처리에 실패했습니다.');
     return body;
   }
+
+  function setInviteEnabled(enabled) {
+    const inviteBtn = document.getElementById('inviteButton');
+    inviteBtn.disabled = !enabled;
+    inviteBtn.style.opacity = enabled ? '1' : '0.5';
+    inviteBtn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  }
+
+  const inviteEmailInput = document.getElementById('inviteEmailInput');
+  const verifyEmailButton = document.getElementById('verifyEmailButton');
+  let verifiedInviteEmail = '';
+  setInviteEnabled(false);
+
+  inviteEmailInput.addEventListener('input', () => {
+    verifiedInviteEmail = '';
+    setInviteEnabled(false);
+  });
+
+  verifyEmailButton.addEventListener('click', async () => {
+    const email = inviteEmailInput.value.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      document.getElementById('researcherToast').textContent = '올바른 이메일 형식이 아닙니다.';
+      setInviteEnabled(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'verify_email');
+    formData.append('email', email);
+
+    try {
+      const body = await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      if (body.can_invite) {
+        verifiedInviteEmail = email;
+        setInviteEnabled(true);
+      } else {
+        verifiedInviteEmail = '';
+        setInviteEnabled(false);
+      }
+      document.getElementById('researcherToast').textContent = body.message || '검증이 완료되었습니다.';
+    } catch (error) {
+      verifiedInviteEmail = '';
+      setInviteEnabled(false);
+      document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
+
+  document.getElementById('inviteButton').addEventListener('click', async () => {
+    if (!verifiedInviteEmail) return;
+
+    const formData = new FormData();
+    formData.append('action', 'assign_team');
+    formData.append('email', verifiedInviteEmail);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      document.getElementById('researcherToast').textContent = '팀 초대(배정) 완료';
+      window.location.reload();
+    } catch (error) {
+      document.getElementById('researcherToast').textContent = error.message;
+    }
+  });
 
   async function submitManage(form) {
     const formData = new FormData(form);
@@ -116,69 +180,18 @@
     });
   });
 
-  async function loadUnassignedUsers() {
-    const query = document.getElementById('unassignedSearchInput').value.trim();
-    const select = document.getElementById('unassignedUserSelect');
-    if (query.length < 2) {
-      select.innerHTML = '<option value="">검색어를 2글자 이상 입력해주세요</option>';
-      return;
-    }
-
-    const users = await fetchJson(`/api/v1/researchers?action=unassigned&q=${encodeURIComponent(query)}`);
-    if (!users.length) {
-      select.innerHTML = '<option value="">검색 결과가 없습니다</option>';
-      return;
-    }
-
-    select.innerHTML = '<option value="">미소속 사용자 선택</option>';
-    users.forEach((user) => {
-      const option = document.createElement('option');
-      option.value = String(user.id);
-      option.textContent = `${user.name} (${user.username} / ${user.email})`;
-      select.appendChild(option);
-    });
-  }
-
-  document.getElementById('unassignedSearchButton').addEventListener('click', async () => {
-    try {
-      await loadUnassignedUsers();
-    } catch (error) {
-      document.getElementById('researcherToast').textContent = error.message;
-    }
-  });
-
-  document.getElementById('inviteButton').addEventListener('click', async () => {
-    const userId = document.getElementById('unassignedUserSelect').value;
-    const teamId = document.getElementById('inviteTeamSelect').value;
-    if (!userId || !teamId) {
-      document.getElementById('researcherToast').textContent = '사용자와 팀을 모두 선택해주세요.';
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('action', 'assign_team');
-    formData.append('user_id', userId);
-    formData.append('team_id', teamId);
-
-    try {
-      await fetchJson('/api/v1/researchers', {
-        method: 'POST',
-        headers: {'X-CSRFToken': getCsrfToken()},
-        body: formData,
-      });
-      document.getElementById('researcherToast').textContent = '팀 초대(배정) 완료';
-      window.location.reload();
-    } catch (error) {
-      document.getElementById('researcherToast').textContent = error.message;
-    }
-  });
-
-  async function loadPendingUsersForMyTeam() {
+  async function loadPendingUsersByCode() {
+    const joinCode = document.getElementById('joinCodeInput').value.trim();
     const tbody = document.getElementById('pendingApprovalBody');
+    if (!joinCode) {
+      tbody.innerHTML = '<tr><td colspan="6" class="pn-sub">회사 코드를 입력해주세요.</td></tr>';
+      return;
+    }
+
     try {
-      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      const users = await fetchJson(`/api/v1/researchers?action=pending_by_code&join_code=${encodeURIComponent(joinCode)}`);
       if (!users.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 우리 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="pn-sub">승인 대기 사용자가 없습니다.</td></tr>';
         return;
       }
 
@@ -190,14 +203,18 @@
           <td>${user.username}</td>
           <td>${user.email}</td>
           <td>${user.team}</td>
+          <td>${user.join_code}</td>
           <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
         `;
         tbody.appendChild(tr);
       });
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="pn-sub">${error.message}</td></tr>`;
     }
   }
+
+  document.getElementById('pendingSearchButton').addEventListener('click', loadPendingUsersByCode);
+  document.getElementById('joinCodeInput').addEventListener('input', loadPendingUsersByCode);
 
   document.getElementById('pendingApprovalBody').addEventListener('click', async (event) => {
     const button = event.target.closest('.approve-btn');
@@ -214,12 +231,10 @@
         body: formData,
       });
       document.getElementById('researcherToast').textContent = '승인 완료';
-      await loadPendingUsersForMyTeam();
+      await loadPendingUsersByCode();
     } catch (error) {
       document.getElementById('researcherToast').textContent = error.message;
     }
   });
-
-  loadPendingUsersForMyTeam();
 </script>
 {% endblock %}
