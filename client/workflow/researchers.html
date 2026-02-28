@@ -82,9 +82,27 @@
 </section>
 
 <script>
-  function setToast(message) {
-    const toast = document.getElementById('researcherToast');
-    if (!toast) return;
+  window.addEventListener('error', (event) => {
+    const message = event?.error?.message || event.message || '화면 스크립트 오류가 발생했습니다.';
+    setToast(message, true);
+  });
+
+  function setToast(message, isError = false) {
+    let toast = document.getElementById('researcherToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'researcherToast';
+      toast.className = 'pn-toast';
+      toast.style.marginBottom = '10px';
+      const shell = document.querySelector('.pn-shell');
+      if (shell) shell.prepend(toast);
+    }
+    if (!toast) {
+      alert(message);
+      return;
+    }
+    toast.style.display = 'block';
+    toast.style.color = isError ? '#b91c1c' : '#1f2937';
     toast.textContent = message;
   }
 
@@ -104,15 +122,16 @@
 
   const inviteIdInput = document.getElementById('inviteIdInput');
   const verifyIdButton = document.getElementById('verifyIdButton');
+  const inviteButton = document.getElementById('inviteButton');
   let verifiedInviteId = '';
-  setInviteEnabled(false);
+  if (inviteButton) setInviteEnabled(false);
 
-  inviteIdInput.addEventListener('input', () => {
+  inviteIdInput?.addEventListener('input', () => {
     verifiedInviteId = '';
     setInviteEnabled(false);
   });
 
-  verifyIdButton.addEventListener('click', async () => {
+  verifyIdButton?.addEventListener('click', async () => {
     const username = inviteIdInput.value.trim();
     if (!username) {
       setToast('아이디를 입력해주세요.');
@@ -141,11 +160,11 @@
     } catch (error) {
       verifiedInviteId = '';
       setInviteEnabled(false);
-      setToast(error.message);
+      setToast(error.message, true);
     }
   });
 
-  document.getElementById('inviteButton').addEventListener('click', async () => {
+  inviteButton?.addEventListener('click', async () => {
     if (!verifiedInviteId) return;
 
     const formData = new FormData();
@@ -161,7 +180,7 @@
       setToast('팀 초대(배정) 완료');
       window.location.reload();
     } catch (error) {
-      setToast(error.message);
+      setToast(error.message, true);
     }
   });
 
@@ -185,7 +204,7 @@
       try {
         await submitManage(form);
       } catch (error) {
-        setToast(error.message);
+        setToast(error.message, true);
       }
     });
   }
@@ -525,6 +544,54 @@
       await loadPendingUsersForMyTeam();
     } catch (error) {
       setToast(error.message);
+    }
+  });
+
+  async function loadPendingUsersForMyTeam() {
+    const tbody = document.getElementById('pendingApprovalBody');
+    try {
+      const users = await fetchJson('/api/v1/researchers?action=pending_for_my_team');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="pn-sub">현재 회사의 승인 대기 사용자가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      users.forEach((user) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${user.name}</td>
+          <td>${user.username}</td>
+          <td>${user.email}</td>
+          <td>${user.team}</td>
+          <td><button class="pn-btn approve-btn" data-user-id="${user.id}" type="button">승인</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="pn-sub">${error.message}</td></tr>`;
+    }
+  }
+
+  const pendingBody = document.getElementById('pendingApprovalBody');
+  pendingBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('.approve-btn');
+    if (!button) return;
+
+    const formData = new FormData();
+    formData.append('action', 'approve');
+    formData.append('user_id', button.dataset.userId);
+
+    try {
+      await fetchJson('/api/v1/researchers', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: formData,
+      });
+      setToast('승인 완료');
+      await loadPendingUsersForMyTeam();
+    } catch (error) {
+      setToast(error.message, true);
     }
   });
 </script>
