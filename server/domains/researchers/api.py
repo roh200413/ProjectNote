@@ -4,6 +4,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 from server.application.web_support import login_required_page, page_context, researcher_repository
+from server.domains.admin.models import Team
 
 
 def _can_manage(request) -> bool:
@@ -11,11 +12,22 @@ def _can_manage(request) -> bool:
     return bool(profile.get("is_super_admin") or profile.get("role") == "관리자")
 
 
+def _resolve_team_id_from_session(profile: dict) -> int | None:
+    team_id = profile.get("team_id")
+    if team_id:
+        return int(team_id)
+    team_name = str(profile.get("team", "")).strip()
+    if not team_name or team_name == "-":
+        return None
+    team = Team.objects.filter(name=team_name).first()
+    return team.id if team else None
+
+
 @require_http_methods(["GET", "POST"])
 @login_required_page
 def researchers_api(request):
     profile = request.session.get("user_profile", {})
-    team_id = profile.get("team_id")
+    team_id = _resolve_team_id_from_session(profile)
 
     if request.method == "GET":
         action = request.GET.get("action", "").strip()
@@ -39,12 +51,12 @@ def researchers_api(request):
         return JsonResponse({"detail": "관리 권한이 없습니다."}, status=403)
 
     try:
-        if action == "verify_email":
-            payload = researcher_repository.verify_unassigned_user_email(request.POST.get("email", ""))
+        if action == "verify_id":
+            payload = researcher_repository.verify_unassigned_user_id(request.POST.get("username", ""))
         elif action == "assign_team":
-            email = request.POST.get("email", "").strip()
-            if email:
-                payload = researcher_repository.assign_team_by_email(email, team_id)
+            username = request.POST.get("username", "").strip()
+            if username:
+                payload = researcher_repository.assign_team_by_username(username, team_id)
             else:
                 user_id_raw = request.POST.get("user_id", "").strip()
                 if not user_id_raw.isdigit():
@@ -76,7 +88,7 @@ def researchers_api(request):
 @login_required_page
 def researchers_page(request):
     profile = request.session.get("user_profile", {})
-    team_id = profile.get("team_id")
+    team_id = _resolve_team_id_from_session(profile)
     return render(
         request,
         "workflow/researchers.html",

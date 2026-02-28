@@ -555,7 +555,7 @@ def test_researchers_page_separated_fields() -> None:
     assert "프로젝트 페이지는 프로젝트 정보와 상세 진입만 담당합니다." in projects_page.content.decode()
 
 
-def test_researchers_support_unassigned_verify_and_pending_by_code_queries() -> None:
+def test_researchers_support_unassigned_verify_id_and_pending_by_code_queries() -> None:
     reset_db()
     team = Team.objects.create(name="코드팀", description="코드기반", join_code="555555")
     UserAccount.objects.create(
@@ -594,7 +594,7 @@ def test_researchers_support_unassigned_verify_and_pending_by_code_queries() -> 
     unassigned_payload = unassigned_response.json()
     assert any(item["username"] == "no-team" for item in unassigned_payload)
 
-    verify_response = local_client.post("/api/v1/researchers", {"action": "verify_email", "email": "no-team@example.com"})
+    verify_response = local_client.post("/api/v1/researchers", {"action": "verify_id", "username": "no-team"})
     assert verify_response.status_code == 200
     assert verify_response.json()["can_invite"] is True
 

@@ -123,14 +123,14 @@ class ResearcherRepository:
             for user in users
         ]
 
-    def verify_unassigned_user_email(self, email: str) -> dict:
-        normalized_email = email.strip().lower()
-        if not normalized_email:
-            raise ValueError("이메일은 필수입니다.")
+    def verify_unassigned_user_id(self, username: str) -> dict:
+        normalized_username = username.strip()
+        if not normalized_username:
+            raise ValueError("아이디는 필수입니다.")
 
-        user = UserAccount.objects.filter(email=normalized_email).first()
+        user = UserAccount.objects.filter(username=normalized_username).first()
         if not user:
-            return {"can_invite": False, "message": "가입된 사용자가 아닙니다."}
+            return {"can_invite": False, "message": "가입된 아이디가 아닙니다."}
         if user.team_id:
             return {"can_invite": False, "message": "이미 팀에 소속된 사용자입니다."}
         if user.is_approved:
@@ -144,15 +144,15 @@ class ResearcherRepository:
             "name": user.display_name,
         }
 
-    def assign_team_by_email(self, email: str, team_id: int | None) -> dict:
+    def assign_team_by_username(self, username: str, team_id: int | None) -> dict:
         if not team_id:
             raise ValueError("관리자 소속 팀이 없습니다.")
         team = Team.objects.filter(id=team_id).first()
         if not team:
             raise ValueError("팀을 찾을 수 없습니다.")
 
-        normalized_email = email.strip().lower()
-        user = UserAccount.objects.filter(email=normalized_email).first()
+        normalized_username = username.strip()
+        user = UserAccount.objects.filter(username=normalized_username).first()
         if not user:
             raise ValueError("사용자를 찾을 수 없습니다.")
         if user.team_id:
