@@ -113,6 +113,23 @@ def project_researchers_page(request, project_id: str):
     except Project.DoesNotExist as exc:
         raise Http404("Project not found") from exc
 
+    researcher_groups = project_repository.project_researcher_groups(project_id)
+    existing_member_ids = {
+        member["id"]
+        for group in researcher_groups
+        for member in group.get("members", [])
+    }
+    raw_team_groups = admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id"))
+    filtered_team_groups = []
+    for group in raw_team_groups:
+        filtered_members = [
+            member
+            for member in group.get("members", [])
+            if member.get("id") not in existing_member_ids and not bool(member.get("is_owner", False))
+        ]
+        if filtered_members:
+            filtered_team_groups.append({**group, "members": filtered_members, "lead": filtered_members[0]["name"]})
+
     return render(
         request,
         "workflow/project_researchers.html",
@@ -120,8 +137,8 @@ def project_researchers_page(request, project_id: str):
             request,
             {
                 "project": project,
-                "researcher_groups": project_repository.project_researcher_groups(project_id),
-                "team_user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id")),
+                "researcher_groups": researcher_groups,
+                "team_user_groups": filtered_team_groups,
                 "can_manage_project_members": project_repository.can_manage_project_members(project_id, profile),
             },
         ),
