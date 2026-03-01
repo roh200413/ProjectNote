@@ -10,6 +10,7 @@ from server.application.web_support import (
     json_uuid_validation_error,
     login_required_page,
     page_context,
+    effective_user_profile,
     project_repository,
     project_service,
     admin_repository,
@@ -34,10 +35,11 @@ def project_management_api(request):
     if request.method == "GET":
         return JsonResponse(project_repository.list_projects(), safe=False)
     payload = request.POST.copy()
-    team_id = request.session.get("user_profile", {}).get("team_id")
+    profile = effective_user_profile(request) or {}
+    team_id = profile.get("team_id")
     if team_id:
         payload["company_id"] = str(team_id)
-    project = project_service.create_project(payload, request.session.get("user_profile", {}))
+    project = project_service.create_project(payload, effective_user_profile(request) or {})
     return JsonResponse(project, status=201)
 
 
@@ -57,7 +59,7 @@ def project_create_page(request):
         "workflow/project_create.html",
         page_context(
             request,
-            {"user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id"))},
+            {"user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id"))},
         ),
     )
 
@@ -111,7 +113,7 @@ def project_researchers_page(request, project_id: str):
             {
                 "project": project,
                 "researcher_groups": project_repository.project_researcher_groups(project_id),
-                "team_user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id")),
+                "team_user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id")),
             },
         ),
     )
@@ -211,7 +213,7 @@ def workflow_home_page(request):
         {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
     ]
     projects = project_repository.list_projects()
-    current_name = request.session.get("user_profile", {}).get("name", "")
+    current_name = (effective_user_profile(request) or {}).get("name", "")
     managed_projects = [project for project in projects if project.get("manager") == current_name]
     return render(
         request,

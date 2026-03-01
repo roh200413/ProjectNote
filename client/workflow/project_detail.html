@@ -8,8 +8,10 @@
 {% endblock %}
 {% block content %}
 <section class="pn-card" style="margin-bottom:12px">
+  <div class="pn-sub" style="margin-bottom:6px">연구노트 업데이트</div>
   <span class="pn-badge">프로젝트 정보</span>
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
+  <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
     <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>

@@ -80,7 +80,7 @@ def research_note_viewer_page(request, note_id: str):
 
     return render(
         request,
-        "research_notes/viewer.html",
+        "research_notes/detail.html",
         page_context(
             request,
             {
