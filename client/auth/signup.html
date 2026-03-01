@@ -22,7 +22,7 @@
   <main class="wrap">
     <section class="card">
       <h1>회원가입</h1>
-      <p class="sub">관리자/일반 선택 후 가입하세요. 관리자는 팀 생성 및 6자리 코드 발급이 됩니다.</p>
+      <p class="sub">소유자/일반 선택 후 가입하세요. 소유자는 승인 후 회사(팀)가 생성됩니다.</p>
       <form id="signupForm">
         {% csrf_token %}
         <label class="label">아이디</label>
@@ -37,12 +37,12 @@
         <label class="label">가입 유형</label>
         <select class="select" name="role" id="signupRole">
           <option value="member">일반</option>
-          <option value="admin">관리자</option>
+          <option value="owner">소유자</option>
         </select>
 
-        <div id="adminTeamFields" class="hide">
-          <label class="label">팀 이름 (관리자 필수)</label>
-          <input class="input" name="admin_team_name" />
+        <div id="ownerTeamFields" class="hide">
+          <label class="label">회사(팀) 이름 (소유자 필수)</label>
+          <input class="input" name="owner_team_name" />
           <label class="label">팀 설명</label>
           <input class="input" name="team_description" />
         </div>
@@ -63,7 +63,7 @@
 
   <script>
     const roleSelect = document.getElementById('signupRole');
-    const adminFields = document.getElementById('adminTeamFields');
+    const ownerFields = document.getElementById('ownerTeamFields');
     const memberFields = document.getElementById('memberTeamFields');
     const message = document.getElementById('signupMessage');
 
@@ -75,9 +75,9 @@
     }
 
     function updateRoleFields() {
-      const isAdmin = roleSelect.value === 'admin';
-      adminFields.classList.toggle('hide', !isAdmin);
-      memberFields.classList.toggle('hide', isAdmin);
+      const isOwner = roleSelect.value === 'owner';
+      ownerFields.classList.toggle('hide', !isOwner);
+      memberFields.classList.toggle('hide', isOwner);
     }
 
     roleSelect.addEventListener('change', updateRoleFields);
@@ -87,12 +87,12 @@
       e.preventDefault();
       const formData = new FormData(e.target);
       const role = formData.get('role');
-      if (role === 'admin') {
-        formData.set('team_name', formData.get('admin_team_name') || '');
+      if (role === 'owner') {
+        formData.set('team_name', formData.get('owner_team_name') || '');
       } else {
         formData.set('team_name', formData.get('member_team_name') || '');
       }
-      formData.delete('admin_team_name');
+      formData.delete('owner_team_name');
       formData.delete('member_team_name');
 
       const res = await fetch('/api/v1/auth/signup', {
@@ -106,7 +106,9 @@
         message.textContent = body.detail || '회원가입 실패';
         return;
       }
-      message.textContent = `회원가입 완료: ${body.username} (${body.role}) / 팀: ${body.team} / 코드: ${body.join_code}`;
+      message.textContent = role === 'owner'
+        ? '소유자 가입 신청이 완료되었습니다. 슈퍼 어드민 승인 후 회사(팀)가 생성됩니다.'
+        : `회원가입 완료: ${body.username} (${body.role}) / 팀: ${body.team} / 코드: ${body.join_code}`;
       e.target.reset();
       updateRoleFields();
     });

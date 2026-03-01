@@ -50,6 +50,8 @@ urlpatterns = [
     path("frontend/my-page", signatures_api.my_page),
     path("frontend/my-page/signature", signatures_api.update_my_signature),
     path("frontend/researchers", researchers_api.researchers_page),
+    path("frontend/integrations/github", researchers_api.github_integrations_page),
+    path("frontend/integrations/collaboration", researchers_api.collaboration_integrations_page),
     path("frontend/data-updates", data_updates_api.data_updates_page),
     path("frontend/final-download", signatures_api.final_download_page),
     path("frontend/signatures", signatures_api.signature_page),

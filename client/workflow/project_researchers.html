@@ -45,6 +45,7 @@
 
 <section class="pn-card" id="projectResearchersSection">
   <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
+  <p class="pn-sub" style="margin-top:0">소유자는 각 집단 최상단에 고정되며 제외할 수 없습니다.</p>
   {% for group in researcher_groups %}
   <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -63,7 +64,11 @@
           <td>{{ member.contribution }}</td>
           {% if can_manage_project_members %}
           <td>
-            <button type="button" class="pn-btn soft" onclick="removeProjectResearcher('{{ member.id }}', '{{ member.name }}')">제외</button>
+            {% if member.is_owner %}
+              <span class="pn-sub">제외 불가</span>
+            {% else %}
+              <button type="button" class="pn-btn soft" onclick="removeProjectResearcher('{{ member.id }}', '{{ member.name }}')">제외</button>
+            {% endif %}
           </td>
           {% endif %}
         </tr>

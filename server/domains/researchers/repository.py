@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from django.db import models
+from django.db.models import Case, IntegerField, Value, When
 
 from server.domains.admin.models import Team, UserAccount
 
@@ -51,7 +52,14 @@ class ResearcherRepository:
         users = UserAccount.objects.select_related("team").filter(team_id=team_id)
         if approved_only:
             users = users.filter(is_approved=True)
-        users = users.order_by("id")
+        users = users.annotate(
+            role_order=Case(
+                When(role=UserAccount.Role.OWNER, then=Value(0)),
+                When(role=UserAccount.Role.ADMIN, then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        ).order_by("role_order", "id")
         return [self._serialize_user(user) for user in users]
 
     def list_teams(self) -> list[dict]:
