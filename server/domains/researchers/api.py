@@ -120,13 +120,18 @@ def researchers_api(request):
 def researchers_page(request):
     profile = effective_user_profile(request) or {}
     team_id = _resolve_team_id_from_session(profile)
+    researchers = researcher_repository.list_researchers_for_team(team_id=team_id, approved_only=True)
+    owner_researchers = [item for item in researchers if item.get("role") == "소유자"]
+    member_researchers = [item for item in researchers if item.get("role") != "소유자"]
     return render(
         request,
         "workflow/researchers.html",
         page_context(
             request,
             {
-                "researchers": researcher_repository.list_researchers_for_team(team_id=team_id, approved_only=True),
+                "researchers": researchers,
+                "owner_researchers": owner_researchers,
+                "member_researchers": member_researchers,
                 "pending_researchers": researcher_repository.list_pending_users_by_team_id(team_id),
                 "teams": researcher_repository.list_teams(),
                 "can_manage_researchers": _can_manage(request),
