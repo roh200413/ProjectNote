@@ -24,10 +24,20 @@
           <article class="pn-card" style="padding:14px">
             <h4 style="margin:0 0 6px">{{ item.team_name }}</h4>
             <div class="pn-sub" style="margin-bottom:8px">팀 코드: {{ item.join_code }}</div>
-            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
               <span><strong>사용자 수</strong> {{ item.user_count }}</span>
               <span><strong>소유자</strong> {{ item.owner_name }}</span>
             </div>
+            {% if item.team_id and item.members %}
+              <form class="owner-change-form" data-team-id="{{ item.team_id }}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <select class="pn-input" name="owner_user_id" style="min-width:140px;padding:6px 8px">
+                  {% for member in item.members %}
+                    <option value="{{ member.id }}" {% if member.id == item.owner_user_id %}selected{% endif %}>{{ member.display_name }}</option>
+                  {% endfor %}
+                </select>
+                <button class="pn-btn" type="submit">소유주 변경</button>
+              </form>
+            {% endif %}
           </article>
         {% empty %}
           <p class="pn-sub" style="margin:0">표시할 기관 데이터가 없습니다.</p>
@@ -45,4 +55,33 @@
     </section>
   </div>
 </div>
+
+<script>
+  async function submitOwnerChange(form) {
+    const teamId = form.dataset.teamId;
+    const formData = new FormData(form);
+    formData.append('action', 'set_owner');
+    formData.append('team_id', teamId);
+
+    const res = await fetch('/api/v1/admin/users', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      alert(body.detail || '소유주 변경 실패');
+      return;
+    }
+    location.reload();
+  }
+
+  document.querySelectorAll('.owner-change-form').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await submitOwnerChange(form);
+    });
+  });
+</script>
 {% endblock %}

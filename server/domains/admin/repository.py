@@ -283,14 +283,39 @@ class AdminRepository:
         if not user.team_id:
             raise ValueError("승인하려면 먼저 팀을 지정해야 합니다.")
 
+        has_owner = UserAccount.objects.filter(team_id=user.team_id, role=UserAccount.Role.OWNER, is_approved=True).exclude(id=user.id).exists()
+        if not has_owner:
+            user.role = UserAccount.Role.OWNER
+
         user.is_approved = True
-        user.save(update_fields=["team", "requested_team_name", "requested_team_description", "is_approved", "updated_at"])
+        user.save(update_fields=["team", "role", "requested_team_name", "requested_team_description", "is_approved", "updated_at"])
         return {
             "id": user.id,
             "username": user.username,
             "is_approved": user.is_approved,
             "team": user.team.name if user.team else "-",
             "join_code": user.team.join_code if user.team else "-",
+        }
+
+    def change_team_owner(self, team_id: int, owner_user_id: int) -> dict:
+        team = Team.objects.filter(id=team_id).first()
+        if not team:
+            raise ValueError("팀을 찾을 수 없습니다.")
+
+        new_owner = UserAccount.objects.filter(id=owner_user_id, team_id=team_id, is_approved=True).first()
+        if not new_owner:
+            raise ValueError("해당 팀의 승인된 사용자만 소유주로 지정할 수 있습니다.")
+
+        UserAccount.objects.filter(team_id=team_id, role=UserAccount.Role.OWNER).exclude(id=new_owner.id).update(role=UserAccount.Role.ADMIN)
+        if new_owner.role != UserAccount.Role.OWNER:
+            new_owner.role = UserAccount.Role.OWNER
+            new_owner.save(update_fields=["role", "updated_at"])
+
+        return {
+            "team_id": team.id,
+            "team_name": team.name,
+            "owner_user_id": new_owner.id,
+            "owner_name": new_owner.display_name,
         }
 
     def change_user_role(self, user_id: int, role: str) -> dict:

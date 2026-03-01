@@ -45,14 +45,6 @@
             {% endif %}
           </td>
           <td>
-            {% if admin.requested_team_name %}
-              <div><strong>{{ admin.requested_team_name }}</strong></div>
-              <div class="pn-sub">{{ admin.requested_team_description|default:'-' }}</div>
-            {% else %}
-              <span class="pn-sub">-</span>
-            {% endif %}
-          </td>
-          <td>
             <div style="display:grid;gap:6px">
               <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
                 <input type="hidden" name="action" value="assign_team" />

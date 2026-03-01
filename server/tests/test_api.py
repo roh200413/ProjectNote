@@ -127,6 +127,70 @@ def test_signup_stores_hashed_password() -> None:
     assert check_password("secret123", created.password)
 
 
+
+
+def test_first_approved_user_becomes_owner() -> None:
+    reset_db()
+    team = Team.objects.create(name="첫승인팀", description="첫승인", join_code="121212")
+    user = UserAccount.objects.create(
+        username="first-approve",
+        display_name="첫승인유저",
+        email="first-approve@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=False,
+    )
+
+    super_client = Client()
+    assert super_client.post("/admin/login", {"username": "admin", "password": "admin1234"}).status_code == 302
+    approve = super_client.post("/api/v1/admin/users", {"action": "approve", "user_id": str(user.id)})
+
+    assert approve.status_code == 200
+    user.refresh_from_db()
+    assert user.is_approved is True
+    assert user.role == UserAccount.Role.OWNER
+
+
+def test_dashboard_can_change_team_owner() -> None:
+    reset_db()
+    team = Team.objects.create(name="소유주변경팀", description="변경", join_code="343434")
+    old_owner = UserAccount.objects.create(
+        username="old-owner",
+        display_name="기존소유주",
+        email="old-owner@example.com",
+        password="secret123",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    new_owner = UserAccount.objects.create(
+        username="new-owner",
+        display_name="신규소유주",
+        email="new-owner@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+
+    super_client = Client()
+    assert super_client.post("/admin/login", {"username": "admin", "password": "admin1234"}).status_code == 302
+    change = super_client.post(
+        "/api/v1/admin/users",
+        {
+            "action": "set_owner",
+            "team_id": str(team.id),
+            "owner_user_id": str(new_owner.id),
+        },
+    )
+
+    assert change.status_code == 200
+    old_owner.refresh_from_db()
+    new_owner.refresh_from_db()
+    assert old_owner.role == UserAccount.Role.ADMIN
+    assert new_owner.role == UserAccount.Role.OWNER
+
 def test_owner_signup_requires_super_admin_approval_to_create_team() -> None:
     reset_db()
 

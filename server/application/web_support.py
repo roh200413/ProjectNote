@@ -46,16 +46,25 @@ def organization_user_stats(limit: int | None = None) -> list[dict]:
     if limit:
         teams = teams[:limit]
 
-    stats = [
-        {
-            "team_id": team.id,
-            "team_name": team.name,
-            "user_count": team.user_count,
-            "join_code": team.join_code,
-            "owner_name": team.owner_name or "미지정",
-        }
-        for team in teams
-    ]
+    stats = []
+    for team in teams:
+        members = list(
+            UserAccount.objects.filter(team_id=team.id, is_approved=True)
+            .order_by("display_name")
+            .values("id", "display_name", "role")
+        )
+        owner_member = next((member for member in members if member["role"] == UserAccount.Role.OWNER), None)
+        stats.append(
+            {
+                "team_id": team.id,
+                "team_name": team.name,
+                "user_count": team.user_count,
+                "join_code": team.join_code,
+                "owner_name": team.owner_name or "미지정",
+                "owner_user_id": owner_member["id"] if owner_member else None,
+                "members": members,
+            }
+        )
 
     unassigned_count = UserAccount.objects.filter(team__isnull=True).count()
     if unassigned_count:
@@ -66,6 +75,8 @@ def organization_user_stats(limit: int | None = None) -> list[dict]:
                 "user_count": unassigned_count,
                 "join_code": "-",
                 "owner_name": "-",
+                "owner_user_id": None,
+                "members": [],
             }
         )
     return stats
