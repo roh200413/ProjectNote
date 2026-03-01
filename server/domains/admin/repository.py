@@ -175,6 +175,9 @@ class AdminRepository:
                     "name": user.display_name,
                     "organization": group_name,
                     "email": user.email,
+                    "role": user.role,
+                    "is_owner": user.role == UserAccount.Role.OWNER,
+                    "is_approved": user.is_approved,
                 }
             )
 

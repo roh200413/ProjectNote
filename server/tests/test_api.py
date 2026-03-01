@@ -978,6 +978,75 @@ def test_user_without_team_is_blocked_from_home() -> None:
     assert "관리자 팀 할당 및 승인이 되지 않았습니다." in login_response.content.decode()
 
 
+
+
+def test_project_researchers_add_list_excludes_owner_and_existing_members() -> None:
+    reset_db()
+    team = Team.objects.create(name="추가목록팀", description="추가", join_code="818181")
+    owner = UserAccount.objects.create(
+        username="project-owner",
+        display_name="프로젝트소유자",
+        email="project-owner@example.com",
+        password="secret123",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    existing_member = UserAccount.objects.create(
+        username="existing-member",
+        display_name="기등록연구원",
+        email="existing-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    available_member = UserAccount.objects.create(
+        username="available-member",
+        display_name="추가가능연구원",
+        email="available-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(name="프로젝트", manager="소유자", organization="추가목록팀", company=team, code="P-ADD")
+    ProjectMember.objects.create(project=project, user=owner, role="admin")
+    ProjectMember.objects.create(project=project, user=existing_member, role="member")
+
+    local_client = Client()
+    assert local_client.post("/login", {"username": "project-owner", "password": "secret123"}).status_code == 302
+    page = local_client.get(f"/frontend/projects/{project.id}/researchers")
+    assert page.status_code == 200
+    html = page.content.decode()
+    add_section = html.split("집단별 연구자 목록 상세")[0]
+
+    assert "project-owner" not in add_section
+    assert "existing-member" not in add_section
+    assert "available-member" in add_section
+
+
+def test_project_researchers_owner_cannot_be_removed() -> None:
+    reset_db()
+    team = Team.objects.create(name="제외불가팀", description="제외", join_code="717171")
+    owner = UserAccount.objects.create(
+        username="cannot-remove-owner",
+        display_name="제외불가소유자",
+        email="cannot-remove-owner@example.com",
+        password="secret123",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(name="프로젝트2", manager="소유자", organization="제외불가팀", company=team, code="P-DEL")
+    ProjectMember.objects.create(project=project, user=owner, role="admin")
+
+    local_client = Client()
+    assert local_client.post("/login", {"username": "cannot-remove-owner", "password": "secret123"}).status_code == 302
+    remove = local_client.post(f"/api/v1/projects/{project.id}/researchers/remove", {"user_id": str(owner.id)})
+    assert remove.status_code == 400
+    assert "소유자는 프로젝트 연구자에서 제외할 수 없습니다." in remove.json()["detail"]
+
 def test_project_detail_and_viewer_pages() -> None:
     reset_db()
     project_id, note_id = seed_workflow_data()
