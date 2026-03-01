@@ -8,6 +8,37 @@
 </div>
 {% endblock %}
 {% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 10px">우리팀 연구원 추가</h3>
+  <table class="pn-table">
+    <thead>
+      <tr>
+        <th>이름</th>
+        <th>소속</th>
+        <th>이메일</th>
+        <th>추가</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for group in team_user_groups %}
+        {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.email }}</td>
+          <td>
+            <button type="button" class="pn-btn ghost" onclick="addTeamResearcher('{{ member.id }}', '{{ member.name }}')">추가</button>
+          </td>
+        </tr>
+        {% endfor %}
+      {% empty %}
+        <tr><td colspan="4" class="pn-sub">추가 가능한 우리팀 연구원이 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div id="projectResearchersToast" class="pn-toast"></div>
+</section>
+
 <section class="pn-card" id="projectResearchersSection">
   <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
   {% for group in researcher_groups %}
@@ -17,7 +48,7 @@
       <small class="pn-sub">리드 {{ group.lead }}</small>
     </div>
     <table class="pn-table">
-      <thead><tr><th>이름</th><th>권한</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
+      <thead><tr><th>이름</th><th>역할</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
       <tbody>
       {% for member in group.members %}
         <tr>
@@ -35,4 +66,24 @@
   <div class="pn-sub">등록된 프로젝트 연구자가 없습니다.</div>
   {% endfor %}
 </section>
+
+<script>
+  async function addTeamResearcher(userId, userName) {
+    const data = new FormData();
+    data.append('user_id', userId);
+
+    const response = await fetch('/api/v1/projects/{{ project.id }}/researchers', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: data,
+      credentials: 'same-origin',
+    });
+    const body = await response.json();
+    document.getElementById('projectResearchersToast').textContent = response.ok ? `${userName} 연구원을 추가했습니다.` : (body.detail || '추가 실패');
+
+    if (response.ok) {
+      setTimeout(() => window.location.reload(), 300);
+    }
+  }
+</script>
 {% endblock %}

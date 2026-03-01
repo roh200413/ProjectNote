@@ -2,12 +2,16 @@
 {% block title %}프로젝트 상세{% endblock %}
 {% block page_title %}연구노트 상세{% endblock %}
 {% block page_actions %}
-
+<div style="display:flex;gap:8px">
+  <button type="button" class="pn-btn" onclick="toggleProjectEdit(true)">프로젝트 수정</button>
+</div>
 {% endblock %}
 {% block content %}
 <section class="pn-card" style="margin-bottom:12px">
-  <span class="pn-badge">소유권한</span>
+  <div class="pn-sub" style="margin-bottom:6px">연구노트 업데이트</div>
+  <span class="pn-badge">프로젝트 정보</span>
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
+  <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
     <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
@@ -23,20 +27,77 @@
   </div>
 </section>
 
+<section id="projectEditSection" class="pn-card" style="display:none;max-width:960px;margin-bottom:12px">
+  <h3 style="margin:0 0 10px">프로젝트 수정</h3>
+  <form id="projectEditForm" class="pn-grid" style="gap:12px">
+    <div class="pn-row">
+      <div>
+        <label class="pn-label">과제명</label>
+        <input class="pn-input" name="name" value="{{ project.name }}" required />
+      </div>
+      <div>
+        <label class="pn-label">과제 책임자</label>
+        <input class="pn-input" name="manager" value="{{ project.manager }}" required />
+      </div>
+    </div>
+    <div class="pn-row">
+      <div>
+        <label class="pn-label">발행 기관</label>
+        <input class="pn-input" name="organization" value="{{ project.organization }}" />
+      </div>
+      <div>
+        <label class="pn-label">과제 번호</label>
+        <input class="pn-input" name="code" value="{{ project.code }}" />
+      </div>
+    </div>
+    <div class="pn-row">
+      <div>
+        <label class="pn-label">시작일</label>
+        <input type="date" class="pn-input" name="start_date" value="{{ project.start_date }}" />
+      </div>
+      <div>
+        <label class="pn-label">종료일</label>
+        <input type="date" class="pn-input" name="end_date" value="{{ project.end_date }}" />
+      </div>
+    </div>
+    <div style="max-width:300px">
+      <label class="pn-label">상태</label>
+      <select class="pn-input" name="status">
+        <option value="draft" {% if project.status == 'draft' %}selected{% endif %}>draft</option>
+        <option value="active" {% if project.status == 'active' %}selected{% endif %}>active</option>
+      </select>
+    </div>
+    <div>
+      <label class="pn-label">설명</label>
+      <textarea class="pn-textarea" name="description">{{ project.description }}</textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button type="button" class="pn-btn ghost" onclick="toggleProjectEdit(false)">취소</button>
+      <button type="submit" class="pn-btn">수정 저장</button>
+    </div>
+    <div id="projectEditToast" class="pn-toast"></div>
+  </form>
+</section>
+
 
 <script>
-  document.getElementById('noteUpdateForm').addEventListener('submit', async (e) => {
+  function toggleProjectEdit(show) {
+    document.getElementById('projectEditSection').style.display = show ? 'block' : 'none';
+  }
+
+  document.getElementById('projectEditForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const noteId = formData.get('note_id');
-    const response = await fetch(`/api/v1/research-notes/${noteId}/update`, {
+    const response = await fetch('/api/v1/projects/{{ project.id }}/update', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
+      body: new FormData(e.target),
       credentials: 'same-origin'
     });
     const body = await response.json();
-    document.getElementById('noteUpdateToast').textContent = response.ok ? body.message : '업데이트 실패';
+    document.getElementById('projectEditToast').textContent = response.ok ? '프로젝트 정보를 수정했습니다.' : (body.detail || '수정 실패');
+    if (response.ok) {
+      setTimeout(() => window.location.reload(), 300);
+    }
   });
 </script>
 {% endblock %}

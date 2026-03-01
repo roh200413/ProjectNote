@@ -4,7 +4,8 @@ import uuid
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.config.settings")
 
 import django
-import pytest
+from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password, make_password
 from django.core.management import call_command
 from django.test import Client
 
@@ -20,10 +21,9 @@ from server.domains.admin.models import Team, UserAccount
 from server.domains.projects.models import Project, ProjectMember
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
-pytestmark = pytest.mark.django_db
-
 
 client = Client()
+User = get_user_model()
 
 
 def reset_db() -> None:
@@ -103,6 +103,197 @@ def test_frontend_bootstrap() -> None:
     assert "api_name" in body
     assert "timestamp" in body
 
+
+
+
+def test_signup_stores_hashed_password() -> None:
+    reset_db()
+    response = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "hash-user",
+            "display_name": "해시유저",
+            "email": "hash-user@example.com",
+            "password": "secret123",
+            "role": "admin",
+            "team_name": "해시팀",
+            "team_description": "보안",
+        },
+    )
+
+    assert response.status_code == 201
+    created = UserAccount.objects.get(username="hash-user")
+    assert created.password != "secret123"
+    assert check_password("secret123", created.password)
+
+
+def test_login_supports_legacy_plaintext_password_and_upgrades_hash() -> None:
+    reset_db()
+    team = Team.objects.create(name="레거시팀", description="레거시", join_code="444444")
+    user = UserAccount.objects.create(
+        username="legacy-user",
+        display_name="레거시유저",
+        email="legacy-user@example.com",
+        password="legacy-pass",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    response = client.post("/login", {"username": "legacy-user", "password": "legacy-pass"})
+
+    assert response.status_code == 302
+    assert response["Location"] == "/frontend/workflows"
+    user.refresh_from_db()
+    assert user.password != "legacy-pass"
+    assert check_password("legacy-pass", user.password)
+
+
+def test_super_admin_seed_password_accepts_hashed_value(monkeypatch) -> None:
+    reset_db()
+    hashed = make_password("admin1234")
+    monkeypatch.setattr(
+        web_support,
+        "_load_super_admin_users",
+        lambda: {
+            "admin": {
+                "password": hashed,
+                "name": "관리자",
+                "email": "admin@example.com",
+                "organization": "ProjectNote",
+                "major": "관리",
+            }
+        },
+    )
+    monkeypatch.setattr(web_support, "_super_admin_table_exists", lambda: False)
+
+    user = web_support.authenticate_super_admin("admin", "admin1234")
+
+    assert user is not None
+    assert user["is_super_admin"] is True
+
+
+
+def test_login_sets_django_auth_session_keys() -> None:
+    reset_db()
+    team = Team.objects.create(name="세션팀", description="세션", join_code="555555")
+    UserAccount.objects.create(
+        username="session-user",
+        display_name="세션유저",
+        email="session-user@example.com",
+        password=make_password("secret123"),
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    response = client.post("/login", {"username": "session-user", "password": "secret123"})
+
+    assert response.status_code == 302
+    assert response["Location"] == "/frontend/workflows"
+    assert "_auth_user_id" in client.session
+    assert "user_profile" in client.session
+
+
+def test_logout_clears_django_auth_and_custom_session() -> None:
+    reset_db()
+    team = Team.objects.create(name="로그아웃팀", description="로그아웃", join_code="666666")
+    UserAccount.objects.create(
+        username="logout-user",
+        display_name="로그아웃유저",
+        email="logout-user@example.com",
+        password=make_password("secret123"),
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    client.post("/login", {"username": "logout-user", "password": "secret123"})
+
+    response = client.get("/logout")
+
+    assert response.status_code == 302
+    assert response["Location"] == "/login"
+    assert "_auth_user_id" not in client.session
+    assert "user_profile" not in client.session
+
+
+
+def test_workflow_page_allows_django_authenticated_user_without_custom_session() -> None:
+    reset_db()
+    user = User.objects.create_user(username="django-only", password="secret123")
+    client_obj = Client()
+    client_obj.force_login(user)
+
+    response = client_obj.get("/frontend/workflows")
+
+    assert response.status_code == 200
+
+
+def test_admin_page_allows_staff_django_user_without_custom_session() -> None:
+    reset_db()
+    staff = User.objects.create_user(username="django-staff", password="secret123", is_staff=True, is_superuser=True)
+    client_obj = Client()
+    client_obj.force_login(staff)
+
+    response = client_obj.get("/frontend/admin/dashboard")
+
+    assert response.status_code == 200
+
+
+
+def test_login_does_not_set_legacy_super_admin_session_flag_for_member() -> None:
+    reset_db()
+    team = Team.objects.create(name="플래그팀", description="플래그", join_code="777777")
+    UserAccount.objects.create(
+        username="flag-user",
+        display_name="플래그유저",
+        email="flag-user@example.com",
+        password=make_password("secret123"),
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    response = client.post("/login", {"username": "flag-user", "password": "secret123"})
+
+    assert response.status_code == 302
+    assert "pn_is_super_admin" not in client.session
+
+
+
+def test_effective_user_profile_refreshes_session_data_after_account_change() -> None:
+    reset_db()
+    team = Team.objects.create(name="갱신팀", description="갱신", join_code="888888")
+    user = UserAccount.objects.create(
+        username="refresh-user",
+        display_name="이전이름",
+        email="refresh-user@example.com",
+        password=make_password("secret123"),
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    client.post("/login", {"username": "refresh-user", "password": "secret123"})
+    user.display_name = "변경된이름"
+    user.save(update_fields=["display_name", "updated_at"])
+
+    response = client.get("/frontend/workflows")
+
+    assert response.status_code == 200
+    assert client.session.get("user_profile", {}).get("name") == "변경된이름"
+
+
+def test_researchers_api_allows_staff_user_without_custom_profile() -> None:
+    reset_db()
+    staff = User.objects.create_user(username="staff-manager", password="secret123", is_staff=True, is_superuser=True)
+    client_obj = Client()
+    client_obj.force_login(staff)
+
+    response = client_obj.post("/api/v1/researchers", {"action": "approve", "user_id": "999"})
+
+    assert response.status_code == 302
+    assert response["Location"] == "/frontend/admin/dashboard"
 
 def test_projects_list_validation() -> None:
     reset_db()
@@ -301,6 +492,80 @@ def test_super_admin_login_falls_back_when_super_admin_table_missing(monkeypatch
     assert user["is_super_admin"] is True
 
 
+
+
+def test_project_update_api() -> None:
+    reset_db()
+    project_id, _ = seed_workflow_data()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/update",
+        {
+            "name": "수정 프로젝트",
+            "manager": "새 책임자",
+            "organization": "새 기관",
+            "code": "NEW-001",
+            "description": "설명 수정",
+            "start_date": "2026-03-01",
+            "end_date": "2026-12-31",
+            "status": "draft",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "수정 프로젝트"
+    assert body["manager"] == "새 책임자"
+    assert body["code"] == "NEW-001"
+
+
+def test_project_add_researcher_api_team_only() -> None:
+    reset_db()
+    team = Team.objects.create(name="우리팀", description="우리팀", join_code="222222")
+    other_team = Team.objects.create(name="다른팀", description="다른팀", join_code="333333")
+
+    project = Project.objects.create(
+        name="우리팀 프로젝트",
+        manager="팀장",
+        organization="우리팀",
+        company=team,
+        code="TEAM-01",
+        status="active",
+    )
+
+    my_member = UserAccount.objects.create(
+        username="my-member",
+        display_name="우리팀연구원",
+        email="my-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    other_member = UserAccount.objects.create(
+        username="other-member",
+        display_name="다른팀연구원",
+        email="other-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=other_team,
+        is_approved=True,
+    )
+
+    ok_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": my_member.id},
+    )
+    assert ok_response.status_code == 200
+    assert ProjectMember.objects.filter(project=project, user=my_member).exists()
+
+    fail_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": other_member.id},
+    )
+    assert fail_response.status_code == 400
+    assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
+
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()
     client_obj = Client()
@@ -367,6 +632,80 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert admin_page.status_code == 302
     assert admin_page["Location"].startswith("/admin/login")
 
+
+
+
+def test_project_update_api() -> None:
+    reset_db()
+    project_id, _ = seed_workflow_data()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/update",
+        {
+            "name": "수정 프로젝트",
+            "manager": "새 책임자",
+            "organization": "새 기관",
+            "code": "NEW-001",
+            "description": "설명 수정",
+            "start_date": "2026-03-01",
+            "end_date": "2026-12-31",
+            "status": "draft",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "수정 프로젝트"
+    assert body["manager"] == "새 책임자"
+    assert body["code"] == "NEW-001"
+
+
+def test_project_add_researcher_api_team_only() -> None:
+    reset_db()
+    team = Team.objects.create(name="우리팀", description="우리팀", join_code="222222")
+    other_team = Team.objects.create(name="다른팀", description="다른팀", join_code="333333")
+
+    project = Project.objects.create(
+        name="우리팀 프로젝트",
+        manager="팀장",
+        organization="우리팀",
+        company=team,
+        code="TEAM-01",
+        status="active",
+    )
+
+    my_member = UserAccount.objects.create(
+        username="my-member",
+        display_name="우리팀연구원",
+        email="my-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    other_member = UserAccount.objects.create(
+        username="other-member",
+        display_name="다른팀연구원",
+        email="other-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=other_team,
+        is_approved=True,
+    )
+
+    ok_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": my_member.id},
+    )
+    assert ok_response.status_code == 200
+    assert ProjectMember.objects.filter(project=project, user=my_member).exists()
+
+    fail_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": other_member.id},
+    )
+    assert fail_response.status_code == 400
+    assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
 
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()

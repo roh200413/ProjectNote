@@ -3,6 +3,7 @@ import os
 from functools import wraps
 from pathlib import Path
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import connection
 from django.db.utils import OperationalError, ProgrammingError
 from django.http import JsonResponse
@@ -36,15 +37,32 @@ def dashboard_counts() -> dict:
     }
 
 
+
+
+def effective_user_profile(request) -> dict | None:
+    if not request.user.is_authenticated:
+        return request.session.get("user_profile")
+
+    profile = admin_repository.find_user_profile_by_username(request.user.username)
+    if not profile and (request.user.is_staff or request.user.is_superuser):
+        profile = admin_repository.find_super_admin_profile_by_username(request.user.username)
+
+    if profile:
+        existing = request.session.get("user_profile", {})
+        if existing.get("signature_data_url"):
+            profile["signature_data_url"] = existing["signature_data_url"]
+        request.session["user_profile"] = profile
+        return profile
+
+    return request.session.get("user_profile")
+
 def page_context(request, extra: dict | None = None) -> dict:
     context = {
-        "current_user": request.session.get(
-            "user_profile",
-            {
-                "name": "게스트",
-                "role": "관리자",
-            },
-        )
+        "current_user": effective_user_profile(request)
+        or {
+            "name": "게스트",
+            "role": "관리자",
+        }
     }
     if extra:
         context.update(extra)
@@ -54,11 +72,13 @@ def page_context(request, extra: dict | None = None) -> dict:
 def login_required_page(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
-        user_profile = request.session.get("user_profile")
-        if not user_profile:
+        user_profile = effective_user_profile(request)
+
+        if not request.user.is_authenticated and not user_profile:
             next_url = request.get_full_path()
             return redirect(f"/login?next={next_url}")
-        if user_profile.get("is_super_admin"):
+
+        if (user_profile and user_profile.get("is_super_admin")) or request.user.is_staff or request.user.is_superuser:
             return redirect("/frontend/admin/dashboard")
         return view_func(request, *args, **kwargs)
 
@@ -68,8 +88,13 @@ def login_required_page(view_func):
 def admin_required_page(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
-        user_profile = request.session.get("user_profile")
-        if not user_profile or not user_profile.get("is_super_admin"):
+        user_profile = effective_user_profile(request)
+        if not user_profile and not request.user.is_authenticated:
+            next_url = request.get_full_path()
+            return redirect(f"/admin/login?next={next_url}")
+
+        is_super_admin = bool((user_profile or {}).get("is_super_admin", False)) or request.user.is_staff or request.user.is_superuser
+        if not is_super_admin:
             next_url = request.get_full_path()
             return redirect(f"/admin/login?next={next_url}")
         return view_func(request, *args, **kwargs)
@@ -139,12 +164,18 @@ def _sync_super_admin_accounts() -> None:
 
     for username, user in _load_super_admin_users().items():
         try:
+            raw_or_hashed_password = user.get("password", "")
+            normalized_password = (
+                raw_or_hashed_password
+                if str(raw_or_hashed_password).startswith("pbkdf2_")
+                else make_password(raw_or_hashed_password)
+            )
             SuperAdminAccount.objects.update_or_create(
                 username=username,
                 defaults={
                     "display_name": user.get("name", username),
                     "email": user.get("email", f"{username}@projectnote.local"),
-                    "password": user.get("password", ""),
+                    "password": normalized_password,
                     "organization": user.get("organization", "ProjectNote"),
                     "major": user.get("major", "관리"),
                     "is_active": True,
@@ -162,7 +193,11 @@ def _super_admin_table_exists() -> bool:
 def _authenticate_super_admin_from_seed_data(username: str, password: str) -> dict[str, str] | None:
     users = _load_super_admin_users()
     account = users.get(username)
-    if not account or account.get("password", "") != password:
+    if not account:
+        return None
+
+    stored_password = account.get("password", "")
+    if not (check_password(password, stored_password) or stored_password == password):
         return None
 
     return {

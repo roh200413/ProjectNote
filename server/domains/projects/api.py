@@ -10,6 +10,7 @@ from server.application.web_support import (
     json_uuid_validation_error,
     login_required_page,
     page_context,
+    effective_user_profile,
     project_repository,
     project_service,
     admin_repository,
@@ -34,10 +35,11 @@ def project_management_api(request):
     if request.method == "GET":
         return JsonResponse(project_repository.list_projects(), safe=False)
     payload = request.POST.copy()
-    team_id = request.session.get("user_profile", {}).get("team_id")
+    profile = effective_user_profile(request) or {}
+    team_id = profile.get("team_id")
     if team_id:
         payload["company_id"] = str(team_id)
-    project = project_service.create_project(payload, request.session.get("user_profile", {}))
+    project = project_service.create_project(payload, effective_user_profile(request) or {})
     return JsonResponse(project, status=201)
 
 
@@ -57,7 +59,7 @@ def project_create_page(request):
         "workflow/project_create.html",
         page_context(
             request,
-            {"user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id"))},
+            {"user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id"))},
         ),
     )
 
@@ -111,6 +113,7 @@ def project_researchers_page(request, project_id: str):
             {
                 "project": project,
                 "researcher_groups": project_repository.project_researcher_groups(project_id),
+                "team_user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id")),
             },
         ),
     )
@@ -157,6 +160,43 @@ def project_research_notes_page(request, project_id: str):
         ),
     )
 
+
+
+@require_http_methods(["POST"])
+def project_update_api(request, project_id: str):
+    payload = request.POST.copy()
+    try:
+        updated = project_repository.update_project(project_id, {
+            "name": payload.get("name", ""),
+            "manager": payload.get("manager", ""),
+            "organization": payload.get("organization", ""),
+            "code": payload.get("code", ""),
+            "description": payload.get("description", ""),
+            "start_date": payload.get("start_date", ""),
+            "end_date": payload.get("end_date", ""),
+            "status": payload.get("status", "draft"),
+        })
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=404)
+    return JsonResponse(updated)
+
+
+@require_http_methods(["POST"])
+def project_add_researcher_api(request, project_id: str):
+    user_id = request.POST.get("user_id", "")
+    if not str(user_id).isdigit():
+        return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
+
+    try:
+        project_repository.add_project_member(project_id, int(user_id))
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    return JsonResponse({
+        "message": "우리팀 연구원을 프로젝트에 추가했습니다.",
+        "researcher_groups": project_repository.project_researcher_groups(project_id),
+    })
+
 @require_GET
 def dashboard_summary(_request):
     return JsonResponse(dashboard_counts())
@@ -173,7 +213,7 @@ def workflow_home_page(request):
         {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
     ]
     projects = project_repository.list_projects()
-    current_name = request.session.get("user_profile", {}).get("name", "")
+    current_name = (effective_user_profile(request) or {}).get("name", "")
     managed_projects = [project for project in projects if project.get("manager") == current_name]
     return render(
         request,
