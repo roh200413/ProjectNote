@@ -7,7 +7,7 @@
   {% include "admin/partials/nav_list.html" %}
   <section class="pn-card">
     <h3 style="margin-top:0">연구자(사용자) 통합 관리</h3>
-    <p class="pn-sub" style="margin-top:0">회사 선택 가입자 승인, 권한 부여, 사용자 내보내기를 처리합니다.</p>
+    <p class="pn-sub" style="margin-top:0">소유자/일반 가입자 승인, 팀 배정, 권한 부여, 사용자 내보내기를 처리합니다.</p>
 
     <form method="get" action="/frontend/admin/users" class="pn-grid" style="grid-template-columns:1fr auto;gap:8px;margin-bottom:12px">
       <input class="pn-input" type="text" name="q" value="{{ keyword }}" placeholder="사용자명/이름/이메일/팀명 검색" />
@@ -15,7 +15,7 @@
     </form>
 
     <table class="pn-table">
-        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>승인</th><th>팀</th><th>팀 코드</th><th>관리</th><th></th></tr></thead>
+        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>승인</th><th>가입 요청 회사(팀)</th><th>팀</th><th>팀 코드</th><th>관리</th><th></th></tr></thead>
       <tbody id="adminTableBody">
       {% for admin in admin_accounts %}
         <tr>
@@ -23,7 +23,27 @@
           <td>{{ admin.display_name }}</td>
           <td>{{ admin.email }}</td>
           <td>{{ admin.role }}</td>
-          <td>{% if admin.is_approved %}승인{% else %}대기{% endif %}</td>
+          <td>
+            {% if admin.is_approved %}
+              <span class="pn-sub">승인 완료</span>
+            {% else %}
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span class="pn-sub">승인 대기</span>
+                <form class="approve-form" data-user-id="{{ admin.id }}" style="display:inline-flex;gap:6px;align-items:center;margin:0">
+                  <input type="hidden" name="action" value="approve" />
+                  <button class="pn-btn" type="submit">승인</button>
+                </form>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if admin.requested_team_name %}
+              <div><strong>{{ admin.requested_team_name }}</strong></div>
+              <div class="pn-sub">{{ admin.requested_team_description|default:'-' }}</div>
+            {% else %}
+              <span class="pn-sub">-</span>
+            {% endif %}
+          </td>
           <td>
             <div style="display:grid;gap:6px">
               <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
@@ -41,11 +61,6 @@
           <td>{{ admin.join_code }}</td>
           <td>
             <div style="display:grid;gap:6px">
-
-{#              <form class="approve-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">#}
-{#                <input type="hidden" name="action" value="approve" />#}
-{#                <button class="pn-btn" type="submit" {% if admin.is_approved %}disabled{% endif %}>승인</button>#}
-{#              </form>#}
 
               <form class="grant-role-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
                 <input type="hidden" name="action" value="grant_role" />
@@ -68,7 +83,7 @@
         </td>
         </tr>
       {% empty %}
-        <tr><td colspan="8" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
+        <tr><td colspan="10" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
       {% endfor %}
       </tbody>
     </table>
