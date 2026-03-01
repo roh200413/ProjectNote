@@ -1,11 +1,9 @@
 {% extends "base_admin.html" %}
 {% block title %}관리자 대시보드{% endblock %}
 {% block page_title %}ADMIN 대시보드{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.reload()">새로고침</button>
-</div>
-{% endblock %}
+{% block page_actions %}{% endblock %}
+
+
 
 {% block content %}
 <div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
@@ -29,6 +27,7 @@
               <span><strong>소유자</strong> {{ item.owner_name }}</span>
             </div>
             {% if item.team_id and item.members %}
+              <div class="pn-sub" style="font-size:12px;margin-bottom:6px">현재 소유주: {{ item.owner_name }}</div>
               <form class="owner-change-form" data-team-id="{{ item.team_id }}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <select class="pn-input" name="owner_user_id" style="min-width:140px;padding:6px 8px">
                   {% for member in item.members %}
