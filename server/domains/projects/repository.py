@@ -181,11 +181,12 @@ class ProjectRepository:
                 continue
             org = member.user.team.name if member.user.team else "미지정"
             is_owner = member.user.role == UserAccount.Role.OWNER
+            display_role = "소유자" if is_owner else ("관리자" if member.user.role == UserAccount.Role.ADMIN else "연구원")
             grouped[org].append(
                 {
                     "id": member.user.id,
                     "name": member.user.display_name,
-                    "role": "소유자" if is_owner else member.role,
+                    "role": display_role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,

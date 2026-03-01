@@ -138,3 +138,17 @@ def researchers_page(request):
             },
         ),
     )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def github_integrations_page(request):
+    return render(request, "workflow/github_integrations.html", page_context(request))
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def collaboration_integrations_page(request):
+    return render(request, "workflow/collaboration_integrations.html", page_context(request))

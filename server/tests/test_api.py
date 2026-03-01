@@ -455,6 +455,8 @@ def test_workflow_pages_exist() -> None:
         "/frontend/projects/create",
         "/frontend/my-page",
         "/frontend/researchers",
+        "/frontend/integrations/github",
+        "/frontend/integrations/collaboration",
         "/frontend/data-updates",
         "/frontend/final-download",
         "/frontend/signatures",
@@ -1024,6 +1026,30 @@ def test_project_researchers_add_list_excludes_owner_and_existing_members() -> N
     assert "project-owner" not in add_section
     assert "existing-member" not in add_section
     assert "available-member" in add_section
+
+
+def test_project_researchers_page_uses_user_role_label() -> None:
+    reset_db()
+    team = Team.objects.create(name="역할표시팀", description="역할", join_code="616161")
+    admin_user = UserAccount.objects.create(
+        username="project-admin-role",
+        display_name="프로젝트관리자",
+        email="project-admin-role@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(name="프로젝트3", manager="관리자", organization="역할표시팀", company=team, code="P-ROLE")
+    ProjectMember.objects.create(project=project, user=admin_user, role="member")
+
+    local_client = Client()
+    assert local_client.post("/login", {"username": "project-admin-role", "password": "secret123"}).status_code == 302
+    page = local_client.get(f"/frontend/projects/{project.id}/researchers")
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert "프로젝트관리자" in html
+    assert "관리자" in html
 
 
 def test_project_researchers_owner_cannot_be_removed() -> None:
