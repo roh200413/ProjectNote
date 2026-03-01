@@ -142,9 +142,12 @@ class ProjectRepository:
         )
 
     def remove_project_member(self, project_id: str, user_id: int) -> None:
-        deleted, _ = ProjectMember.objects.filter(project_id=project_id, user_id=user_id).delete()
-        if deleted == 0:
+        membership = ProjectMember.objects.select_related("user").filter(project_id=project_id, user_id=user_id).first()
+        if not membership:
             raise ValueError("프로젝트에 참여 중인 연구원이 아닙니다.")
+        if membership.user and membership.user.role == UserAccount.Role.OWNER:
+            raise ValueError("소유자는 프로젝트 연구자에서 제외할 수 없습니다.")
+        membership.delete()
 
     def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
         if not user_profile:
@@ -177,19 +180,22 @@ class ProjectRepository:
             if not member.user:
                 continue
             org = member.user.team.name if member.user.team else "미지정"
+            is_owner = member.user.role == UserAccount.Role.OWNER
             grouped[org].append(
                 {
                     "id": member.user.id,
                     "name": member.user.display_name,
-                    "role": member.role,
+                    "role": "소유자" if is_owner else member.role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,
+                    "is_owner": is_owner,
                 }
             )
 
         groups = []
         for organization, members in grouped.items():
+            members.sort(key=lambda item: (0 if item.get("is_owner") else 1, item.get("name", "")))
             groups.append(
                 {
                     "group": f"{organization} 연구그룹",
