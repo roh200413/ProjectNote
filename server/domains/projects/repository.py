@@ -64,7 +64,7 @@ class ProjectRepository:
         project.save()
         return self.project_to_dict(project)
 
-    def add_project_member(self, project_id: str, user_id: int, role: str = "member") -> None:
+    def add_project_member(self, project_id: str, user_id: int) -> None:
         project = Project.objects.filter(id=project_id).first()
         if not project:
             raise ValueError("프로젝트를 찾을 수 없습니다.")
@@ -79,7 +79,7 @@ class ProjectRepository:
         ProjectMember.objects.get_or_create(
             project=project,
             user=user,
-            defaults={"role": role or "member", "contribution": "프로젝트 참여"},
+            defaults={"role": "member", "contribution": "프로젝트 참여"},
         )
 
     def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:

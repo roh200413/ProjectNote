@@ -363,14 +363,14 @@ def test_project_add_researcher_api_team_only() -> None:
 
     ok_response = client.post(
         f"/api/v1/projects/{project.id}/researchers",
-        {"user_id": my_member.id, "role": "member"},
+        {"user_id": my_member.id},
     )
     assert ok_response.status_code == 200
     assert ProjectMember.objects.filter(project=project, user=my_member).exists()
 
     fail_response = client.post(
         f"/api/v1/projects/{project.id}/researchers",
-        {"user_id": other_member.id, "role": "member"},
+        {"user_id": other_member.id},
     )
     assert fail_response.status_code == 400
     assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
@@ -504,14 +504,14 @@ def test_project_add_researcher_api_team_only() -> None:
 
     ok_response = client.post(
         f"/api/v1/projects/{project.id}/researchers",
-        {"user_id": my_member.id, "role": "member"},
+        {"user_id": my_member.id},
     )
     assert ok_response.status_code == 200
     assert ProjectMember.objects.filter(project=project, user=my_member).exists()
 
     fail_response = client.post(
         f"/api/v1/projects/{project.id}/researchers",
-        {"user_id": other_member.id, "role": "member"},
+        {"user_id": other_member.id},
     )
     assert fail_response.status_code == 400
     assert "우리팀 연구원만 추가" in fail_response.json()["detail"]

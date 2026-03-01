@@ -182,12 +182,11 @@ def project_update_api(request, project_id: str):
 @require_http_methods(["POST"])
 def project_add_researcher_api(request, project_id: str):
     user_id = request.POST.get("user_id", "")
-    role = request.POST.get("role", "member")
     if not str(user_id).isdigit():
         return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
 
     try:
-        project_repository.add_project_member(project_id, int(user_id), role)
+        project_repository.add_project_member(project_id, int(user_id))
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
 
