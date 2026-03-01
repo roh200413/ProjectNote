@@ -1,6 +1,7 @@
 import random
 import string
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import connection
 from django.db.models import Q
 
@@ -45,8 +46,10 @@ class AdminRepository:
                 return code
         raise ValueError("팀 코드 생성에 실패했습니다. 다시 시도해주세요.")
     def find_user_for_login(self, username: str, password: str) -> dict | None:
-        user = UserAccount.objects.select_related("team").filter(username=username, password=password).first()
+        user = UserAccount.objects.select_related("team").filter(username=username).first()
         if not user:
+            return None
+        if not self._verify_password(user, password):
             return None
         return {
             "id": user.id,
@@ -64,10 +67,11 @@ class AdminRepository:
     def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
         account = SuperAdminAccount.objects.filter(
             username=username,
-            password=password,
             is_active=True,
         ).first()
         if not account:
+            return None
+        if not self._verify_password(account, password):
             return None
         return {
             "id": account.id,
@@ -79,6 +83,54 @@ class AdminRepository:
             "major": account.major,
             "team": "SUPER_ADMIN",
             "is_super_admin": True,
+        }
+
+
+    @staticmethod
+    def _verify_password(account: UserAccount | SuperAdminAccount, raw_password: str) -> bool:
+        if check_password(raw_password, account.password):
+            return True
+        if account.password == raw_password:
+            account.password = make_password(raw_password)
+            account.save(update_fields=["password", "updated_at"])
+            return True
+        return False
+
+
+    def find_user_profile_by_username(self, username: str) -> dict | None:
+        user = UserAccount.objects.select_related("team").filter(username=username).first()
+        if not user:
+            return None
+        return {
+            "id": user.id,
+            "username": user.username,
+            "name": user.display_name,
+            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
+            "email": user.email,
+            "organization": user.team.name if user.team else "미지정",
+            "major": "미지정",
+            "team": user.team.name if user.team else "-",
+            "team_id": user.team.id if user.team else None,
+            "is_approved": user.is_approved,
+            "is_super_admin": False,
+        }
+
+    def find_super_admin_profile_by_username(self, username: str) -> dict | None:
+        account = SuperAdminAccount.objects.filter(username=username, is_active=True).first()
+        if not account:
+            return None
+        return {
+            "id": account.id,
+            "username": account.username,
+            "name": account.display_name,
+            "role": "슈퍼관리자",
+            "email": account.email,
+            "organization": account.organization,
+            "major": account.major,
+            "team": "SUPER_ADMIN",
+            "team_id": None,
+            "is_super_admin": True,
+            "is_approved": True,
         }
 
     def list_all_users(self, keyword: str = "") -> list[dict]:
@@ -183,7 +235,7 @@ class AdminRepository:
             username=username,
             display_name=display_name,
             email=email,
-            password=password,
+            password=make_password(password),
             role=normalized_role,
             team=team,
             is_approved=(normalized_role == UserAccount.Role.ADMIN),
