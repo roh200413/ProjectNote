@@ -33,7 +33,8 @@ def projects(request):
 @require_http_methods(["GET", "POST"])
 def project_management_api(request):
     if request.method == "GET":
-        return JsonResponse(project_repository.list_projects(), safe=False)
+        profile = effective_user_profile(request) or {}
+        return JsonResponse(project_repository.visible_projects_for_user(profile), safe=False)
     payload = request.POST.copy()
     profile = effective_user_profile(request) or {}
     team_id = profile.get("team_id")
@@ -47,7 +48,8 @@ def project_management_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def project_management_page(request):
-    return render(request, "workflow/projects.html", page_context(request, {"projects": project_repository.list_projects()}))
+    profile = effective_user_profile(request) or {}
+    return render(request, "workflow/projects.html", page_context(request, {"projects": project_repository.visible_projects_for_user(profile)}))
 
 
 @require_GET
@@ -68,6 +70,9 @@ def project_create_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def project_detail_page(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        raise Http404("Project not found")
     try:
         project = project_repository.project_to_dict(Project.objects.get(id=project_id))
     except Project.DoesNotExist as exc:
@@ -100,6 +105,9 @@ def project_detail_page(request, project_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def project_researchers_page(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        raise Http404("Project not found")
     try:
         project = project_repository.project_to_dict(Project.objects.get(id=project_id))
     except Project.DoesNotExist as exc:
@@ -114,6 +122,7 @@ def project_researchers_page(request, project_id: str):
                 "project": project,
                 "researcher_groups": project_repository.project_researcher_groups(project_id),
                 "team_user_groups": admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id")),
+                "can_manage_project_members": project_repository.can_manage_project_members(project_id, profile),
             },
         ),
     )
@@ -124,6 +133,9 @@ def project_researchers_page(request, project_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def project_research_notes_page(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        raise Http404("Project not found")
     try:
         project = project_repository.project_to_dict(Project.objects.get(id=project_id))
     except Project.DoesNotExist as exc:
@@ -183,6 +195,10 @@ def project_update_api(request, project_id: str):
 
 @require_http_methods(["POST"])
 def project_add_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
     user_id = request.POST.get("user_id", "")
     if not str(user_id).isdigit():
         return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
@@ -194,6 +210,27 @@ def project_add_researcher_api(request, project_id: str):
 
     return JsonResponse({
         "message": "우리팀 연구원을 프로젝트에 추가했습니다.",
+        "researcher_groups": project_repository.project_researcher_groups(project_id),
+    })
+
+
+@require_http_methods(["POST"])
+def project_remove_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    user_id = request.POST.get("user_id", "")
+    if not str(user_id).isdigit():
+        return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
+
+    try:
+        project_repository.remove_project_member(project_id, int(user_id))
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    return JsonResponse({
+        "message": "프로젝트 연구원을 제외했습니다.",
         "researcher_groups": project_repository.project_researcher_groups(project_id),
     })
 

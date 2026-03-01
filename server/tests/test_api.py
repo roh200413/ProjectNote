@@ -566,6 +566,104 @@ def test_project_add_researcher_api_team_only() -> None:
     assert fail_response.status_code == 400
     assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
 
+
+def test_project_remove_researcher_api() -> None:
+    reset_db()
+    team = Team.objects.create(name="우리팀", description="우리팀", join_code="232323")
+    project = Project.objects.create(
+        name="우리팀 프로젝트",
+        manager="팀장",
+        organization="우리팀",
+        company=team,
+        code="TEAM-02",
+        status="active",
+    )
+
+    UserAccount.objects.create(
+        username="project-admin",
+        display_name="프로젝트관리자",
+        email="project-admin@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+    member = UserAccount.objects.create(
+        username="project-member",
+        display_name="프로젝트멤버",
+        email="project-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    ProjectMember.objects.create(project=project, user=member, role="member")
+
+    login_response = client.post("/login", {"username": "project-admin", "password": "secret123"})
+    assert login_response.status_code == 302
+
+    response = client.post(f"/api/v1/projects/{project.id}/researchers/remove", {"user_id": member.id})
+
+    assert response.status_code == 200
+    assert not ProjectMember.objects.filter(project=project, user=member).exists()
+
+
+def test_member_sees_only_participating_projects_and_cannot_manage_researchers() -> None:
+    reset_db()
+    team = Team.objects.create(name="접근팀", description="접근팀", join_code="454545")
+    member = UserAccount.objects.create(
+        username="limited-member",
+        display_name="참여연구원",
+        email="limited-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    project_joined = Project.objects.create(name="참여 프로젝트", manager="팀장", organization="접근팀", company=team, status="active")
+    project_other = Project.objects.create(name="비참여 프로젝트", manager="팀장", organization="접근팀", company=team, status="active")
+    ProjectMember.objects.create(project=project_joined, user=member, role="member")
+
+    client_obj = Client()
+    login_response = client_obj.post("/login", {"username": "limited-member", "password": "secret123"})
+    assert login_response.status_code == 302
+
+    projects_page = client_obj.get("/frontend/projects")
+    assert projects_page.status_code == 200
+    html = projects_page.content.decode()
+    assert "참여 프로젝트" in html
+    assert "비참여 프로젝트" not in html
+
+    hidden_project = client_obj.get(f"/frontend/projects/{project_other.id}")
+    assert hidden_project.status_code == 404
+
+    forbidden_add = client_obj.post(f"/api/v1/projects/{project_joined.id}/researchers", {"user_id": member.id})
+    assert forbidden_add.status_code == 403
+
+
+def test_admin_can_view_all_project_pages() -> None:
+    reset_db()
+    team = Team.objects.create(name="운영팀", description="운영팀", join_code="787878")
+    UserAccount.objects.create(
+        username="team-admin",
+        display_name="팀관리자",
+        email="team-admin@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(name="운영 프로젝트", manager="관리자", organization="운영팀", company=team, status="active")
+
+    client_obj = Client()
+    login_response = client_obj.post("/login", {"username": "team-admin", "password": "secret123"})
+    assert login_response.status_code == 302
+
+    assert client_obj.get("/frontend/projects").status_code == 200
+    assert client_obj.get(f"/frontend/projects/{project.id}").status_code == 200
+    assert client_obj.get(f"/frontend/projects/{project.id}/researchers").status_code == 200
+    assert client_obj.get(f"/frontend/projects/{project.id}/research-notes").status_code == 200
+
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()
     client_obj = Client()
@@ -674,6 +772,16 @@ def test_project_add_researcher_api_team_only() -> None:
         status="active",
     )
 
+    UserAccount.objects.create(
+        username="team-admin",
+        display_name="팀관리자",
+        email="team-admin@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+
     my_member = UserAccount.objects.create(
         username="my-member",
         display_name="우리팀연구원",
@@ -692,6 +800,9 @@ def test_project_add_researcher_api_team_only() -> None:
         team=other_team,
         is_approved=True,
     )
+
+    login_response = client.post("/login", {"username": "team-admin", "password": "secret123"})
+    assert login_response.status_code == 302
 
     ok_response = client.post(
         f"/api/v1/projects/{project.id}/researchers",
@@ -730,7 +841,8 @@ def test_user_without_team_is_blocked_from_home() -> None:
 def test_project_detail_and_viewer_pages() -> None:
     reset_db()
     project_id, note_id = seed_workflow_data()
-    login(client)
+    login_response = client.post("/login", {"username": "tester", "password": "secret123"})
+    assert login_response.status_code == 302
 
     project_detail = client.get(f"/frontend/projects/{project_id}")
     assert project_detail.status_code == 200

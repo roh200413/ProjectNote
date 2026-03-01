@@ -13,6 +13,65 @@ class ProjectRepository:
     def list_projects(self) -> list[dict]:
         return [self.project_to_dict(project) for project in Project.objects.order_by("-created_at")]
 
+    def visible_projects_for_user(self, profile: dict | None) -> list[dict]:
+        if not profile:
+            return []
+
+        if profile.get("is_super_admin"):
+            return self.list_projects()
+
+        username = str(profile.get("username", "")).strip()
+        if not username:
+            return []
+
+        user = UserAccount.objects.filter(username=username).first()
+        if not user:
+            return []
+
+        if user.role == UserAccount.Role.ADMIN:
+            if user.team_id:
+                projects = Project.objects.filter(company_id=user.team_id).order_by("-created_at")
+            else:
+                projects = Project.objects.order_by("-created_at")
+            return [self.project_to_dict(project) for project in projects]
+
+        project_ids = ProjectMember.objects.filter(user_id=user.id).values_list("project_id", flat=True)
+        projects = Project.objects.filter(id__in=project_ids).order_by("-created_at")
+        return [self.project_to_dict(project) for project in projects]
+
+    def can_view_project(self, project_id: str, profile: dict | None) -> bool:
+        if not profile:
+            return False
+        if profile.get("is_super_admin"):
+            return True
+        username = str(profile.get("username", "")).strip()
+        if not username:
+            return False
+        user = UserAccount.objects.filter(username=username).first()
+        if not user:
+            return False
+        if user.role == UserAccount.Role.ADMIN:
+            return True
+        return ProjectMember.objects.filter(project_id=project_id, user_id=user.id).exists()
+
+    def can_manage_project_members(self, project_id: str, profile: dict | None) -> bool:
+        if not profile:
+            return False
+        if profile.get("is_super_admin"):
+            return True
+        username = str(profile.get("username", "")).strip()
+        if not username:
+            return False
+        user = UserAccount.objects.select_related("team").filter(username=username).first()
+        if not user or user.role != UserAccount.Role.ADMIN:
+            return False
+        project = Project.objects.filter(id=project_id).first()
+        if not project:
+            return False
+        if user.team_id and project.company_id:
+            return user.team_id == project.company_id
+        return True
+
     def get_project(self, project_id: str) -> Project:
         return Project.objects.get(id=project_id)
 
@@ -82,6 +141,11 @@ class ProjectRepository:
             defaults={"role": "member", "contribution": "프로젝트 참여"},
         )
 
+    def remove_project_member(self, project_id: str, user_id: int) -> None:
+        deleted, _ = ProjectMember.objects.filter(project_id=project_id, user_id=user_id).delete()
+        if deleted == 0:
+            raise ValueError("프로젝트에 참여 중인 연구원이 아닙니다.")
+
     def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
         if not user_profile:
             return
@@ -115,6 +179,7 @@ class ProjectRepository:
             org = member.user.team.name if member.user.team else "미지정"
             grouped[org].append(
                 {
+                    "id": member.user.id,
                     "name": member.user.display_name,
                     "role": member.role,
                     "organization": org,
