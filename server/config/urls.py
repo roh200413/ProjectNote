@@ -49,6 +49,7 @@ urlpatterns = [
     path("frontend/projects/<str:project_id>/research-notes", projects_api.project_research_notes_page),
     path("frontend/my-page", signatures_api.my_page),
     path("frontend/my-page/signature", signatures_api.update_my_signature),
+    path("frontend/my-page/research-note/upload", signatures_api.upload_my_research_note),
     path("frontend/researchers", researchers_api.researchers_page),
     path("frontend/integrations/github", researchers_api.github_integrations_page),
     path("frontend/integrations/collaboration", researchers_api.collaboration_integrations_page),

@@ -1,13 +1,16 @@
 import os
+import tempfile
 import uuid
+from pathlib import Path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "server.config.settings")
 
 import django
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import Client
+from django.test import Client, override_settings
 
 
 django.setup()
@@ -1201,6 +1204,31 @@ def test_login_logout_and_auth_redirect() -> None:
 
     logout = anon.get("/logout")
     assert logout.status_code == 302
+
+
+
+
+def test_my_page_research_note_upload_creates_note_and_file() -> None:
+    reset_db()
+    local_client = Client()
+    login(local_client)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with override_settings(RESEARCH_NOTES_STORAGE_ROOT=temp_dir):
+            upload = SimpleUploadedFile('upload-note.txt', b'hello research note', content_type='text/plain')
+            response = local_client.post('/frontend/my-page/research-note/upload', {'research_note_file': upload})
+
+            assert response.status_code == 201
+            body = response.json()
+            note_id = body['note_id']
+            saved_path = Path(body['file_path'])
+            assert saved_path.exists()
+            assert saved_path.read_bytes() == b'hello research note'
+            assert note_id in str(saved_path.parent)
+
+            note = ResearchNote.objects.get(id=note_id)
+            assert note.title == 'upload-note.txt'
+            assert ResearchNoteFile.objects.filter(note=note, name='upload-note.txt').exists()
 
 
 def test_my_page_signature_update() -> None:
