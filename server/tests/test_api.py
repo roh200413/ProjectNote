@@ -420,8 +420,8 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert signup.status_code == 201
 
     login_response = client_obj.post("/login", {"username": "teamadmin", "password": "secret123"})
-    assert login_response.status_code == 302
-    assert login_response["Location"] == "/frontend/workflows"
+    assert login_response.status_code == 403
+    assert "관리자 승인 대기 중입니다." in login_response.content.decode()
 
     admin_page = client_obj.get("/frontend/admin/dashboard")
     assert admin_page.status_code == 302
@@ -723,8 +723,8 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert signup.status_code == 201
 
     login_response = client_obj.post("/login", {"username": "teamadmin", "password": "secret123"})
-    assert login_response.status_code == 302
-    assert login_response["Location"] == "/frontend/workflows"
+    assert login_response.status_code == 403
+    assert "관리자 승인 대기 중입니다." in login_response.content.decode()
 
     admin_page = client_obj.get("/frontend/admin/dashboard")
     assert admin_page.status_code == 302
@@ -1191,7 +1191,7 @@ def test_signup_and_admin_user_management_tables() -> None:
     users = local_client.get("/api/v1/admin/users")
     assert users.status_code == 200
     users_payload = users.json()
-    assert any(item["username"] == "leader" and item["role"] == "관리자" for item in users_payload)
+    assert any(item["username"] == "leader" and item["role"] == "소유자" for item in users_payload)
     assert any(item["username"] == "member1" and item["role"] == "일반" for item in users_payload)
 
     admin_redirect = local_client.get("/frontend/admin")
@@ -1211,6 +1211,66 @@ def test_signup_and_admin_user_management_tables() -> None:
     assert tables.status_code == 200
     tables_payload = tables.json()
     assert any(item["table"] == "workflow_app_useraccount" for item in tables_payload)
+
+
+def test_owner_and_admin_can_grant_admin_role() -> None:
+    reset_db()
+    owner_signup = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "owner1",
+            "display_name": "회사소유자",
+            "email": "owner1@example.com",
+            "password": "secret123",
+            "role": "admin",
+            "team_name": "권한팀",
+            "team_description": "권한테스트",
+        },
+    )
+    assert owner_signup.status_code == 201
+
+    UserAccount.objects.create(
+        username="team-admin-2",
+        display_name="팀관리자2",
+        email="team-admin-2@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=Team.objects.get(name="권한팀"),
+        is_approved=True,
+    )
+    member_user = UserAccount.objects.create(
+        username="grant-member",
+        display_name="권한대상",
+        email="grant-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=Team.objects.get(name="권한팀"),
+        is_approved=True,
+    )
+
+    # super admin 1회 승인 후 owner 로그인 가능
+    super_client = Client()
+    assert super_client.post("/admin/login", {"username": "admin", "password": "admin1234"}).status_code == 302
+    owner_id = UserAccount.objects.get(username="owner1").id
+    assert super_client.post("/api/v1/admin/users", {"action": "approve", "user_id": str(owner_id)}).status_code == 200
+
+    owner_client = Client()
+    assert owner_client.post("/login", {"username": "owner1", "password": "secret123"}).status_code == 302
+    grant_by_owner = owner_client.post("/api/v1/researchers", {"action": "grant_role", "user_id": str(member_user.id), "role": "admin"})
+    assert grant_by_owner.status_code == 200
+    member_user.refresh_from_db()
+    assert member_user.role == UserAccount.Role.ADMIN
+
+    member_user.role = UserAccount.Role.MEMBER
+    member_user.save(update_fields=["role", "updated_at"])
+
+    admin_client = Client()
+    assert admin_client.post("/login", {"username": "team-admin-2", "password": "secret123"}).status_code == 302
+    grant_by_admin = admin_client.post("/api/v1/researchers", {"action": "grant_role", "user_id": str(member_user.id), "role": "admin"})
+    assert grant_by_admin.status_code == 200
+    member_user.refresh_from_db()
+    assert member_user.role == UserAccount.Role.ADMIN
+
 
 
 def test_super_admin_can_search_and_assign_user_team() -> None:

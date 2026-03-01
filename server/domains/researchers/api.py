@@ -14,7 +14,7 @@ def _can_manage(request) -> bool:
         request.user.is_staff
         or request.user.is_superuser
         or profile.get("is_super_admin")
-        or role in {"관리자", "admin"}
+        or role in {"소유자", "owner", "관리자", "admin"}
     )
 
 
@@ -98,7 +98,7 @@ def researchers_api(request):
                 else:
                     return JsonResponse({"detail": "권한 값이 올바르지 않습니다."}, status=400)
 
-                # ✅ 관리자 최대 3명 제한 (admin 기준)
+                # ✅ 관리자 최대 3명 제한 (owner 제외, admin 기준)
                 if role == "admin":
                     admin_count = researcher_repository.count_admins_by_team_id(team_id)
                     if admin_count >= 3:

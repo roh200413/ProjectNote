@@ -55,7 +55,7 @@ class AdminRepository:
             "id": user.id,
             "username": user.username,
             "name": user.display_name,
-            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
+            "role": self._role_label(user.role),
             "email": user.email,
             "organization": user.team.name if user.team else "미지정",
             "major": "미지정",
@@ -105,7 +105,7 @@ class AdminRepository:
             "id": user.id,
             "username": user.username,
             "name": user.display_name,
-            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
+            "role": self._role_label(user.role),
             "email": user.email,
             "organization": user.team.name if user.team else "미지정",
             "major": "미지정",
@@ -211,14 +211,14 @@ class AdminRepository:
         team_description: str,
         team_code: str,
     ) -> dict:
-        normalized_role = role if role in {UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
+        normalized_role = role if role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
         if UserAccount.objects.filter(username=username).exists():
             raise ValueError("이미 사용 중인 아이디입니다.")
         if UserAccount.objects.filter(email=email).exists():
             raise ValueError("이미 사용 중인 이메일입니다.")
 
         team = None
-        if normalized_role == UserAccount.Role.ADMIN:
+        if normalized_role in {UserAccount.Role.ADMIN, UserAccount.Role.OWNER}:
             if not team_name:
                 raise ValueError("관리자 가입 시 팀 이름은 필수입니다.")
             team = Team.objects.create(
@@ -226,6 +226,8 @@ class AdminRepository:
                 description=team_description,
                 join_code=self._generate_join_code(),
             )
+            # 팀 생성자는 자동 소유자 부여
+            normalized_role = UserAccount.Role.OWNER
         elif team_name or team_code:
             team = Team.objects.filter(name=team_name, join_code=team_code).first()
             if not team:
@@ -238,7 +240,7 @@ class AdminRepository:
             password=make_password(password),
             role=normalized_role,
             team=team,
-            is_approved=(normalized_role == UserAccount.Role.ADMIN),
+            is_approved=False,
         )
         return {
             "id": user.id,
@@ -305,3 +307,10 @@ class AdminRepository:
             if not cursor.fetchone():
                 raise ValueError("테이블이 존재하지 않습니다.")
             cursor.execute(f'DELETE FROM "{table_name}"')
+    @staticmethod
+    def _role_label(role: str) -> str:
+        if role == UserAccount.Role.OWNER:
+            return "소유자"
+        if role == UserAccount.Role.ADMIN:
+            return "관리자"
+        return "일반"

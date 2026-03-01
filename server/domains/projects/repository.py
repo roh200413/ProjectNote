@@ -28,7 +28,7 @@ class ProjectRepository:
         if not user:
             return []
 
-        if user.role == UserAccount.Role.ADMIN:
+        if user.role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN}:
             if user.team_id:
                 projects = Project.objects.filter(company_id=user.team_id).order_by("-created_at")
             else:
@@ -50,7 +50,7 @@ class ProjectRepository:
         user = UserAccount.objects.filter(username=username).first()
         if not user:
             return False
-        if user.role == UserAccount.Role.ADMIN:
+        if user.role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN}:
             return True
         return ProjectMember.objects.filter(project_id=project_id, user_id=user.id).exists()
 
@@ -63,7 +63,7 @@ class ProjectRepository:
         if not username:
             return False
         user = UserAccount.objects.select_related("team").filter(username=username).first()
-        if not user or user.role != UserAccount.Role.ADMIN:
+        if not user or user.role not in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN}:
             return False
         project = Project.objects.filter(id=project_id).first()
         if not project:
