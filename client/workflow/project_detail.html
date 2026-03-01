@@ -1,14 +1,12 @@
 {% extends "base.html" %}
 {% block title %}프로젝트 상세{% endblock %}
 {% block page_title %}연구노트 상세{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button type="button" class="pn-btn" onclick="toggleProjectEdit(true)">프로젝트 수정</button>
-</div>
-{% endblock %}
 {% block content %}
-<section class="pn-card" style="margin-bottom:12px">
-  <div class="pn-sub" style="margin-bottom:6px">연구노트 업데이트</div>
+<section id="projectInfoSection" class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+    <div class="pn-sub">연구노트 업데이트</div>
+    <button type="button" class="pn-btn" onclick="toggleProjectEdit(true)">프로젝트 수정</button>
+  </div>
   <span class="pn-badge">프로젝트 정보</span>
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
   <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
@@ -27,7 +25,7 @@
   </div>
 </section>
 
-<section id="projectEditSection" class="pn-card" style="display:none;max-width:960px;margin-bottom:12px">
+<section id="projectEditSection" class="pn-card" style="display:none;margin-bottom:12px">
   <h3 style="margin:0 0 10px">프로젝트 수정</h3>
   <form id="projectEditForm" class="pn-grid" style="gap:12px">
     <div class="pn-row">
@@ -82,6 +80,7 @@
 
 <script>
   function toggleProjectEdit(show) {
+    document.getElementById('projectInfoSection').style.display = show ? 'none' : 'block';
     document.getElementById('projectEditSection').style.display = show ? 'block' : 'none';
   }
 
