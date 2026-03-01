@@ -152,6 +152,8 @@ class AdminRepository:
                 "role": user.get_role_display(),
                 "team": user.team.name if user.team else "-",
                 "join_code": user.team.join_code if user.team else "-",
+                "requested_team_name": user.requested_team_name,
+                "requested_team_description": user.requested_team_description,
                 "is_approved": user.is_approved,
             }
             for user in users.distinct().order_by("id")
@@ -192,7 +194,12 @@ class AdminRepository:
                 raise ValueError("팀을 찾을 수 없습니다.")
 
         user.team = team
-        user.save(update_fields=["team", "updated_at"])
+        if team is not None:
+            user.requested_team_name = ""
+            user.requested_team_description = ""
+            user.save(update_fields=["team", "requested_team_name", "requested_team_description", "updated_at"])
+        else:
+            user.save(update_fields=["team", "updated_at"])
         return {
             "id": user.id,
             "username": user.username,
@@ -211,23 +218,24 @@ class AdminRepository:
         team_description: str,
         team_code: str,
     ) -> dict:
-        normalized_role = role if role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
+        if role not in {UserAccount.Role.OWNER, UserAccount.Role.MEMBER}:
+            raise ValueError("가입 유형은 소유자 또는 일반만 가능합니다.")
+        normalized_role = role
         if UserAccount.objects.filter(username=username).exists():
             raise ValueError("이미 사용 중인 아이디입니다.")
         if UserAccount.objects.filter(email=email).exists():
             raise ValueError("이미 사용 중인 이메일입니다.")
 
         team = None
-        if normalized_role in {UserAccount.Role.ADMIN, UserAccount.Role.OWNER}:
+        requested_team_name = ""
+        requested_team_description = ""
+        if normalized_role == UserAccount.Role.OWNER:
             if not team_name:
-                raise ValueError("관리자 가입 시 팀 이름은 필수입니다.")
-            team = Team.objects.create(
-                name=team_name,
-                description=team_description,
-                join_code=self._generate_join_code(),
-            )
-            # 팀 생성자는 자동 소유자 부여
-            normalized_role = UserAccount.Role.OWNER
+                raise ValueError("소유자 가입 시 회사(팀) 이름은 필수입니다.")
+            if Team.objects.filter(name=team_name).exists():
+                raise ValueError("이미 존재하는 회사(팀) 이름입니다.")
+            requested_team_name = team_name
+            requested_team_description = team_description
         elif team_name or team_code:
             team = Team.objects.filter(name=team_name, join_code=team_code).first()
             if not team:
@@ -240,6 +248,8 @@ class AdminRepository:
             password=make_password(password),
             role=normalized_role,
             team=team,
+            requested_team_name=requested_team_name,
+            requested_team_description=requested_team_description,
             is_approved=False,
         )
         return {
@@ -256,11 +266,32 @@ class AdminRepository:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
         if not user:
             raise ValueError("사용자를 찾을 수 없습니다.")
+
+        if user.role == UserAccount.Role.OWNER and not user.team_id:
+            if not user.requested_team_name:
+                raise ValueError("소유자 승인 요청에 회사(팀) 정보가 없습니다.")
+            if Team.objects.filter(name=user.requested_team_name).exists():
+                raise ValueError("이미 존재하는 회사(팀) 이름입니다. 사용자 팀을 수동 지정 후 승인하세요.")
+            user.team = Team.objects.create(
+                name=user.requested_team_name,
+                description=user.requested_team_description,
+                join_code=self._generate_join_code(),
+            )
+            user.requested_team_name = ""
+            user.requested_team_description = ""
+
         if not user.team_id:
             raise ValueError("승인하려면 먼저 팀을 지정해야 합니다.")
+
         user.is_approved = True
-        user.save(update_fields=["is_approved", "updated_at"])
-        return {"id": user.id, "username": user.username, "is_approved": user.is_approved}
+        user.save(update_fields=["team", "requested_team_name", "requested_team_description", "is_approved", "updated_at"])
+        return {
+            "id": user.id,
+            "username": user.username,
+            "is_approved": user.is_approved,
+            "team": user.team.name if user.team else "-",
+            "join_code": user.team.join_code if user.team else "-",
+        }
 
     def change_user_role(self, user_id: int, role: str) -> dict:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
