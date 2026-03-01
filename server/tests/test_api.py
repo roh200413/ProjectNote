@@ -301,6 +301,80 @@ def test_super_admin_login_falls_back_when_super_admin_table_missing(monkeypatch
     assert user["is_super_admin"] is True
 
 
+
+
+def test_project_update_api() -> None:
+    reset_db()
+    project_id, _ = seed_workflow_data()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/update",
+        {
+            "name": "수정 프로젝트",
+            "manager": "새 책임자",
+            "organization": "새 기관",
+            "code": "NEW-001",
+            "description": "설명 수정",
+            "start_date": "2026-03-01",
+            "end_date": "2026-12-31",
+            "status": "draft",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "수정 프로젝트"
+    assert body["manager"] == "새 책임자"
+    assert body["code"] == "NEW-001"
+
+
+def test_project_add_researcher_api_team_only() -> None:
+    reset_db()
+    team = Team.objects.create(name="우리팀", description="우리팀", join_code="222222")
+    other_team = Team.objects.create(name="다른팀", description="다른팀", join_code="333333")
+
+    project = Project.objects.create(
+        name="우리팀 프로젝트",
+        manager="팀장",
+        organization="우리팀",
+        company=team,
+        code="TEAM-01",
+        status="active",
+    )
+
+    my_member = UserAccount.objects.create(
+        username="my-member",
+        display_name="우리팀연구원",
+        email="my-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    other_member = UserAccount.objects.create(
+        username="other-member",
+        display_name="다른팀연구원",
+        email="other-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=other_team,
+        is_approved=True,
+    )
+
+    ok_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": my_member.id},
+    )
+    assert ok_response.status_code == 200
+    assert ProjectMember.objects.filter(project=project, user=my_member).exists()
+
+    fail_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": other_member.id},
+    )
+    assert fail_response.status_code == 400
+    assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
+
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()
     client_obj = Client()
@@ -367,6 +441,80 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert admin_page.status_code == 302
     assert admin_page["Location"].startswith("/admin/login")
 
+
+
+
+def test_project_update_api() -> None:
+    reset_db()
+    project_id, _ = seed_workflow_data()
+
+    response = client.post(
+        f"/api/v1/projects/{project_id}/update",
+        {
+            "name": "수정 프로젝트",
+            "manager": "새 책임자",
+            "organization": "새 기관",
+            "code": "NEW-001",
+            "description": "설명 수정",
+            "start_date": "2026-03-01",
+            "end_date": "2026-12-31",
+            "status": "draft",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "수정 프로젝트"
+    assert body["manager"] == "새 책임자"
+    assert body["code"] == "NEW-001"
+
+
+def test_project_add_researcher_api_team_only() -> None:
+    reset_db()
+    team = Team.objects.create(name="우리팀", description="우리팀", join_code="222222")
+    other_team = Team.objects.create(name="다른팀", description="다른팀", join_code="333333")
+
+    project = Project.objects.create(
+        name="우리팀 프로젝트",
+        manager="팀장",
+        organization="우리팀",
+        company=team,
+        code="TEAM-01",
+        status="active",
+    )
+
+    my_member = UserAccount.objects.create(
+        username="my-member",
+        display_name="우리팀연구원",
+        email="my-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    other_member = UserAccount.objects.create(
+        username="other-member",
+        display_name="다른팀연구원",
+        email="other-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=other_team,
+        is_approved=True,
+    )
+
+    ok_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": my_member.id},
+    )
+    assert ok_response.status_code == 200
+    assert ProjectMember.objects.filter(project=project, user=my_member).exists()
+
+    fail_response = client.post(
+        f"/api/v1/projects/{project.id}/researchers",
+        {"user_id": other_member.id},
+    )
+    assert fail_response.status_code == 400
+    assert "우리팀 연구원만 추가" in fail_response.json()["detail"]
 
 def test_user_without_team_is_blocked_from_home() -> None:
     reset_db()

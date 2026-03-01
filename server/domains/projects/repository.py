@@ -41,12 +41,46 @@ class ProjectRepository:
             user = users.get(item.user_id)
             if not user:
                 continue
-            researcher = self._get_or_create_researcher_for_user(user)
             ProjectMember.objects.get_or_create(
                 project=project,
                 user=user,
                 defaults={"role": item.role, "contribution": "프로젝트 참여"},
             )
+
+    def update_project(self, project_id: str, payload: dict) -> dict:
+        project = Project.objects.filter(id=project_id).first()
+        if not project:
+            raise ValueError("프로젝트를 찾을 수 없습니다.")
+
+        for field in ["name", "manager", "organization", "code", "description", "status"]:
+            if field in payload:
+                setattr(project, field, payload[field])
+
+        if "start_date" in payload:
+            project.start_date = datetime.strptime(payload["start_date"], "%Y-%m-%d").date() if payload["start_date"] else None
+        if "end_date" in payload:
+            project.end_date = datetime.strptime(payload["end_date"], "%Y-%m-%d").date() if payload["end_date"] else None
+
+        project.save()
+        return self.project_to_dict(project)
+
+    def add_project_member(self, project_id: str, user_id: int) -> None:
+        project = Project.objects.filter(id=project_id).first()
+        if not project:
+            raise ValueError("프로젝트를 찾을 수 없습니다.")
+
+        user = UserAccount.objects.select_related("team").filter(id=user_id, is_approved=True).first()
+        if not user:
+            raise ValueError("추가할 수 있는 연구원이 아닙니다.")
+
+        if project.company_id and user.team_id != project.company_id:
+            raise ValueError("우리팀 연구원만 추가할 수 있습니다.")
+
+        ProjectMember.objects.get_or_create(
+            project=project,
+            user=user,
+            defaults={"role": "member", "contribution": "프로젝트 참여"},
+        )
 
     def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
         if not user_profile:
