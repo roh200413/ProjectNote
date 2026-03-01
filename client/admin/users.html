@@ -5,74 +5,113 @@
 {% block content %}
 <div class="pn-grid" style="grid-template-columns:260px 1fr;gap:12px;align-items:start">
   {% include "admin/partials/nav_list.html" %}
-  <section class="pn-card">
-    <h3 style="margin-top:0">연구자(사용자) 통합 관리</h3>
-    <p class="pn-sub" style="margin-top:0">회사 선택 가입자 승인, 권한 부여, 사용자 내보내기를 처리합니다.</p>
+  <section class="pn-grid" style="gap:12px">
+    <article class="pn-card">
+      <h3 style="margin-top:0">연구자(사용자) 통합 관리</h3>
+      <p class="pn-sub" style="margin-top:0">승인 대기/완료를 분리해 확인하고, 팀 배정 및 사용자 내보내기를 처리합니다.</p>
 
-    <form method="get" action="/frontend/admin/users" class="pn-grid" style="grid-template-columns:1fr auto;gap:8px;margin-bottom:12px">
-      <input class="pn-input" type="text" name="q" value="{{ keyword }}" placeholder="사용자명/이름/이메일/팀명 검색" />
-      <button class="pn-btn" type="submit">검색</button>
-    </form>
+      <form method="get" action="/frontend/admin/users" class="pn-grid" style="grid-template-columns:1fr auto;gap:8px;margin-bottom:12px">
+        <input class="pn-input" type="text" name="q" value="{{ keyword }}" placeholder="사용자명/이름/이메일/팀명 검색" />
+        <button class="pn-btn" type="submit">검색</button>
+      </form>
+    </article>
 
-    <table class="pn-table">
-        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>승인</th><th>팀</th><th>팀 코드</th><th>관리</th><th></th></tr></thead>
-      <tbody id="adminTableBody">
-      {% for admin in admin_accounts %}
-        <tr>
-          <td>{{ admin.username }}</td>
-          <td>{{ admin.display_name }}</td>
-          <td>{{ admin.email }}</td>
-          <td>{{ admin.role }}</td>
-          <td>{% if admin.is_approved %}승인{% else %}대기{% endif %}</td>
-          <td>
-            <div style="display:grid;gap:6px">
-              <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="assign_team" />
-                <select class="pn-input" name="team_id" style="min-width:130px;padding:6px 8px">
-                  <option value="">미지정</option>
-                  {% for team in teams %}
-                    <option value="{{ team.id }}" {% if admin.team == team.name %}selected{% endif %}>{{ team.name }}</option>
-                  {% endfor %}
-                </select>
-                <button class="pn-btn" type="submit">팀지정</button>
-              </form>
-            </div>
-          </td>
-          <td>{{ admin.join_code }}</td>
-          <td>
-            <div style="display:grid;gap:6px">
+    <article class="pn-card">
+      <h4 style="margin:0 0 10px">승인 대기 사용자</h4>
+      <table class="pn-table">
+        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>상태</th><th>가입 요청 회사(팀)</th><th>팀 지정</th><th>관리</th></tr></thead>
+        <tbody>
+        {% for admin in admin_accounts %}
+          {% if not admin.is_approved %}
+            <tr>
+              <td>{{ admin.username }}</td>
+              <td>{{ admin.display_name }}</td>
+              <td>{{ admin.email }}</td>
+              <td>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                  <span class="pn-sub">승인 대기</span>
+                  <form class="approve-form" data-user-id="{{ admin.id }}" style="display:inline-flex;gap:6px;align-items:center;margin:0">
+                    <input type="hidden" name="action" value="approve" />
+                    <button class="pn-btn" type="submit">승인</button>
+                  </form>
+                </div>
+              </td>
+              <td>
+                {% if admin.requested_team_name %}
+                  <div><strong>{{ admin.requested_team_name }}</strong></div>
+                  <div class="pn-sub">{{ admin.requested_team_description|default:'-' }}</div>
+                {% else %}
+                  <span class="pn-sub">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+                  <input type="hidden" name="action" value="assign_team" />
+                  <select class="pn-input" name="team_id" style="min-width:130px;padding:6px 8px">
+                    <option value="">미지정</option>
+                    {% for team in teams %}
+                      <option value="{{ team.id }}" {% if admin.team == team.name %}selected{% endif %}>{{ team.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="pn-btn" type="submit">팀지정</button>
+                </form>
+              </td>
+              <td>
+                <form class="expel-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+                  <input type="hidden" name="action" value="expel" />
+                  <button class="pn-btn" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b" type="submit">내보내기</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+        {% empty %}
+          <tr><td colspan="7" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </article>
 
-{#              <form class="approve-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">#}
-{#                <input type="hidden" name="action" value="approve" />#}
-{#                <button class="pn-btn" type="submit" {% if admin.is_approved %}disabled{% endif %}>승인</button>#}
-{#              </form>#}
+    <article class="pn-card">
+      <h4 style="margin:0 0 10px">승인 완료 사용자</h4>
+      <table class="pn-table">
+        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>상태</th><th>팀</th><th>팀 코드</th><th>관리</th></tr></thead>
+        <tbody>
+        {% for admin in admin_accounts %}
+          {% if admin.is_approved %}
+            <tr>
+              <td>{{ admin.username }}</td>
+              <td>{{ admin.display_name }}</td>
+              <td>{{ admin.email }}</td>
+              <td><span class="pn-sub">승인 완료</span></td>
+              <td>
+                <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+                  <input type="hidden" name="action" value="assign_team" />
+                  <select class="pn-input" name="team_id" style="min-width:130px;padding:6px 8px">
+                    <option value="">미지정</option>
+                    {% for team in teams %}
+                      <option value="{{ team.id }}" {% if admin.team == team.name %}selected{% endif %}>{{ team.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="pn-btn" type="submit">팀지정</button>
+                </form>
+              </td>
+              <td>{{ admin.join_code }}</td>
+              <td>
+                <form class="expel-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+                  <input type="hidden" name="action" value="expel" />
+                  <button class="pn-btn" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b" type="submit">내보내기</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+        {% empty %}
+          <tr><td colspan="7" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </article>
 
-              <form class="grant-role-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="grant_role" />
-                <select class="pn-input" name="role" style="min-width:110px;padding:6px 8px">
-                  <option value="owner" {% if admin.role == '소유자' %}selected{% endif %}>소유자</option>
-                  <option value="member" {% if admin.role == '일반' %}selected{% endif %}>일반</option>
-                  <option value="admin" {% if admin.role == '관리자' %}selected{% endif %}>관리자</option>
-                </select>
-                <button class="pn-btn" type="submit">권한부여</button>
-              </form>
-            </div>
-          </td>
-        <td>
-          <div style="display:grid;gap:6px">
-            <form class="expel-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="expel" />
-                <button class="pn-btn" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b" type="submit">내보내기</button>
-            </form>
-          </div>
-        </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="8" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <div id="adminToast" class="pn-toast" style="margin-top:12px"></div>
+    <div id="adminToast" class="pn-toast"></div>
   </section>
 </div>
 
@@ -101,7 +140,7 @@
     window.location.reload();
   }
 
-  document.querySelectorAll('.assign-team-form,.approve-form,.grant-role-form,.expel-form').forEach((form) => {
+  document.querySelectorAll('.assign-team-form,.approve-form,.expel-form').forEach((form) => {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (form.classList.contains('expel-form')) {
