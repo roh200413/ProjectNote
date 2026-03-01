@@ -23,7 +23,27 @@
           <td>{{ admin.display_name }}</td>
           <td>{{ admin.email }}</td>
           <td>{{ admin.role }}</td>
-          <td>{% if admin.is_approved %}승인{% else %}대기{% endif %}</td>
+          <td>
+            {% if admin.is_approved %}
+              <span class="pn-sub">승인 완료</span>
+            {% else %}
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span class="pn-sub">승인 대기</span>
+                <form class="approve-form" data-user-id="{{ admin.id }}" style="display:inline-flex;gap:6px;align-items:center;margin:0">
+                  <input type="hidden" name="action" value="approve" />
+                  <button class="pn-btn" type="submit">승인</button>
+                </form>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% if admin.requested_team_name %}
+              <div><strong>{{ admin.requested_team_name }}</strong></div>
+              <div class="pn-sub">{{ admin.requested_team_description|default:'-' }}</div>
+            {% else %}
+              <span class="pn-sub">-</span>
+            {% endif %}
+          </td>
           <td>
             {% if admin.requested_team_name %}
               <div><strong>{{ admin.requested_team_name }}</strong></div>
@@ -49,11 +69,6 @@
           <td>{{ admin.join_code }}</td>
           <td>
             <div style="display:grid;gap:6px">
-
-              <form class="approve-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="approve" />
-                <button class="pn-btn" type="submit" {% if admin.is_approved %}disabled{% endif %}>승인</button>
-              </form>
 
               <form class="grant-role-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
                 <input type="hidden" name="action" value="grant_role" />
