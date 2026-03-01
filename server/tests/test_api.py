@@ -1127,6 +1127,43 @@ def test_my_page_signature_update() -> None:
     assert "data:image/png;base64" in page.content.decode()
 
 
+
+
+def test_researchers_page_shows_owner_at_top() -> None:
+    reset_db()
+    team = Team.objects.create(name="정렬팀", description="정렬", join_code="919191")
+    UserAccount.objects.create(
+        username="team-owner",
+        display_name="팀소유자",
+        email="team-owner@example.com",
+        password="secret123",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    UserAccount.objects.create(
+        username="team-member",
+        display_name="팀일반",
+        email="team-member@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+
+    local_client = Client()
+    login_response = local_client.post("/login", {"username": "team-owner", "password": "secret123"})
+    assert login_response.status_code == 302
+
+    response = local_client.get("/frontend/researchers")
+    assert response.status_code == 200
+    html = response.content.decode()
+
+    owner_idx = html.find("team-owner")
+    member_idx = html.find("team-member")
+    assert owner_idx != -1 and member_idx != -1
+    assert owner_idx < member_idx
+
 def test_researchers_page_separated_fields() -> None:
     reset_db()
     seed_workflow_data()
