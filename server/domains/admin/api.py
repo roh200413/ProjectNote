@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import admin_repository, admin_required_page, dashboard_counts, page_context
+from server.application.web_support import admin_repository, admin_required_page, dashboard_counts, page_context, organization_user_stats
 
 
 def _admin_navigation(current: str) -> list[dict[str, str]]:
@@ -17,12 +17,24 @@ def _admin_navigation(current: str) -> list[dict[str, str]]:
         item["active"] = item["key"] == current
     return items
 
-
 @require_http_methods(["GET", "POST"])
 @admin_required_page
 def admin_teams_api(request):
-    return JsonResponse({"detail": "슈퍼 어드민은 테이블 관리만 가능합니다."}, status=403)
+    if request.method == "GET":
+        return JsonResponse(admin_repository.list_teams(), safe=False)
 
+    name = request.POST.get("name", "").strip()
+    description = request.POST.get("description", "").strip()
+
+    if not name:
+        return JsonResponse({"detail": "팀 이름은 필수입니다."}, status=400)
+
+    try:
+        payload = admin_repository.create_team(name=name, description=description)
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    return JsonResponse(payload, status=201)
 
 @require_http_methods(["GET", "POST"])
 @admin_required_page
@@ -93,11 +105,11 @@ def admin_dashboard_page(request):
             request,
             {
                 "summary": dashboard_counts(),
+                "organization_user_stats": organization_user_stats(),
                 "admin_nav_items": _admin_navigation("dashboard"),
             },
         ),
     )
-
 
 @require_GET
 @ensure_csrf_cookie

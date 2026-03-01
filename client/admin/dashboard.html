@@ -12,13 +12,42 @@
   {% include "admin/partials/nav_list.html" %}
   <div class="pn-grid" style="gap:12px">
     <section class="pn-grid cols-3" style="margin-bottom:12px">
-      <article class="pn-card"><div class="pn-sub">기관 수</div><h3>{{ summary.organizations }}</h3></article>
-      <article class="pn-card"><div class="pn-sub">프로젝트 수</div><h3>{{ summary.projects }}</h3></article>
+      <article class="pn-card"><div class="pn-sub">기관 수</div><h3>{{ summary.teams }}</h3></article>
+      <article class="pn-card"><div class="pn-sub">사용자 수</div><h3>{{ summary.researchers }}</h3></article>
       <article class="pn-card"><div class="pn-sub">노트 수</div><h3>{{ summary.notes }}</h3></article>
     </section>
+
+    <section class="pn-card">
+      <h3 style="margin-top:0">기관별 사용자 현황</h3>
+      <table class="pn-table">
+        <thead>
+          <tr>
+            <th>기관명</th>
+            <th>사용자 수</th>
+            <th>팀 코드</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in organization_user_stats %}
+            <tr>
+              <td>{{ item.team_name }}</td>
+              <td>{{ item.user_count }}</td>
+              <td>{{ item.join_code }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="pn-sub">표시할 기관 데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+    </section>
+
     <section class="pn-card">
       <h3 style="margin-top:0">권한 안내</h3>
-      <p class="pn-sub" style="margin:0">슈퍼 어드민은 데이터 테이블 조회/초기화 관리만 가능합니다. 팀 관리 및 일반 가입자 관리는 일반 사용자 계정으로 로그인 후 진행하세요.</p>
+      <p class="pn-sub" style="margin:0">
+        슈퍼 어드민은 데이터 테이블 조회/초기화 관리만 가능합니다.
+        팀 관리 및 일반 가입자 관리는 일반 사용자 계정으로 로그인 후 진행하세요.
+      </p>
     </section>
   </div>
 </div>

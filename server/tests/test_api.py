@@ -428,6 +428,39 @@ def test_non_super_admin_cannot_access_admin_pages() -> None:
     assert admin_page["Location"].startswith("/admin/login")
 
 
+def test_super_admin_can_manage_admin_pages_and_teams_api() -> None:
+    reset_db()
+    local_client = Client()
+    local_client.post("/admin/login", {"username": "admin", "password": "admin1234"})
+
+    dashboard = local_client.get("/frontend/admin/dashboard")
+    assert dashboard.status_code == 200
+
+    tables_page = local_client.get("/frontend/admin/tables")
+    assert tables_page.status_code == 200
+
+    teams_page = local_client.get("/frontend/admin/teams")
+    assert teams_page.status_code == 200
+
+    users_page = local_client.get("/frontend/admin/users")
+    assert users_page.status_code == 200
+
+    # 팀 조회 가능
+    teams_api = local_client.get("/api/v1/admin/teams")
+    assert teams_api.status_code == 200
+    assert isinstance(teams_api.json(), list)
+
+    # 팀 생성 가능
+    create_team = local_client.post(
+        "/api/v1/admin/teams",
+        {"name": "슈퍼팀", "description": "슈퍼어드민이 생성"},
+    )
+    assert create_team.status_code == 201
+    assert create_team.json()["name"] == "슈퍼팀"
+
+    users_api = local_client.get("/api/v1/admin/users")
+    assert users_api.status_code == 200
+    assert isinstance(users_api.json(), list)
 
 
 def test_super_admin_can_login_from_general_login_page() -> None:

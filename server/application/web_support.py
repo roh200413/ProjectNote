@@ -6,11 +6,12 @@ from pathlib import Path
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import connection
 from django.db.utils import OperationalError, ProgrammingError
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import redirect
 
 from server.domains.admin import AdminRepository
-from server.domains.admin.models import SuperAdminAccount, UserAccount
+from server.domains.admin.models import SuperAdminAccount, UserAccount, Team
 from server.domains.data_updates import DataUpdateRepository
 from server.domains.projects import ProjectRepository, ProjectService
 from server.domains.projects.models import Project
@@ -31,12 +32,37 @@ SUPER_ADMIN_JSON_PATH = Path(__file__).resolve().parent.parent / "super_admin_ac
 
 def dashboard_counts() -> dict:
     return {
-        "projects": Project.objects.count(),
+        "teams": Team.objects.count(),
         "researchers": UserAccount.objects.count(),
         "notes": ResearchNote.objects.count(),
     }
 
+def organization_user_stats(limit: int | None = None) -> list[dict]:
+    teams = Team.objects.annotate(user_count=Count("members")).order_by("-user_count", "name")
+    if limit:
+        teams = teams[:limit]
 
+    stats = [
+        {
+            "team_id": team.id,
+            "team_name": team.name,
+            "user_count": team.user_count,
+            "join_code": team.join_code,
+        }
+        for team in teams
+    ]
+
+    unassigned_count = UserAccount.objects.filter(team__isnull=True).count()
+    if unassigned_count:
+        stats.append(
+            {
+                "team_id": None,
+                "team_name": "미지정",
+                "user_count": unassigned_count,
+                "join_code": "-",
+            }
+        )
+    return stats
 
 
 def effective_user_profile(request) -> dict | None:

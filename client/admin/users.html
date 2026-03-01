@@ -15,7 +15,7 @@
     </form>
 
     <table class="pn-table">
-      <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>승인</th><th>팀</th><th>팀 코드</th><th>관리</th></tr></thead>
+        <thead><tr><th>username</th><th>이름</th><th>이메일</th><th>권한</th><th>승인</th><th>팀</th><th>팀 코드</th><th>관리</th><th></th></tr></thead>
       <tbody id="adminTableBody">
       {% for admin in admin_accounts %}
         <tr>
@@ -24,8 +24,6 @@
           <td>{{ admin.email }}</td>
           <td>{{ admin.role }}</td>
           <td>{% if admin.is_approved %}승인{% else %}대기{% endif %}</td>
-          <td>{{ admin.team }}</td>
-          <td>{{ admin.join_code }}</td>
           <td>
             <div style="display:grid;gap:6px">
               <form class="assign-team-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
@@ -38,27 +36,36 @@
                 </select>
                 <button class="pn-btn" type="submit">팀지정</button>
               </form>
+            </div>
+          </td>
+          <td>{{ admin.join_code }}</td>
+          <td>
+            <div style="display:grid;gap:6px">
 
-              <form class="approve-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="approve" />
-                <button class="pn-btn" type="submit" {% if admin.is_approved %}disabled{% endif %}>승인</button>
-              </form>
+{#              <form class="approve-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">#}
+{#                <input type="hidden" name="action" value="approve" />#}
+{#                <button class="pn-btn" type="submit" {% if admin.is_approved %}disabled{% endif %}>승인</button>#}
+{#              </form>#}
 
               <form class="grant-role-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
                 <input type="hidden" name="action" value="grant_role" />
                 <select class="pn-input" name="role" style="min-width:110px;padding:6px 8px">
+                  <option value="owner" {% if admin.role == '소유자' %}selected{% endif %}>소유자</option>
                   <option value="member" {% if admin.role == '일반' %}selected{% endif %}>일반</option>
                   <option value="admin" {% if admin.role == '관리자' %}selected{% endif %}>관리자</option>
                 </select>
                 <button class="pn-btn" type="submit">권한부여</button>
               </form>
-
-              <form class="expel-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
-                <input type="hidden" name="action" value="expel" />
-                <button class="pn-btn" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b" type="submit">내보내기</button>
-              </form>
             </div>
           </td>
+        <td>
+          <div style="display:grid;gap:6px">
+            <form class="expel-form" data-user-id="{{ admin.id }}" style="display:flex;gap:6px;align-items:center">
+                <input type="hidden" name="action" value="expel" />
+                <button class="pn-btn" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b" type="submit">내보내기</button>
+            </form>
+          </div>
+        </td>
         </tr>
       {% empty %}
         <tr><td colspan="8" class="pn-sub">검색 조건에 맞는 사용자가 없습니다.</td></tr>

@@ -99,7 +99,7 @@ def seed_demo_data(reset: bool = False) -> dict[str, int]:
     )
 
     return {
-        "projects": Project.objects.count(),
+        "teams": Team.objects.count(),
         "researchers": UserAccount.objects.count(),
         "notes": ResearchNote.objects.count(),
     }
