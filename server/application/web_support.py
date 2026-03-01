@@ -6,7 +6,7 @@ from pathlib import Path
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import connection
 from django.db.utils import OperationalError, ProgrammingError
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Subquery
 from django.http import JsonResponse
 from django.shortcuts import redirect
 
@@ -38,7 +38,11 @@ def dashboard_counts() -> dict:
     }
 
 def organization_user_stats(limit: int | None = None) -> list[dict]:
-    teams = Team.objects.annotate(user_count=Count("members")).order_by("-user_count", "name")
+    owner_display_name = UserAccount.objects.filter(team=OuterRef("pk"), role=UserAccount.Role.OWNER).values("display_name")[:1]
+    teams = Team.objects.annotate(
+        user_count=Count("members"),
+        owner_name=Subquery(owner_display_name),
+    ).order_by("-user_count", "name")
     if limit:
         teams = teams[:limit]
 
@@ -48,6 +52,7 @@ def organization_user_stats(limit: int | None = None) -> list[dict]:
             "team_name": team.name,
             "user_count": team.user_count,
             "join_code": team.join_code,
+            "owner_name": team.owner_name or "미지정",
         }
         for team in teams
     ]
@@ -60,6 +65,7 @@ def organization_user_stats(limit: int | None = None) -> list[dict]:
                 "team_name": "미지정",
                 "user_count": unassigned_count,
                 "join_code": "-",
+                "owner_name": "-",
             }
         )
     return stats
