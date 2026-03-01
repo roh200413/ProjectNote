@@ -1,6 +1,7 @@
 import random
 import string
 
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import connection
 from django.db.models import Q
 
@@ -45,14 +46,16 @@ class AdminRepository:
                 return code
         raise ValueError("팀 코드 생성에 실패했습니다. 다시 시도해주세요.")
     def find_user_for_login(self, username: str, password: str) -> dict | None:
-        user = UserAccount.objects.select_related("team").filter(username=username, password=password).first()
+        user = UserAccount.objects.select_related("team").filter(username=username).first()
         if not user:
+            return None
+        if not self._verify_password(user, password):
             return None
         return {
             "id": user.id,
             "username": user.username,
             "name": user.display_name,
-            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "일반",
+            "role": self._role_label(user.role),
             "email": user.email,
             "organization": user.team.name if user.team else "미지정",
             "major": "미지정",
@@ -64,10 +67,11 @@ class AdminRepository:
     def find_super_admin_for_login(self, username: str, password: str) -> dict | None:
         account = SuperAdminAccount.objects.filter(
             username=username,
-            password=password,
             is_active=True,
         ).first()
         if not account:
+            return None
+        if not self._verify_password(account, password):
             return None
         return {
             "id": account.id,
@@ -79,6 +83,54 @@ class AdminRepository:
             "major": account.major,
             "team": "SUPER_ADMIN",
             "is_super_admin": True,
+        }
+
+
+    @staticmethod
+    def _verify_password(account: UserAccount | SuperAdminAccount, raw_password: str) -> bool:
+        if check_password(raw_password, account.password):
+            return True
+        if account.password == raw_password:
+            account.password = make_password(raw_password)
+            account.save(update_fields=["password", "updated_at"])
+            return True
+        return False
+
+
+    def find_user_profile_by_username(self, username: str) -> dict | None:
+        user = UserAccount.objects.select_related("team").filter(username=username).first()
+        if not user:
+            return None
+        return {
+            "id": user.id,
+            "username": user.username,
+            "name": user.display_name,
+            "role": self._role_label(user.role),
+            "email": user.email,
+            "organization": user.team.name if user.team else "미지정",
+            "major": "미지정",
+            "team": user.team.name if user.team else "-",
+            "team_id": user.team.id if user.team else None,
+            "is_approved": user.is_approved,
+            "is_super_admin": False,
+        }
+
+    def find_super_admin_profile_by_username(self, username: str) -> dict | None:
+        account = SuperAdminAccount.objects.filter(username=username, is_active=True).first()
+        if not account:
+            return None
+        return {
+            "id": account.id,
+            "username": account.username,
+            "name": account.display_name,
+            "role": "슈퍼관리자",
+            "email": account.email,
+            "organization": account.organization,
+            "major": account.major,
+            "team": "SUPER_ADMIN",
+            "team_id": None,
+            "is_super_admin": True,
+            "is_approved": True,
         }
 
     def list_all_users(self, keyword: str = "") -> list[dict]:
@@ -159,14 +211,14 @@ class AdminRepository:
         team_description: str,
         team_code: str,
     ) -> dict:
-        normalized_role = role if role in {UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
+        normalized_role = role if role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN, UserAccount.Role.MEMBER} else UserAccount.Role.MEMBER
         if UserAccount.objects.filter(username=username).exists():
             raise ValueError("이미 사용 중인 아이디입니다.")
         if UserAccount.objects.filter(email=email).exists():
             raise ValueError("이미 사용 중인 이메일입니다.")
 
         team = None
-        if normalized_role == UserAccount.Role.ADMIN:
+        if normalized_role in {UserAccount.Role.ADMIN, UserAccount.Role.OWNER}:
             if not team_name:
                 raise ValueError("관리자 가입 시 팀 이름은 필수입니다.")
             team = Team.objects.create(
@@ -174,6 +226,8 @@ class AdminRepository:
                 description=team_description,
                 join_code=self._generate_join_code(),
             )
+            # 팀 생성자는 자동 소유자 부여
+            normalized_role = UserAccount.Role.OWNER
         elif team_name or team_code:
             team = Team.objects.filter(name=team_name, join_code=team_code).first()
             if not team:
@@ -183,10 +237,10 @@ class AdminRepository:
             username=username,
             display_name=display_name,
             email=email,
-            password=password,
+            password=make_password(password),
             role=normalized_role,
             team=team,
-            is_approved=(normalized_role == UserAccount.Role.ADMIN),
+            is_approved=False,
         )
         return {
             "id": user.id,
@@ -253,3 +307,10 @@ class AdminRepository:
             if not cursor.fetchone():
                 raise ValueError("테이블이 존재하지 않습니다.")
             cursor.execute(f'DELETE FROM "{table_name}"')
+    @staticmethod
+    def _role_label(role: str) -> str:
+        if role == UserAccount.Role.OWNER:
+            return "소유자"
+        if role == UserAccount.Role.ADMIN:
+            return "관리자"
+        return "일반"

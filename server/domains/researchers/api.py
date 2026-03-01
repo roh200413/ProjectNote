@@ -3,14 +3,19 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import login_required_page, page_context, researcher_repository
+from server.application.web_support import effective_user_profile, login_required_page, page_context, researcher_repository
 from server.domains.admin.models import Team
 
 
 def _can_manage(request) -> bool:
-    profile = request.session.get("user_profile", {})
+    profile = effective_user_profile(request) or {}
     role = profile.get("role")
-    return bool(profile.get("is_super_admin") or role in {"관리자", "admin"})
+    return bool(
+        request.user.is_staff
+        or request.user.is_superuser
+        or profile.get("is_super_admin")
+        or role in {"소유자", "owner", "관리자", "admin"}
+    )
 
 
 def _resolve_team_id_from_session(profile: dict) -> int | None:
@@ -35,7 +40,7 @@ def _resolve_team_id_from_session(profile: dict) -> int | None:
 @require_http_methods(["GET", "POST"])
 @login_required_page
 def researchers_api(request):
-    profile = request.session.get("user_profile", {})
+    profile = effective_user_profile(request) or {}
     team_id = _resolve_team_id_from_session(profile)
 
     if request.method == "GET":
@@ -55,13 +60,15 @@ def researchers_api(request):
             return JsonResponse({"detail": str(exc)}, status=400)
         return JsonResponse(created, status=201)
 
+    if action == "verify_id":
+        payload = researcher_repository.verify_unassigned_user_id(request.POST.get("username", ""))
+        return JsonResponse(payload)
+
     if not _can_manage(request):
         return JsonResponse({"detail": "관리 권한이 없습니다."}, status=403)
 
     try:
-        if action == "verify_id":
-            payload = researcher_repository.verify_unassigned_user_id(request.POST.get("username", ""))
-        elif action == "assign_team":
+        if action == "assign_team":
             username = request.POST.get("username", "").strip()
             if username:
                 payload = researcher_repository.assign_team_by_username(username, team_id)
@@ -91,7 +98,7 @@ def researchers_api(request):
                 else:
                     return JsonResponse({"detail": "권한 값이 올바르지 않습니다."}, status=400)
 
-                # ✅ 관리자 최대 3명 제한 (admin 기준)
+                # ✅ 관리자 최대 3명 제한 (owner 제외, admin 기준)
                 if role == "admin":
                     admin_count = researcher_repository.count_admins_by_team_id(team_id)
                     if admin_count >= 3:
@@ -111,7 +118,7 @@ def researchers_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def researchers_page(request):
-    profile = request.session.get("user_profile", {})
+    profile = effective_user_profile(request) or {}
     team_id = _resolve_team_id_from_session(profile)
     return render(
         request,

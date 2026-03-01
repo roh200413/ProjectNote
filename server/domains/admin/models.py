@@ -24,6 +24,7 @@ class SuperAdminAccount(TimestampedModel):
 
 class UserAccount(TimestampedModel):
     class Role(models.TextChoices):
+        OWNER = "owner", "소유자"
         ADMIN = "admin", "관리자"
         MEMBER = "member", "일반"
 

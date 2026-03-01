@@ -4,7 +4,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import login_required_page, page_context, signature_repository
+from server.application.web_support import effective_user_profile, login_required_page, page_context, signature_repository
 
 
 @require_GET
@@ -20,7 +20,7 @@ def final_download_api(_request):
 
 @require_http_methods(["GET", "POST"])
 def signature_api(request):
-    username = request.session.get("user_profile", {}).get("username", "")
+    username = (effective_user_profile(request) or {}).get("username", "")
     if not username:
         return JsonResponse({"detail": "로그인이 필요합니다."}, status=401)
     if request.method == "GET":
@@ -48,7 +48,7 @@ def final_download_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    username = request.session.get("user_profile", {}).get("username", "")
+    username = (effective_user_profile(request) or {}).get("username", "")
     return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature(username)}))
 
 
@@ -56,7 +56,7 @@ def signature_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def my_page(request):
-    profile = request.session.get("user_profile", {}).copy()
+    profile = (effective_user_profile(request) or {}).copy()
     username = profile.get("username", "")
     profile["signature"] = signature_repository.read_signature(username).get("signature_data_url", "") if username else ""
     return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
@@ -69,7 +69,7 @@ def update_my_signature(request):
     if not signature_data_url.startswith("data:image/"):
         return JsonResponse({"message": "유효한 이미지 데이터가 아닙니다."}, status=400)
 
-    username = request.session.get("user_profile", {}).get("username", "")
+    username = (effective_user_profile(request) or {}).get("username", "")
     if not username:
         return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
     signature_repository.update_signature(username=username, signature_data_url=signature_data_url)

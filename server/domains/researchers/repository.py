@@ -17,12 +17,20 @@ class ResearcherRepository:
     """Legacy-named repository backed by UserAccount (not Researcher model)."""
 
     @staticmethod
+    def _role_label(role: str) -> str:
+        if role == UserAccount.Role.OWNER:
+            return "소유자"
+        if role == UserAccount.Role.ADMIN:
+            return "관리자"
+        return "연구원"
+
+    @staticmethod
     def _serialize_user(user: UserAccount) -> dict:
         return {
             "id": user.id,
             "username": user.username,
             "name": user.display_name,
-            "role": "관리자" if user.role == UserAccount.Role.ADMIN else "연구원",
+            "role": ResearcherRepository._role_label(user.role),
             "email": user.email,
             "organization": user.team.name if user.team else "미지정",
             "team_id": user.team_id,
@@ -35,7 +43,7 @@ class ResearcherRepository:
     def count_admins_by_team_id(self, team_id: int | None) -> int:
         if not team_id:
             return 0
-        return UserAccount.objects.filter(team_id=team_id, role="관리자").count()
+        return UserAccount.objects.filter(team_id=team_id, role=UserAccount.Role.ADMIN).count()
 
     def list_researchers_for_team(self, team_id: int | None, approved_only: bool = True) -> list[dict]:
         if not team_id:
@@ -141,7 +149,7 @@ class ResearcherRepository:
                 "id": existing.id,
                 "username": existing.username,
                 "name": existing.display_name,
-                "role": "관리자" if existing.role == UserAccount.Role.ADMIN else "연구원",
+                "role": self._role_label(existing.role),
                 "email": existing.email,
                 "organization": existing.team.name if existing.team else "미지정",
                 "team_id": existing.team_id,
