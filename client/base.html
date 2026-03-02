@@ -105,6 +105,14 @@
           <span class="pn-side-icon">📊</span>
           <span class="pn-side-text">연구자 통합 관리</span>
         </a>
+        <a class="pn-side-link {% if '/frontend/integrations/github' in request.path %}active{% endif %}" href="/frontend/integrations/github">
+          <span class="pn-side-icon">🐙</span>
+          <span class="pn-side-text">깃허브 통합 관리</span>
+        </a>
+        <a class="pn-side-link {% if '/frontend/integrations/collaboration' in request.path %}active{% endif %}" href="/frontend/integrations/collaboration">
+          <span class="pn-side-icon">🤝</span>
+          <span class="pn-side-text">협업 툴 통합 관리</span>
+        </a>
       </nav>
 
       <aside id="projectQuickPanel" class="pn-card pn-sidebar-quick">

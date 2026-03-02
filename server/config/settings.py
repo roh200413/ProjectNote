@@ -1,6 +1,11 @@
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
@@ -61,3 +66,6 @@ USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
+RESEARCH_NOTES_STORAGE_ROOT = os.getenv("RESEARCH_NOTES_STORAGE_ROOT", str(BASE_DIR / "note_storage"))
+Path(RESEARCH_NOTES_STORAGE_ROOT).mkdir(parents=True, exist_ok=True)
