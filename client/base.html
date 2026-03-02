@@ -37,7 +37,7 @@
     .sidebar-collapsed .pn-side-link { justify-content:center; padding:10px; }
 
     .pn-main { padding:12px 18px 28px; }
-    .pn-top { height:52px; display:flex; justify-content:space-between; align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; box-shadow:var(--shadow); }
+    .pn-top { height:52px; display:flex; justify-content:flex-end; width: fit-content; margin-left: auto; align-items:center; background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 12px; box-shadow:var(--shadow); }
     .pn-search { width:48%; max-width:540px; border:1px solid var(--line); border-radius:8px; background:#f8fafc; padding:9px 12px; }
     .pn-user { font-size:13px; color:#334155; font-weight:600; }
 
@@ -52,7 +52,7 @@
     .pn-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; }
 
     .pn-label { font-size:12px; color:#64748b; font-weight:600; margin-bottom:4px; display:block; }
-    .pn-input,.pn-select,.pn-textarea { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
+    .pn-input,.pn-select,.pn-textarea { width:60%; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
     .pn-btn { border:none; background:var(--primary); color:white; border-radius:9px; padding:10px 14px; font-weight:700; cursor:pointer; }
     .pn-btn:hover { background:var(--primary-strong); }
     .pn-btn.ghost { background:#fff; border:1px solid var(--line); color:#334155; }
@@ -122,7 +122,6 @@
     </aside>
     <section class="pn-main">
       <header class="pn-top">
-        <input class="pn-search" placeholder="검색어를 입력해주세요." />
         <div class="pn-user">
           <a href="/frontend/my-page">
             {{ current_user.name }} <span class="pn-badge">{{ current_user.role }}</span>

@@ -1,14 +1,19 @@
 from datetime import datetime, timezone
 
+from django.contrib.auth import get_user_model, login, logout
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
+
+User = get_user_model()
+
 from server.application.web_support import (
     authenticate_login_user,
     authenticate_super_admin,
     admin_repository,
+    effective_user_profile,
     save_login_session,
 )
 
@@ -18,11 +23,38 @@ def health(_request):
     return JsonResponse({"status": "ok"})
 
 
+
+
+def _sync_and_login_django_user(request, username: str, password: str, email: str, is_super_admin: bool = False) -> None:
+    django_user, created = User.objects.get_or_create(
+        username=username,
+        defaults={"email": email or f"{username}@projectnote.local"},
+    )
+    should_save = False
+    if created:
+        django_user.set_password(password)
+        should_save = True
+    elif password and not django_user.check_password(password):
+        django_user.set_password(password)
+        should_save = True
+
+    if django_user.is_staff != bool(is_super_admin):
+        django_user.is_staff = bool(is_super_admin)
+        should_save = True
+    if django_user.is_superuser != bool(is_super_admin):
+        django_user.is_superuser = bool(is_super_admin)
+        should_save = True
+
+    if should_save:
+        django_user.save()
+
+    login(request, django_user, backend="django.contrib.auth.backends.ModelBackend")
+
 @require_http_methods(["GET", "POST"])
 @ensure_csrf_cookie
 def login_page(request):
     if request.method == "GET":
-        user_profile = request.session.get("user_profile")
+        user_profile = effective_user_profile(request)
         if user_profile:
             if user_profile.get("is_super_admin"):
                 return redirect("/frontend/admin/dashboard")
@@ -46,6 +78,13 @@ def login_page(request):
         )
 
     if not user.get("is_super_admin") and user.get("team") in {None, "-", ""}:
+        if bool(user.get("requested_team_name")) and not bool(user.get("is_approved", False)):
+            return render(
+                request,
+                "auth/login.html",
+                {"error": "관리자 승인 대기 중입니다.", "next": next_url},
+                status=403,
+            )
         return render(
             request,
             "auth/login.html",
@@ -61,6 +100,7 @@ def login_page(request):
         )
 
     save_login_session(request, username, user)
+    _sync_and_login_django_user(request, username, password, user.get("email", ""), bool(user.get("is_super_admin", False)))
     if next_url.startswith("/"):
         return redirect(next_url)
     if user.get("is_super_admin"):
@@ -72,7 +112,7 @@ def login_page(request):
 @ensure_csrf_cookie
 def admin_login_page(request):
     if request.method == "GET":
-        if request.session.get("user_profile", {}).get("is_super_admin"):
+        if (effective_user_profile(request) or {}).get("is_super_admin") or request.user.is_staff or request.user.is_superuser:
             return redirect("/frontend/admin/dashboard")
         return render(request, "auth/admin_login.html", {"error": "", "next": request.GET.get("next", "")})
 
@@ -89,6 +129,7 @@ def admin_login_page(request):
         )
 
     save_login_session(request, username, user)
+    _sync_and_login_django_user(request, username, password, user.get("email", ""), bool(user.get("is_super_admin", False)))
     if next_url.startswith("/frontend/admin"):
         return redirect(next_url)
     return redirect("/frontend/admin/dashboard")
@@ -97,13 +138,14 @@ def admin_login_page(request):
 @require_GET
 @ensure_csrf_cookie
 def signup_page(request):
-    if request.session.get("user_profile"):
+    if effective_user_profile(request):
         return redirect("/frontend/workflows")
     return render(request, "auth/signup.html", {"next": request.GET.get("next", "")})
 
 
 @require_GET
 def logout_page(request):
+    logout(request)
     request.session.pop("user_profile", None)
     return redirect("/login")
 

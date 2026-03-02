@@ -1,21 +1,17 @@
 {% extends "base.html" %}
 {% block title %}프로젝트 상세{% endblock %}
 {% block page_title %}연구노트 상세{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">이전</button>
-  {% if selected_note %}
-  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 다운로드</a>
-  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}/viewer">연구노트 업데이트</a>
-  {% endif %}
-</div>
-{% endblock %}
 {% block content %}
-<section class="pn-card" style="margin-bottom:12px">
-  <span class="pn-badge">소유권한</span>
+<section id="projectInfoSection" class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+    <div class="pn-sub">연구노트 업데이트</div>
+    <button type="button" class="pn-btn" onclick="toggleProjectEdit(true)">프로젝트 수정</button>
+  </div>
+  <span class="pn-badge">프로젝트 정보</span>
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
+  <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-    <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
+    <div><div class="pn-sub">책임자</div><strong>{{ manager_display }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
     <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
@@ -41,31 +37,90 @@
           {% for note in project_notes %}<option value="{{ note.id }}">{{ note.title }}</option>{% endfor %}
         </select>
       </div>
-      <div><label class="pn-label">제목</label><input class="pn-input" name="title" placeholder="새 제목 입력" /></div>
-      <div><label class="pn-label">요약</label><textarea class="pn-textarea" name="summary" rows="3" placeholder="업데이트 내용을 입력"></textarea></div>
-      <div style="display:flex;justify-content:flex-end"><button class="pn-btn" type="submit">저장</button></div>
-    </form>
-    <div id="noteUpdateToast" class="pn-toast"></div>
+    </div>
+    <div class="pn-row">
+      <div>
+        <label class="pn-label">발행 기관</label>
+        <input class="pn-input" name="organization" value="{{ project.organization }}" />
+      </div>
+      <div>
+        <label class="pn-label">과제 번호</label>
+        <input class="pn-input" name="code" value="{{ project.code }}" />
+      </div>
+    </div>
+    <div class="pn-row">
+      <div>
+        <label class="pn-label">시작일</label>
+        <input type="date" class="pn-input" name="start_date" value="{{ project.start_date }}" />
+      </div>
+      <div>
+        <label class="pn-label">종료일</label>
+        <input type="date" class="pn-input" name="end_date" value="{{ project.end_date }}" />
+      </div>
+    </div>
+    <div style="max-width:300px">
+      <label class="pn-label">상태</label>
+      <select class="pn-input" name="status">
+        <option value="draft" {% if project.status == 'draft' %}selected{% endif %}>draft</option>
+        <option value="active" {% if project.status == 'active' %}selected{% endif %}>active</option>
+      </select>
+    </div>
+    <div>
+      <label class="pn-label">설명</label>
+      <textarea class="pn-textarea" name="description">{{ project.description }}</textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button type="button" class="pn-btn ghost" onclick="toggleProjectEdit(false)">취소</button>
+      <button type="submit" class="pn-btn">수정 저장</button>
+    </div>
+    <div id="projectEditToast" class="pn-toast"></div>
+  </form>
+</section>
 
-    <h3 style="margin:0 0 8px">연구파일</h3>
-    <table class="pn-table">
-      <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일</th><th>작성자</th><th>뷰어</th></tr></thead>
-      <tbody>
-      {% for file in selected_note_files %}
-        <tr>
-          <td>{{ file.name }}</td>
-          <td>{{ file.format }}</td>
-          <td>{{ file.created }}</td>
-          <td>{{ file.author }}</td>
-          <td>{% if selected_note %}<a href="/frontend/research-notes/{{ selected_note.id }}/viewer">열기</a>{% endif %}</td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5" class="pn-sub">등록된 파일이 없습니다.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </section>
-</div>
+
+<section id="projectCoverSection" class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 10px">표지 편집 (A4 세로)</h3>
+  <div class="pn-sub" style="margin-bottom:10px">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
+
+  <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
+    <div style="display:grid;gap:8px">
+      <label class="pn-label">표지 제목</label>
+      <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
+      <label class="pn-label">과제 번호</label>
+      <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
+      <label class="pn-label">기관명</label>
+      <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
+      <label class="pn-label">책임자</label>
+      <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
+      <label class="pn-label">제출일</label>
+      <input id="coverDateInput" type="date" class="pn-input" value="" />
+    </div>
+
+    <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
+      <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+        <div>
+          <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
+          <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;font-size:16px">
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
+            <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
+            <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
+            <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
+            <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
+          </tr>
+        </table>
 
 <section class="pn-card" id="projectResearchersSection" style="margin-top:12px">
   <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
@@ -75,37 +130,59 @@
       <strong>{{ group.group }}</strong>
       <small class="pn-sub">리드 {{ group.lead }}</small>
     </div>
-    <table class="pn-table">
-      <thead><tr><th>이름</th><th>권한</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
-      <tbody>
-      {% for member in group.members %}
-        <tr>
-          <td>{{ member.name }}</td>
-          <td>{{ member.role }}</td>
-          <td>{{ member.organization }}</td>
-          <td>{{ member.major }}</td>
-          <td>{{ member.contribution }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </article>
-  {% endfor %}
+  </div>
 </section>
 
 <script>
-  document.getElementById('noteUpdateForm').addEventListener('submit', async (e) => {
+  function toggleProjectEdit(show) {
+    document.getElementById('projectInfoSection').style.display = show ? 'none' : 'block';
+    document.getElementById('projectEditSection').style.display = show ? 'block' : 'none';
+  }
+
+  document.getElementById('projectEditForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const noteId = formData.get('note_id');
-    const response = await fetch(`/api/v1/research-notes/${noteId}/update`, {
+    const response = await fetch('/api/v1/projects/{{ project.id }}/update', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
+      body: new FormData(e.target),
       credentials: 'same-origin'
     });
     const body = await response.json();
-    document.getElementById('noteUpdateToast').textContent = response.ok ? body.message : '업데이트 실패';
+    document.getElementById('projectEditToast').textContent = response.ok ? '프로젝트 정보를 수정했습니다.' : (body.detail || '수정 실패');
+    if (response.ok) {
+      setTimeout(() => window.location.reload(), 300);
+    }
   });
+  const coverTitleInput = document.getElementById('coverTitleInput');
+  const coverCodeInput = document.getElementById('coverCodeInput');
+  const coverOrgInput = document.getElementById('coverOrgInput');
+  const coverManagerInput = document.getElementById('coverManagerInput');
+  const coverDateInput = document.getElementById('coverDateInput');
+
+  function bindCoverField(input, targetId, fallback='-') {
+    const target = document.getElementById(targetId);
+    if (!input || !target) return;
+    const update = () => {
+      const value = (input.value || '').trim();
+      target.textContent = value || fallback;
+    };
+    input.addEventListener('input', update);
+    update();
+  }
+
+  bindCoverField(coverTitleInput, 'coverTitleText', '{{ project.name|escapejs }}');
+  bindCoverField(coverCodeInput, 'coverCodeText', '-');
+  bindCoverField(coverOrgInput, 'coverOrgText', '-');
+  bindCoverField(coverManagerInput, 'coverManagerText', '-');
+
+  if (coverDateInput) {
+    const dateTarget = document.getElementById('coverDateText');
+    const updateDate = () => {
+      dateTarget.textContent = coverDateInput.value || '-';
+    };
+    coverDateInput.addEventListener('change', updateDate);
+    updateDate();
+  }
+
 </script>
 {% endblock %}

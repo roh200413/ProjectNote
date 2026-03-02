@@ -3,7 +3,38 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import login_required_page, page_context, researcher_repository
+from server.application.web_support import effective_user_profile, login_required_page, page_context, researcher_repository
+from server.domains.admin.models import Team
+
+
+def _can_manage(request) -> bool:
+    profile = effective_user_profile(request) or {}
+    role = profile.get("role")
+    return bool(
+        request.user.is_staff
+        or request.user.is_superuser
+        or profile.get("is_super_admin")
+        or role in {"소유자", "owner", "관리자", "admin"}
+    )
+
+
+def _resolve_team_id_from_session(profile: dict) -> int | None:
+    team_id = profile.get("team_id")
+    if team_id:
+        try:
+            return int(team_id)
+        except (TypeError, ValueError):
+            pass
+
+    team_name = str(profile.get("team", "")).strip()
+    organization_name = str(profile.get("organization", "")).strip()
+    for candidate in (team_name, organization_name):
+        if not candidate or candidate in {"-", "미지정"}:
+            continue
+        team = Team.objects.filter(name=candidate).first()
+        if team:
+            return team.id
+    return None
 
 
 def _can_manage(request) -> bool:
@@ -14,6 +45,9 @@ def _can_manage(request) -> bool:
 @require_http_methods(["GET", "POST"])
 @login_required_page
 def researchers_api(request):
+    profile = effective_user_profile(request) or {}
+    team_id = _resolve_team_id_from_session(profile)
+
     if request.method == "GET":
         return JsonResponse(researcher_repository.list_researchers(), safe=False)
 

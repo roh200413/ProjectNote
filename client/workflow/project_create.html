@@ -23,7 +23,11 @@
     <div class="pn-row"  style="margin:0 0 14px">
       <div>
         <label class="pn-label">과제 책임자</label>
-        <input class="pn-input" name="manager" required />
+        <select class="pn-input" name="manager" required>
+          {% for manager in manager_options %}
+          <option value="{{ manager.username }}" {% if manager.username == default_manager %}selected{% endif %}>{{ manager.display_name }} ({{ manager.username }})</option>
+          {% endfor %}
+        </select>
       </div>
       <div>
         <label class="pn-label">발행 기관</label>

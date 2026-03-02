@@ -3,53 +3,25 @@
 {% block page_title %}연구노트 상세{% endblock %}
 {% block page_actions %}
 <div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/research-notes'">이전</button>
-  <a class="pn-btn" href="/frontend/research-notes/{{ note.id }}/viewer" style="text-decoration:none">뷰어 열기</a>
-  <button class="pn-btn" id="openDownload">연구노트 다운로드</button>
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes">목록</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}/viewer">연구노트 다운로드</a>
 </div>
 {% endblock %}
 {% block content %}
-<section class="pn-card" style="margin-bottom:12px">
-  <span class="pn-badge">소유권한</span>
-  <h2 style="margin:8px 0 8px">{{ note.title }}</h2>
-  <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-    <div><div class="pn-sub">책임자</div><strong>{{ note.owner }}</strong></div>
-    <div><div class="pn-sub">과제번호</div><strong>{{ note.project_code }}</strong></div>
-    <div><div class="pn-sub">과제기간</div><strong>{{ note.period }}</strong></div>
-    <div><div class="pn-sub">연구파일</div><strong>{{ note.files }}</strong></div>
-  </div>
-</section>
-
-<div class="pn-grid" style="grid-template-columns:230px 1fr;align-items:start">
-  <aside class="pn-card">
-    <h3 style="margin-top:0">연구폴더 목록</h3>
-    <button class="pn-btn" style="width:100%;margin-bottom:10px">연구폴더 생성</button>
-    <div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;margin-bottom:8px">연구노트 홈</div>
-    {% for folder in folders %}
-      <div style="padding:9px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;margin-bottom:8px">{{ folder }}</div>
-    {% endfor %}
-  </aside>
-
-  <section class="pn-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
-      <h3 style="margin:0">연구파일</h3>
-      <div style="display:flex;gap:8px">
-        <button class="pn-btn ghost">파일 이동</button>
-        <button class="pn-btn ghost">파일 삭제</button>
-        <button class="pn-btn soft">연구파일 추가</button>
-      </div>
-    </div>
-    <table class="pn-table">
-      <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일자</th><th>작성자</th><th>상세</th></tr></thead>
-      <tbody>
+<section class="pn-card">
+  <h3 style="margin-top:0">{{ note.title }}</h3>
+  <div class="pn-sub" style="margin-bottom:8px">파일 정보</div>
+  <p class="pn-sub">요약: {{ note.summary|default:'-' }}</p>
+  <table class="pn-table">
+    <thead><tr><th>파일명</th><th>형식</th><th>작성자</th><th>작성일</th><th></th></tr></thead>
+    <tbody>
       {% for file in files %}
-        <tr>
-          <td>{{ file.name }}</td>
-          <td>{{ file.format }}</td>
-          <td>{{ file.created }}</td>
-          <td>{{ file.author }}</td>
-          <td><a href="/frontend/research-notes/{{ note.id }}/viewer">파일 뷰어</a></td>
-        </tr>
+      <tr>
+        <td>{{ file.name }}</td><td>{{ file.format }}</td><td>{{ file.author }}</td><td>{{ file.created }}</td>
+        <td><a class="pn-btn soft" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}/viewer?file={{ file.id }}">보기</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="pn-sub">파일이 없습니다.</td></tr>
       {% endfor %}
       </tbody>
     </table>

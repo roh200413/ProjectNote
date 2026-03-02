@@ -54,6 +54,24 @@
   <div id="signatureToast" class="pn-toast"></div>
 </section>
 
+<section class="pn-card" style="max-width:960px;margin-top:12px">
+  <h3 style="margin-top:0">연구노트 파일 업로드</h3>
+  <p class="pn-sub" style="margin-top:0">드래그 앤 드롭 또는 클릭으로 파일을 업로드하면 연구노트 1건이 생성됩니다.</p>
+  <div id="noteDropzone" style="height:170px;border:2px dashed #b7c6dd;border-radius:12px;background:#eef1f6;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;cursor:pointer">
+    <div id="noteDropLabel" style="color:#4b5563;font-size:16px;line-height:1.5">
+      파일을 드래그 앤 드롭 해주세요<br />
+      <small style="font-size:13px;color:#6b7280">또는 클릭해서 파일을 선택하세요.</small>
+    </div>
+  </div>
+  <input id="noteFileInput" type="file" style="display:none" />
+  <div style="display:flex;justify-content:flex-end;margin-top:10px;gap:8px">
+    <button id="clearNoteFile" class="pn-btn ghost" type="button">초기화</button>
+    <button id="uploadNoteFile" class="pn-btn" type="button">연구노트 업로드</button>
+  </div>
+  <div id="noteUploadToast" class="pn-toast"></div>
+</section>
+
+
 <script>
   const dropzone = document.getElementById('signatureDropzone');
   const input = document.getElementById('signatureFileInput');
@@ -124,5 +142,63 @@
     const body = await response.json();
     toast.textContent = body.message || '저장 완료';
   });
+
+  const noteDropzone = document.getElementById('noteDropzone');
+  const noteInput = document.getElementById('noteFileInput');
+  const noteLabel = document.getElementById('noteDropLabel');
+  const noteToast = document.getElementById('noteUploadToast');
+  let selectedNoteFile = null;
+
+  function setNoteFile(file){
+    selectedNoteFile = file || null;
+    if (selectedNoteFile) {
+      noteLabel.innerHTML = `<strong>${selectedNoteFile.name}</strong><br /><small style="font-size:13px;color:#6b7280">업로드 준비 완료</small>`;
+    } else {
+      noteLabel.innerHTML = '파일을 드래그 앤 드롭 해주세요<br /><small style="font-size:13px;color:#6b7280">또는 클릭해서 파일을 선택하세요.</small>';
+    }
+  }
+
+  noteDropzone.addEventListener('click', () => noteInput.click());
+  noteInput.addEventListener('change', (e) => setNoteFile(e.target.files[0]));
+  noteDropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    noteDropzone.style.borderColor = '#2463eb';
+  });
+  noteDropzone.addEventListener('dragleave', () => {
+    noteDropzone.style.borderColor = '#b7c6dd';
+  });
+  noteDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    noteDropzone.style.borderColor = '#b7c6dd';
+    setNoteFile(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('clearNoteFile').addEventListener('click', () => {
+    setNoteFile(null);
+    noteInput.value = '';
+    noteToast.textContent = '업로드 파일을 초기화했습니다.';
+  });
+
+  document.getElementById('uploadNoteFile').addEventListener('click', async () => {
+    if (!selectedNoteFile) {
+      noteToast.textContent = '업로드할 파일을 선택해주세요.';
+      return;
+    }
+    const formData = new FormData();
+    formData.append('research_note_file', selectedNoteFile);
+    const response = await fetch('/frontend/my-page/research-note/upload', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    noteToast.textContent = body.message || '업로드 완료';
+    if (response.ok) {
+      setNoteFile(null);
+      noteInput.value = '';
+    }
+  });
+
 </script>
 {% endblock %}

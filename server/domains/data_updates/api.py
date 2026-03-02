@@ -13,8 +13,13 @@ def data_updates_api(request):
     return JsonResponse(data_update_repository.create_data_update(dict(request.POST)), status=201)
 
 
+
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def data_updates_page(request):
-    return render(request, "workflow/data_updates.html", page_context(request, {"updates": data_update_repository.list_data_updates()}))
+    return render(
+        request,
+        "workflow/final_download.html",
+        page_context(request, {"report_name": "data-updates"}),
+    )
