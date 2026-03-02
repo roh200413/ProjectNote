@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}연구노트 표지{% endblock %}
+{% block page_title %}연구노트 표지{% endblock %}
+{% block page_actions %}
+<div style="display:flex;gap:8px">
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">연구노트 상세</a>
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}/viewer">파일 보기</a>
+</div>
+{% endblock %}
+{% block content %}
+<section class="pn-card" style="background:#eef2f8;padding:18px">
+  <article style="background:#fff;width:210mm;min-height:297mm;max-width:100%;margin:0 auto;padding:22mm 18mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08)">
+    <h2 style="text-align:center;margin:10mm 0 18mm">연구노트 표지</h2>
+    <table class="pn-table" style="font-size:15px">
+      <tbody>
+        <tr><th style="width:180px">과제 번호</th><td>{{ project_code }}</td></tr>
+        <tr><th>과제 명</th><td>{{ project_name }}</td></tr>
+        <tr><th>세부 과제명</th><td>{{ sub_project_name }}</td></tr>
+        <tr><th>기간</th><td>{{ period }}</td></tr>
+        <tr><th>작업자</th><td>{{ worker }}</td></tr>
+      </tbody>
+    </table>
+  </article>
+</section>
+{% endblock %}
