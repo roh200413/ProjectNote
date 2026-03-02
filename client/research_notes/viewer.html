@@ -14,8 +14,8 @@
     <div style="background:#eef2f8;min-height:600px;padding:18px">
       <section class="pn-card" style="background:#ffffff;width:210mm;min-height:297mm;max-width:100%;margin:0 auto;padding:12mm;box-sizing:border-box;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-          <div>
-            <h3 style="margin:0 0 6px">{{ note.title }}</h3>
+          <div style="width:100%;border-bottom:1px solid #cbd5e1;padding-bottom:6px">
+            <h3 style="margin:0">{{ note.title }}</h3>
           </div>
         </div>
 
@@ -32,14 +32,16 @@
           {% endif %}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(6, minmax(0, 1fr));gap:0;align-items:stretch;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
-          <div style="padding:6px;border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:flex;flex-direction:column">
-            <div class="pn-sub" style="font-size:11px">작성자</div>
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ file.author|default:'-' }}</div>
-          </div>
-          <div style="padding:6px;border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:flex;flex-direction:column">
-            <div class="pn-sub" style="font-size:11px">작성 일자</div>
-            <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ author_date|default:'-' }}</div>
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:0;align-items:stretch;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+          <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
+            <div style="padding:6px;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">작성자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ file.author|default:'-' }}</div>
+            </div>
+            <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">작성 일자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ author_date|default:'-' }}</div>
+            </div>
           </div>
           <div style="padding:6px;border-right:1px solid #d1d5db;display:flex;flex-direction:column;gap:6px;min-height:20mm">
             <div class="pn-sub" style="font-size:11px">사인</div>
@@ -79,6 +81,19 @@
     <div style="display:grid;gap:8px">
       <label class="pn-sub">제목</label>
       <input id="editTitle" class="pn-input" value="{{ note.title }}" />
+
+      <label class="pn-sub">작성자</label>
+      <input id="editAuthor" class="pn-input" value="{{ file.author|default:'-' }}" />
+
+      <label class="pn-sub">작성일</label>
+      <input id="editCreated" class="pn-input" value="{{ author_date|default:'-' }}" />
+
+      <label class="pn-sub">점검자</label>
+      <input class="pn-input" value="{{ manager_name|default:'미지정' }}" readonly />
+
+      <label class="pn-sub">점검 일자</label>
+      <input class="pn-input" value="{{ reviewer_date|default:'-' }}" readonly />
+
       <button id="saveNoteMetaBtn" class="pn-btn" type="button">저장</button>
       <div id="saveToast" class="pn-sub"></div>
     </div>
@@ -97,18 +112,36 @@
   }
 
   document.getElementById('saveNoteMetaBtn').addEventListener('click', async () => {
-    const formData = new FormData();
-    formData.append('title', document.getElementById('editTitle').value.trim());
-    formData.append('summary', '{{ note.summary|default:""|escapejs }}');
+    const noteFormData = new FormData();
+    noteFormData.append('title', document.getElementById('editTitle').value.trim());
+    noteFormData.append('summary', '{{ note.summary|default:""|escapejs }}');
 
-    const response = await fetch('/api/v1/research-notes/{{ note.id }}/update', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-      credentials: 'same-origin'
-    });
-    const body = await response.json();
-    document.getElementById('saveToast').textContent = body.message || body.detail || '저장 완료';
+    const fileFormData = new FormData();
+    fileFormData.append('author', document.getElementById('editAuthor').value.trim());
+    fileFormData.append('created', document.getElementById('editCreated').value.trim());
+
+    const [noteResponse, fileResponse] = await Promise.all([
+      fetch('/api/v1/research-notes/{{ note.id }}/update', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: noteFormData,
+        credentials: 'same-origin'
+      }),
+      fetch('/api/v1/research-notes/{{ note.id }}/files/{{ file.id }}/update', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: fileFormData,
+        credentials: 'same-origin'
+      }),
+    ]);
+
+    const noteBody = await noteResponse.json();
+    const fileBody = await fileResponse.json();
+    if (noteResponse.ok && fileResponse.ok) {
+      document.getElementById('saveToast').textContent = noteBody.message || '저장 완료';
+      return;
+    }
+    document.getElementById('saveToast').textContent = noteBody.detail || fileBody.detail || '저장 중 오류가 발생했습니다.';
   });
 </script>
 {% endblock %}
