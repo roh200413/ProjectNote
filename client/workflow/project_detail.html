@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}프로젝트 상세{% endblock %}
-{% block page_title %}연구노트 상세{% endblock %}
+{% block page_title %}프로젝트 상세{% endblock %}
 {% block content %}
 <section id="projectInfoSection" class="pn-card" style="margin-bottom:12px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
@@ -83,53 +83,55 @@
 
 
 <section id="projectCoverSection" class="pn-card" style="margin-bottom:12px">
-  <h3 style="margin:0 0 10px">표지 편집 (A4 세로)</h3>
-  <div class="pn-sub" style="margin-bottom:10px">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
+  <details>
+    <summary style="cursor:pointer;font-weight:600">표지 편집 (A4 세로)</summary>
+    <div class="pn-sub" style="margin:10px 0">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
 
-  <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
-    <div style="display:grid;gap:8px">
-      <label class="pn-label">표지 제목</label>
-      <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
-      <label class="pn-label">과제 번호</label>
-      <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
-      <label class="pn-label">기관명</label>
-      <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
-      <label class="pn-label">책임자</label>
-      <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
-      <label class="pn-label">제출일</label>
-      <input id="coverDateInput" type="date" class="pn-input" value="" />
-    </div>
+    <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
+      <div style="display:grid;gap:8px">
+        <label class="pn-label">표지 제목</label>
+        <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
+        <label class="pn-label">과제 번호</label>
+        <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
+        <label class="pn-label">기관명</label>
+        <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
+        <label class="pn-label">책임자</label>
+        <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
+        <label class="pn-label">제출일</label>
+        <input id="coverDateInput" type="date" class="pn-input" value="" />
+      </div>
 
-    <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
-      <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
-        <div>
-          <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
-          <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+      <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
+        <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+          <div>
+            <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
+            <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:16px">
+            <tr>
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
+              <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
+            </tr>
+            <tr>
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
+              <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
+            </tr>
+            <tr>
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
+              <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
+            </tr>
+            <tr>
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
+              <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
+            </tr>
+          </table>
+
+          <div style="text-align:center;color:#475569;font-size:14px">ProjectNote</div>
         </div>
-
-        <table style="width:100%;border-collapse:collapse;font-size:16px">
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
-            <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
-            <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
-            <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
-            <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
-          </tr>
-        </table>
-
-        <div style="text-align:center;color:#475569;font-size:14px">ProjectNote</div>
       </div>
     </div>
-  </div>
+  </details>
 </section>
 
 <script>
