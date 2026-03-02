@@ -84,11 +84,6 @@ def research_note_viewer_page(request, note_id: str):
             selected_file = matched
 
     selected_file_url = f"/frontend/research-notes/{note_id}/files/{selected_file['id']}/content"
-    pdf_page = request.GET.get("p", "1")
-    try:
-        pdf_page_number = max(int(pdf_page), 1)
-    except ValueError:
-        pdf_page_number = 1
 
     note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
     manager_raw = (note_obj.project.manager if note_obj and note_obj.project else "") if note_obj else ""
@@ -119,7 +114,6 @@ def research_note_viewer_page(request, note_id: str):
                 "manager_name": manager_user.display_name if manager_user else manager_raw,
                 "author_signature_data_url": author_signature.get("signature_data_url", ""),
                 "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-                "pdf_page_number": pdf_page_number,
             },
         ),
     )
