@@ -11,7 +11,7 @@
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
   <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-    <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
+    <div><div class="pn-sub">책임자</div><strong>{{ manager_display }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
     <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
@@ -35,7 +35,11 @@
       </div>
       <div>
         <label class="pn-label">과제 책임자</label>
-        <input class="pn-input" name="manager" value="{{ project.manager }}" required />
+        <select class="pn-input" name="manager" required>
+          {% for manager in manager_options %}
+          <option value="{{ manager.username }}" {% if manager.username == project.manager %}selected{% endif %}>{{ manager.display_name }} ({{ manager.username }})</option>
+          {% endfor %}
+        </select>
       </div>
     </div>
     <div class="pn-row">

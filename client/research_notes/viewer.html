@@ -1,48 +1,105 @@
 {% extends "base.html" %}
-{% block title %}파일 상세{% endblock %}
-{% block page_title %}파일상세{% endblock %}
+{% block title %}파일 편집기{% endblock %}
+{% block page_title %}파일 편집기{% endblock %}
 {% block page_actions %}
 <div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/research-notes/{{ note.id }}'">이전 파일</button>
-  <button class="pn-btn ghost">다음 파일</button>
-  <button class="pn-btn">원본파일 다운로드</button>
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">목록</a>
+  <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">원본파일 다운로드</a>
 </div>
 {% endblock %}
 {% block content %}
-<div class="pn-grid" style="grid-template-columns:1fr 320px;align-items:start">
+<div class="pn-grid" style="grid-template-columns:1fr 360px;align-items:start">
   <section class="pn-card" style="padding:0;overflow:hidden">
     <div style="padding:12px 14px;border-bottom:1px solid var(--line)">
-      <strong>{{ file.name|default:note.title }}</strong>
+      <strong>{{ file.name }}</strong>
     </div>
-    <div style="background:#bcc4ce;min-height:640px;padding:24px">
-      <div style="background:white;max-width:860px;min-height:560px;margin:0 auto;border-radius:8px;padding:40px">
-        <h2 style="font-size:54px;margin:0 0 16px">deep-ai-kr/ect-auto</h2>
-        <p style="font-size:34px;margin:0 0 10px">github link : https://github.com/deep-ai-kr/ect-auto</p>
-        <h3 style="font-size:46px;margin:24px 0 8px">commit</h3>
-        <p style="font-size:30px;margin-top:0">2026-02-12T00:55:19.000Z</p>
-        <ul style="font-size:27px;line-height:1.6">
-          <li>[saw9090] - tube spec info 스키마 타입 변경건</li>
-          <li>Fix : risky message order</li>
-          <li>Fix : tuning message process</li>
-        </ul>
+    <div style="background:#eef2f8;min-height:600px;padding:18px">
+      <section class="pn-card" style="margin-bottom:12px;background:#ffffff">
+        <h4 style="margin:0 0 10px">head: 제목</h4>
+        <div style="font-weight:700">{{ note.title }}</div>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0" />
+        <h4 style="margin:0 0 10px">contents: 내용</h4>
+        <div class="pn-sub" style="white-space:pre-wrap;color:#374151">{{ note.summary|default:'-' }}</div>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0" />
+        <h4 style="margin:0 0 10px">foot: 작성자 이름, 작성자 사인, 관리자 사인</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:start">
+          <div>
+            <div class="pn-sub">작성자 이름</div>
+            <strong>{{ file.author }}</strong>
+          </div>
+          <div>
+            <div class="pn-sub">작성자 사인</div>
+            {% if author_signature_data_url %}
+            <img src="{{ author_signature_data_url }}" alt="작성자 사인" style="max-width:100%;height:60px;object-fit:contain;border:1px solid #d1d5db;border-radius:8px;background:#fff" />
+            {% else %}
+            <div class="pn-sub">사인 없음</div>
+            {% endif %}
+          </div>
+          <div>
+            <div class="pn-sub">관리자 사인 ({{ manager_name|default:'미지정' }})</div>
+            {% if manager_signature_data_url %}
+            <img src="{{ manager_signature_data_url }}" alt="관리자 사인" style="max-width:100%;height:60px;object-fit:contain;border:1px solid #d1d5db;border-radius:8px;background:#fff" />
+            {% else %}
+            <div class="pn-sub">사인 없음</div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+      {% if file.format == 'pdf' %}
+      <iframe src="{{ selected_file_url }}" title="파일 미리보기" style="width:100%;height:640px;border:0;background:#fff"></iframe>
+      {% elif file.format == 'png' or file.format == 'jpg' or file.format == 'jpeg' or file.format == 'webp' or file.format == 'svg' or file.format == 'heic' or file.format == 'heif' %}
+      <div style="background:#fff;padding:16px;border-radius:10px;min-height:640px;display:flex;align-items:center;justify-content:center">
+        <img src="{{ selected_file_url }}" alt="{{ file.name }}" style="max-width:100%;max-height:600px;object-fit:contain" />
       </div>
+      {% else %}
+      <div style="background:#fff;padding:28px;border-radius:10px;min-height:320px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:center">
+        <strong>미리보기를 지원하지 않는 파일 형식입니다.</strong>
+        <div class="pn-sub">DOC, XLS, PPT 등의 파일은 다운로드 후 확인해주세요.</div>
+        <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">파일 다운로드</a>
+      </div>
+      {% endif %}
     </div>
   </section>
 
   <aside class="pn-card">
-    <h3 style="margin-top:0">파일 정보</h3>
-    <table class="pn-table">
-      <tbody>
-        <tr><th>파일명</th><td>{{ file.name|default:'파일 없음' }}</td></tr>
-        <tr><th>작성자</th><td>{{ file.author|default:note.owner }}</td></tr>
-        <tr><th>작성일</th><td>{{ file.created|default:note.last_updated_at }}</td></tr>
-        <tr><th>형식</th><td>{{ file.format|default:'pdf' }}</td></tr>
-      </tbody>
-    </table>
+    <h3 style="margin-top:0">파일 정보 편집</h3>
+    <div style="display:grid;gap:8px">
+      <label class="pn-sub">파일명</label>
+      <input class="pn-input" value="{{ file.name }}" readonly />
+      <label class="pn-sub">작성자</label>
+      <input id="editAuthor" class="pn-input" value="{{ file.author }}" />
+      <label class="pn-sub">작성일</label>
+      <input id="editCreated" class="pn-input" value="{{ file.created }}" placeholder="예: 2026.03.02 / 10:30 AM" />
+      <button id="saveFileMetaBtn" class="pn-btn" type="button">저장</button>
+      <div id="saveToast" class="pn-sub"></div>
+    </div>
+
     <section class="pn-card" style="margin-top:8px;background:#f8fafc">
-      <h4 style="margin-top:0">메모</h4>
-      <p class="pn-sub">{{ note.summary }}</p>
+      <h4 style="margin-top:0">연구노트 메모</h4>
+      <p class="pn-sub">{{ note.summary|default:'-' }}</p>
     </section>
   </aside>
 </div>
+
+<script>
+  function getCsrfToken() {
+    const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+  }
+
+  document.getElementById('saveFileMetaBtn').addEventListener('click', async () => {
+    const formData = new FormData();
+    formData.append('author', document.getElementById('editAuthor').value.trim());
+    formData.append('created', document.getElementById('editCreated').value.trim());
+
+    const response = await fetch('/api/v1/research-notes/{{ note.id }}/files/{{ file.id }}/update', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    document.getElementById('saveToast').textContent = body.message || body.detail || '저장 완료';
+  });
+</script>
 {% endblock %}
