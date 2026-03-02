@@ -13,6 +13,7 @@
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
     <div><div class="pn-sub">책임자</div><strong>{{ manager_display }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
+    <div><div class="pn-sub">사업명</div><strong>{{ project.business_name|default:'-' }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
     <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
     <div><div class="pn-sub">시작일</div><strong>{{ project.start_date|default:'-' }}</strong></div>
@@ -43,6 +44,10 @@
       </div>
     </div>
     <div class="pn-row">
+      <div>
+        <label class="pn-label">사업명</label>
+        <input class="pn-input" name="business_name" value="{{ project.business_name }}" />
+      </div>
       <div>
         <label class="pn-label">발행 기관</label>
         <input class="pn-input" name="organization" value="{{ project.organization }}" />
@@ -89,41 +94,51 @@
 
     <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
       <div style="display:grid;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showBusinessName" checked /> 사업명</label>
+        <input id="coverBusinessInput" class="pn-input" value="{{ project.business_name|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showTitle" checked /> 표지 제목</label>
         <label class="pn-label">표지 제목</label>
         <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showCode" checked /> 과제 번호</label>
         <label class="pn-label">과제 번호</label>
         <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showOrg" checked /> 기관명</label>
         <label class="pn-label">기관명</label>
         <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showManager" checked /> 책임자</label>
         <label class="pn-label">책임자</label>
         <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
-        <label class="pn-label">제출일</label>
-        <input id="coverDateInput" type="date" class="pn-input" value="" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showPeriod" checked /> 기간</label>
+        <label class="pn-label">시작일</label>
+        <input id="coverStartDateInput" type="date" class="pn-input" value="{{ project.start_date|default:'' }}" />
+        <label class="pn-label">종료일</label>
+        <input id="coverEndDateInput" type="date" class="pn-input" value="{{ project.end_date|default:'' }}" />
       </div>
 
       <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
         <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
           <div>
             <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
-            <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+            <div id="coverBusinessRow" style="margin-top:12mm;text-align:center;font-size:20px;font-weight:700">{{ project.business_name|default:'-' }}</div>
+            <h1 id="coverTitleText" style="margin:18mm 0 0;text-align:center;font-size:40px;line-height:1.35">{{ project.name }}</h1>
           </div>
 
           <table style="width:100%;border-collapse:collapse;font-size:16px">
-            <tr>
+            <tr id="coverCodeRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
               <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
             </tr>
-            <tr>
+            <tr id="coverOrgRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
               <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
             </tr>
-            <tr>
+            <tr id="coverManagerRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
               <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
             </tr>
-            <tr>
-              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
-              <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
+            <tr id="coverPeriodRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기간</th>
+              <td id="coverPeriodText" style="border:1px solid #cbd5e1;padding:10px">-</td>
             </tr>
           </table>
 
@@ -155,10 +170,12 @@
     }
   });
   const coverTitleInput = document.getElementById('coverTitleInput');
+  const coverBusinessInput = document.getElementById('coverBusinessInput');
   const coverCodeInput = document.getElementById('coverCodeInput');
   const coverOrgInput = document.getElementById('coverOrgInput');
   const coverManagerInput = document.getElementById('coverManagerInput');
-  const coverDateInput = document.getElementById('coverDateInput');
+  const coverStartDateInput = document.getElementById('coverStartDateInput');
+  const coverEndDateInput = document.getElementById('coverEndDateInput');
 
   function bindCoverField(input, targetId, fallback='-') {
     const target = document.getElementById(targetId);
@@ -171,19 +188,43 @@
     update();
   }
 
+  bindCoverField(coverBusinessInput, 'coverBusinessRow', '-');
   bindCoverField(coverTitleInput, 'coverTitleText', '{{ project.name|escapejs }}');
   bindCoverField(coverCodeInput, 'coverCodeText', '-');
   bindCoverField(coverOrgInput, 'coverOrgText', '-');
   bindCoverField(coverManagerInput, 'coverManagerText', '-');
 
-  if (coverDateInput) {
-    const dateTarget = document.getElementById('coverDateText');
-    const updateDate = () => {
-      dateTarget.textContent = coverDateInput.value || '-';
+  const coverPeriodText = document.getElementById('coverPeriodText');
+  const updatePeriod = () => {
+    const start = (coverStartDateInput?.value || '').trim();
+    const end = (coverEndDateInput?.value || '').trim();
+    if (start && end) {
+      coverPeriodText.textContent = `${start} ~ ${end}`;
+      return;
+    }
+    coverPeriodText.textContent = start || end || '-';
+  };
+  coverStartDateInput?.addEventListener('change', updatePeriod);
+  coverEndDateInput?.addEventListener('change', updatePeriod);
+  updatePeriod();
+
+  function bindCoverVisibility(checkId, targetId) {
+    const check = document.getElementById(checkId);
+    const target = document.getElementById(targetId);
+    if (!check || !target) return;
+    const update = () => {
+      target.style.display = check.checked ? '' : 'none';
     };
-    coverDateInput.addEventListener('change', updateDate);
-    updateDate();
+    check.addEventListener('change', update);
+    update();
   }
+
+  bindCoverVisibility('showBusinessName', 'coverBusinessRow');
+  bindCoverVisibility('showTitle', 'coverTitleText');
+  bindCoverVisibility('showCode', 'coverCodeRow');
+  bindCoverVisibility('showOrg', 'coverOrgRow');
+  bindCoverVisibility('showManager', 'coverManagerRow');
+  bindCoverVisibility('showPeriod', 'coverPeriodRow');
 
 </script>
 {% endblock %}

@@ -311,6 +311,7 @@ def project_update_api(request, project_id: str):
         updated = project_repository.update_project(project_id, {
             "name": payload.get("name", ""),
             "manager": payload.get("manager", ""),
+            "business_name": payload.get("business_name", ""),
             "organization": payload.get("organization", ""),
             "code": payload.get("code", ""),
             "description": payload.get("description", ""),
