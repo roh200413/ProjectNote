@@ -83,6 +83,7 @@ class ProjectRepository:
         return Project.objects.create(
             name=command.name,
             manager=command.manager,
+            business_name=command.business_name,
             organization=organization,
             company=company,
             code=command.code,
@@ -139,11 +140,13 @@ class ProjectRepository:
             org = member.user.team.name if member.user.team else "미지정"
             grouped[org].append(
                 {
+                    "id": member.user.id,
                     "name": member.user.display_name,
                     "role": member.role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,
+                    "is_owner": member.user.role == UserAccount.Role.OWNER,
                 }
             )
 
@@ -166,6 +169,7 @@ class ProjectRepository:
             "name": project.name,
             "status": project.status,
             "manager": project.manager,
+            "business_name": project.business_name,
             "organization": project.organization,
             "company_id": project.company_id,
             "company_name": project.company.name if project.company else project.organization,
