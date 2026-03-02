@@ -4,6 +4,10 @@
 {% block page_actions %}
 <div style="display:flex;gap:8px">
   <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">목록</a>
+  {% if file.format == 'pdf' %}
+  <a class="pn-btn ghost" style="text-decoration:none" href="?file={{ file.id }}&p={{ pdf_page_number|add:'-1' }}">이전 페이지</a>
+  <a class="pn-btn ghost" style="text-decoration:none" href="?file={{ file.id }}&p={{ pdf_page_number|add:'1' }}">다음 페이지</a>
+  {% endif %}
   <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">원본파일 다운로드</a>
 </div>
 {% endblock %}
@@ -14,12 +18,25 @@
       <strong>{{ file.name }}</strong>
     </div>
     <div style="background:#eef2f8;min-height:600px;padding:18px">
-      <section class="pn-card" style="margin-bottom:12px;background:#ffffff">
+      <section class="pn-card" style="margin-bottom:12px;background:#ffffff;max-width:980px;margin-left:auto;margin-right:auto">
         <h4 style="margin:0 0 10px">head: 제목</h4>
         <div style="font-weight:700">{{ note.title }}</div>
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0" />
         <h4 style="margin:0 0 10px">contents: 내용</h4>
-        <div class="pn-sub" style="white-space:pre-wrap;color:#374151">{{ note.summary|default:'-' }}</div>
+        <div style="border:1px solid #e5e7eb;border-radius:10px;padding:12px;background:#fff;min-height:440px">
+          {% if file.format == 'pdf' %}
+          <div class="pn-sub" style="margin-bottom:8px">PDF {{ pdf_page_number }}p (1페이지 = 1개 연구노트)</div>
+          <iframe src="{{ selected_file_url }}#page={{ pdf_page_number }}" title="PDF 페이지" style="width:100%;height:680px;border:0"></iframe>
+          {% elif file.format == 'png' or file.format == 'jpg' or file.format == 'jpeg' or file.format == 'webp' or file.format == 'svg' or file.format == 'heic' or file.format == 'heif' %}
+          <div class="pn-sub" style="margin-bottom:8px">이미지 파일은 페이지별 1개 연구노트로 구성됩니다.</div>
+          <div style="display:flex;align-items:center;justify-content:center;min-height:520px">
+            <img src="{{ selected_file_url }}" alt="{{ file.name }}" style="max-width:100%;max-height:520px;object-fit:contain" />
+          </div>
+          {% else %}
+          <div class="pn-sub" style="white-space:pre-wrap;color:#374151">{{ note.summary|default:'-' }}</div>
+          <div style="margin-top:10px"><a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">파일 다운로드</a></div>
+          {% endif %}
+        </div>
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:12px 0" />
         <h4 style="margin:0 0 10px">foot: 작성자 이름, 작성자 사인, 관리자 사인</h4>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:start">
@@ -45,19 +62,6 @@
           </div>
         </div>
       </section>
-      {% if file.format == 'pdf' %}
-      <iframe src="{{ selected_file_url }}" title="파일 미리보기" style="width:100%;height:640px;border:0;background:#fff"></iframe>
-      {% elif file.format == 'png' or file.format == 'jpg' or file.format == 'jpeg' or file.format == 'webp' or file.format == 'svg' or file.format == 'heic' or file.format == 'heif' %}
-      <div style="background:#fff;padding:16px;border-radius:10px;min-height:640px;display:flex;align-items:center;justify-content:center">
-        <img src="{{ selected_file_url }}" alt="{{ file.name }}" style="max-width:100%;max-height:600px;object-fit:contain" />
-      </div>
-      {% else %}
-      <div style="background:#fff;padding:28px;border-radius:10px;min-height:320px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:center">
-        <strong>미리보기를 지원하지 않는 파일 형식입니다.</strong>
-        <div class="pn-sub">DOC, XLS, PPT 등의 파일은 다운로드 후 확인해주세요.</div>
-        <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">파일 다운로드</a>
-      </div>
-      {% endif %}
     </div>
   </section>
 

@@ -53,7 +53,11 @@
     <h3 style="margin-top:0">연구파일 정보 입력</h3>
     <div class="pn-sub" id="selectedFileNameText" style="margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr;gap:10px">
+      <label class="pn-sub">파일명</label>
+      <input id="metaFileName" class="pn-input" readonly />
+      <label class="pn-sub">제목</label>
       <input id="metaTitle" class="pn-input" placeholder="제목" />
+      <label class="pn-sub">작성자</label>
       <select id="metaAuthor" class="pn-input">
         {% for author in author_options %}
         <option value="{{ author }}" {% if author == default_author %}selected{% endif %}>{{ author }}</option>
@@ -103,7 +107,8 @@
   function openMetaModal(file) {
     selectedFile = file;
     selectedFileNameText.textContent = `선택된 파일: ${file.name}`;
-    document.getElementById('metaTitle').value = file.name;
+    document.getElementById('metaFileName').value = file.name;
+    document.getElementById('metaTitle').value = file.name.replace(/\.[^/.]+$/, '');
     if (!document.getElementById('metaAuthor').value) {
       document.getElementById('metaAuthor').value = '{{ default_author|escapejs }}';
     }
