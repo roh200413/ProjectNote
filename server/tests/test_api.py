@@ -24,6 +24,8 @@ from server.domains.admin.models import Team, UserAccount
 from server.domains.projects.models import Project, ProjectMember
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
+pytestmark = pytest.mark.django_db
+
 
 client = Client()
 User = get_user_model()

@@ -1,8 +1,5 @@
 from collections import defaultdict
 
-from django.db import models
-from django.db.models import Case, IntegerField, Value, When
-
 from server.domains.admin.models import Team, UserAccount
 
 
@@ -17,134 +14,26 @@ def _as_text(value, default: str = "") -> str:
 class ResearcherRepository:
     """Legacy-named repository backed by UserAccount (not Researcher model)."""
 
-    @staticmethod
-    def _role_label(role: str) -> str:
-        if role == UserAccount.Role.OWNER:
-            return "소유자"
-        if role == UserAccount.Role.ADMIN:
-            return "관리자"
-        return "연구원"
-
-    @staticmethod
-    def _serialize_user(user: UserAccount) -> dict:
-        return {
-            "id": user.id,
-            "username": user.username,
-            "name": user.display_name,
-            "role": ResearcherRepository._role_label(user.role),
-            "email": user.email,
-            "organization": user.team.name if user.team else "미지정",
-            "team_id": user.team_id,
-            "major": "미지정",
-            "status": "승인" if user.is_approved else "승인대기",
-            "is_approved": user.is_approved,
-        }
-
-
-    def count_admins_by_team_id(self, team_id: int | None) -> int:
-        if not team_id:
-            return 0
-        return UserAccount.objects.filter(team_id=team_id, role=UserAccount.Role.ADMIN).count()
-
-    def list_researchers_for_team(self, team_id: int | None, approved_only: bool = True) -> list[dict]:
-        if not team_id:
-            return []
-        users = UserAccount.objects.select_related("team").filter(team_id=team_id)
-        if approved_only:
-            users = users.filter(is_approved=True)
-        users = users.annotate(
-            role_order=Case(
-                When(role=UserAccount.Role.OWNER, then=Value(0)),
-                When(role=UserAccount.Role.ADMIN, then=Value(1)),
-                default=Value(2),
-                output_field=IntegerField(),
-            )
-        ).order_by("role_order", "id")
-        return [self._serialize_user(user) for user in users]
+    def list_researchers(self) -> list[dict]:
+        users = UserAccount.objects.select_related("team").order_by("id")
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.display_name,
+                "role": "관리자" if user.role == UserAccount.Role.ADMIN else "연구원",
+                "email": user.email,
+                "organization": user.team.name if user.team else "미지정",
+                "team_id": user.team_id,
+                "major": "미지정",
+                "status": "승인" if user.is_approved else "승인대기",
+                "is_approved": user.is_approved,
+            }
+            for user in users
+        ]
 
     def list_teams(self) -> list[dict]:
         return [{"id": team.id, "name": team.name} for team in Team.objects.order_by("name", "id")]
-
-    def list_unassigned_users(self, query: str = "") -> list[dict]:
-        normalized_query = query.strip()
-        if len(normalized_query) < 2:
-            return []
-
-        users = UserAccount.objects.filter(team__isnull=True).order_by("id")
-        users = users.filter(
-            models.Q(username__icontains=normalized_query)
-            | models.Q(display_name__icontains=normalized_query)
-            | models.Q(email__icontains=normalized_query)
-        )
-        return [
-            {
-                "id": user.id,
-                "username": user.username,
-                "name": user.display_name,
-                "email": user.email,
-                "status": "승인" if user.is_approved else "승인대기",
-            }
-            for user in users
-        ]
-
-    def list_pending_users_by_team_id(self, team_id: int | None) -> list[dict]:
-        if not team_id:
-            return []
-
-        team = Team.objects.filter(id=team_id).first()
-        if not team:
-            return []
-
-        users = UserAccount.objects.filter(team=team, is_approved=False).order_by("id")
-        return [
-            {
-                "id": user.id,
-                "username": user.username,
-                "name": user.display_name,
-                "email": user.email,
-                "team": team.name,
-            }
-            for user in users
-        ]
-
-    def verify_unassigned_user_id(self, username: str) -> dict:
-        normalized_username = username.strip()
-        if not normalized_username:
-            raise ValueError("아이디는 필수입니다.")
-
-        user = UserAccount.objects.filter(username=normalized_username).first()
-        if not user:
-            return {"can_invite": False, "message": "가입된 아이디가 아닙니다."}
-        if user.team_id:
-            return {"can_invite": False, "message": "이미 팀에 소속된 사용자입니다."}
-        if user.is_approved:
-            return {"can_invite": False, "message": "이미 승인된 사용자입니다."}
-        return {
-            "can_invite": True,
-            "message": "검증 완료. 초대 가능합니다.",
-            "user_id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "name": user.display_name,
-        }
-
-    def assign_team_by_username(self, username: str, team_id: int | None) -> dict:
-        if not team_id:
-            raise ValueError("관리자 소속 팀이 없습니다.")
-        team = Team.objects.filter(id=team_id).first()
-        if not team:
-            raise ValueError("팀을 찾을 수 없습니다.")
-
-        normalized_username = username.strip()
-        user = UserAccount.objects.filter(username=normalized_username).first()
-        if not user:
-            raise ValueError("사용자를 찾을 수 없습니다.")
-        if user.team_id:
-            raise ValueError("이미 팀에 소속된 사용자입니다.")
-
-        user.team = team
-        user.save(update_fields=["team", "updated_at"])
-        return {"id": user.id, "team": team.name, "email": user.email}
 
     def create_researcher(self, payload: dict) -> dict:
         email = _as_text(payload.get("email")).strip()
@@ -157,7 +46,7 @@ class ResearcherRepository:
                 "id": existing.id,
                 "username": existing.username,
                 "name": existing.display_name,
-                "role": self._role_label(existing.role),
+                "role": "관리자" if existing.role == UserAccount.Role.ADMIN else "연구원",
                 "email": existing.email,
                 "organization": existing.team.name if existing.team else "미지정",
                 "team_id": existing.team_id,
@@ -233,24 +122,13 @@ class ResearcherRepository:
         user.save(update_fields=["team", "updated_at"])
         return {"id": user.id, "team": user.team.name if user.team else "미지정"}
 
-    def remove_from_company(self, user_id: int, team_id: int | None):
+    def expel_user(self, user_id: int) -> dict:
         user = UserAccount.objects.filter(id=user_id).first()
         if not user:
             raise ValueError("사용자를 찾을 수 없습니다.")
-
-        # (선택) 같은 팀만 제외 가능
-        if team_id and user.team_id != team_id:
-            raise ValueError("같은 팀 사용자만 제외할 수 있습니다.")
-
-        # ✅ FK 해제: Team 인스턴스가 아니라 None으로
-        user.team = None  # 또는 user.team_id = None
-        user.is_approved = False  # 또는 user.team_id = None
-
-        # (선택) 상태가 있다면 정책에 맞게
-        # user.status = "미소속"  # status가 CharField면 OK
-
-        user.save(update_fields=["team", "is_approved"])  # status까지 바꾸면 ["team","status"]
-        return {"ok": True, "message": "회사(팀)에서 제외했습니다."}
+        username = user.username
+        user.delete()
+        return {"username": username}
 
     def researcher_groups_for_selection(self) -> list[dict]:
         groups = []

@@ -2,8 +2,39 @@
 {% block title %}프로젝트 연구노트{% endblock %}
 {% block page_title %}프로젝트 연구노트{% endblock %}
 {% block page_actions %}
+<div style="display:flex;gap:8px">
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects/{{ project.id }}">프로젝트 상세</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/projects/{{ project.id }}/researchers">프로젝트 연구자</a>
+</div>
 {% endblock %}
 {% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <h3 style="margin:0 0 6px">연구폴더 ({{ note_count }})</h3>
+      <div class="pn-sub">연구폴더는 최대 50개까지 생성 가능합니다.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="pn-btn ghost" type="button">생성일자 최신</button>
+      <button class="pn-btn" type="button">연구폴더 생성</button>
+    </div>
+  </div>
+</section>
+
+<section class="pn-grid cols-3" style="margin-bottom:12px">
+  {% for note in project_notes %}
+  <article class="pn-card" style="min-height:150px;display:flex;flex-direction:column;justify-content:space-between">
+    <div>
+      <div style="font-size:24px">📁</div>
+      <h4 style="margin:8px 0 4px">[{{ note.title }}]</h4>
+      <div class="pn-sub">Update {{ note.last_updated_at|slice:':10' }}</div>
+    </div>
+    <div class="pn-sub">파일 {{ note.files }}</div>
+  </article>
+  {% empty %}
+  <article class="pn-card"><div class="pn-sub">등록된 연구폴더가 없습니다.</div></article>
+  {% endfor %}
+</section>
 
 <section class="pn-card" style="margin-bottom:12px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">

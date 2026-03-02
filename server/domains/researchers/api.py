@@ -37,6 +37,11 @@ def _resolve_team_id_from_session(profile: dict) -> int | None:
     return None
 
 
+def _can_manage(request) -> bool:
+    profile = request.session.get("user_profile", {})
+    return bool(profile.get("is_super_admin") or profile.get("role") == "관리자")
+
+
 @require_http_methods(["GET", "POST"])
 @login_required_page
 def researchers_api(request):
@@ -44,13 +49,7 @@ def researchers_api(request):
     team_id = _resolve_team_id_from_session(profile)
 
     if request.method == "GET":
-        action = request.GET.get("action", "").strip()
-        if action == "unassigned":
-            query = request.GET.get("q", "").strip()
-            return JsonResponse(researcher_repository.list_unassigned_users(query), safe=False)
-        if action == "pending_for_my_team":
-            return JsonResponse(researcher_repository.list_pending_users_by_team_id(team_id), safe=False)
-        return JsonResponse(researcher_repository.list_researchers_for_team(team_id=team_id, approved_only=True), safe=False)
+        return JsonResponse(researcher_repository.list_researchers(), safe=False)
 
     action = request.POST.get("action", "create").strip()
     if action == "create":
@@ -60,55 +59,27 @@ def researchers_api(request):
             return JsonResponse({"detail": str(exc)}, status=400)
         return JsonResponse(created, status=201)
 
-    if action == "verify_id":
-        payload = researcher_repository.verify_unassigned_user_id(request.POST.get("username", ""))
-        return JsonResponse(payload)
-
     if not _can_manage(request):
         return JsonResponse({"detail": "관리 권한이 없습니다."}, status=403)
 
+    user_id_raw = request.POST.get("user_id", "").strip()
+    if not user_id_raw.isdigit():
+        return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
+    user_id = int(user_id_raw)
+
     try:
-        if action == "assign_team":
-            username = request.POST.get("username", "").strip()
-            if username:
-                payload = researcher_repository.assign_team_by_username(username, team_id)
-            else:
-                user_id_raw = request.POST.get("user_id", "").strip()
-                if not user_id_raw.isdigit():
-                    return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
-                user_id = int(user_id_raw)
-                team_id_raw = request.POST.get("team_id", "").strip()
-                assign_team_id = int(team_id_raw) if team_id_raw.isdigit() else None
-                payload = researcher_repository.assign_team(user_id, assign_team_id)
+        if action == "approve":
+            payload = researcher_repository.approve_user(user_id)
+        elif action == "grant_role":
+            payload = researcher_repository.grant_role(user_id, request.POST.get("role", "").strip())
+        elif action == "assign_team":
+            team_id_raw = request.POST.get("team_id", "").strip()
+            team_id = int(team_id_raw) if team_id_raw.isdigit() else None
+            payload = researcher_repository.assign_team(user_id, team_id)
+        elif action == "expel":
+            payload = researcher_repository.expel_user(user_id)
         else:
-            user_id_raw = request.POST.get("user_id", "").strip()
-            if not user_id_raw.isdigit():
-                return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
-            user_id = int(user_id_raw)
-            if action == "approve":
-                payload = researcher_repository.approve_user(user_id)
-            elif action == "grant_role":
-                role_raw = request.POST.get("role", "").strip()
-
-                # ✅ repository가 기대하는 값으로 정규화: admin / member
-                if role_raw in {"admin", "관리자"}:
-                    role = "admin"
-                elif role_raw in {"member", "일반"}:
-                    role = "member"
-                else:
-                    return JsonResponse({"detail": "권한 값이 올바르지 않습니다."}, status=400)
-
-                # ✅ 관리자 최대 3명 제한 (owner 제외, admin 기준)
-                if role == "admin":
-                    admin_count = researcher_repository.count_admins_by_team_id(team_id)
-                    if admin_count >= 3:
-                        return JsonResponse({"detail": "관리자는 팀당 최대 3명까지만 지정할 수 있습니다."}, status=400)
-
-                payload = researcher_repository.grant_role(user_id, role)
-            elif action == "remove_from_company":
-                payload = researcher_repository.remove_from_company(user_id, team_id)
-            else:
-                return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
+            return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     return JsonResponse(payload)
@@ -118,37 +89,15 @@ def researchers_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def researchers_page(request):
-    profile = effective_user_profile(request) or {}
-    team_id = _resolve_team_id_from_session(profile)
-    researchers = researcher_repository.list_researchers_for_team(team_id=team_id, approved_only=True)
-    owner_researchers = [item for item in researchers if item.get("role") == "소유자"]
-    member_researchers = [item for item in researchers if item.get("role") != "소유자"]
     return render(
         request,
         "workflow/researchers.html",
         page_context(
             request,
             {
-                "researchers": researchers,
-                "owner_researchers": owner_researchers,
-                "member_researchers": member_researchers,
-                "pending_researchers": researcher_repository.list_pending_users_by_team_id(team_id),
+                "researchers": researcher_repository.list_researchers(),
                 "teams": researcher_repository.list_teams(),
                 "can_manage_researchers": _can_manage(request),
             },
         ),
     )
-
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def github_integrations_page(request):
-    return render(request, "workflow/github_integrations.html", page_context(request))
-
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def collaboration_integrations_page(request):
-    return render(request, "workflow/collaboration_integrations.html", page_context(request))
