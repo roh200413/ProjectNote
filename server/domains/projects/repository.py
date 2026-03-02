@@ -106,49 +106,6 @@ class ProjectRepository:
                 defaults={"role": item.role, "contribution": "프로젝트 참여"},
             )
 
-    def update_project(self, project_id: str, payload: dict) -> dict:
-        project = Project.objects.filter(id=project_id).first()
-        if not project:
-            raise ValueError("프로젝트를 찾을 수 없습니다.")
-
-        for field in ["name", "manager", "organization", "code", "description", "status"]:
-            if field in payload:
-                setattr(project, field, payload[field])
-
-        if "start_date" in payload:
-            project.start_date = datetime.strptime(payload["start_date"], "%Y-%m-%d").date() if payload["start_date"] else None
-        if "end_date" in payload:
-            project.end_date = datetime.strptime(payload["end_date"], "%Y-%m-%d").date() if payload["end_date"] else None
-
-        project.save()
-        return self.project_to_dict(project)
-
-    def add_project_member(self, project_id: str, user_id: int) -> None:
-        project = Project.objects.filter(id=project_id).first()
-        if not project:
-            raise ValueError("프로젝트를 찾을 수 없습니다.")
-
-        user = UserAccount.objects.select_related("team").filter(id=user_id, is_approved=True).first()
-        if not user:
-            raise ValueError("추가할 수 있는 연구원이 아닙니다.")
-
-        if project.company_id and user.team_id != project.company_id:
-            raise ValueError("우리팀 연구원만 추가할 수 있습니다.")
-
-        ProjectMember.objects.get_or_create(
-            project=project,
-            user=user,
-            defaults={"role": "member", "contribution": "프로젝트 참여"},
-        )
-
-    def remove_project_member(self, project_id: str, user_id: int) -> None:
-        membership = ProjectMember.objects.select_related("user").filter(project_id=project_id, user_id=user_id).first()
-        if not membership:
-            raise ValueError("프로젝트에 참여 중인 연구원이 아닙니다.")
-        if membership.user and membership.user.role == UserAccount.Role.OWNER:
-            raise ValueError("소유자는 프로젝트 연구자에서 제외할 수 없습니다.")
-        membership.delete()
-
     def ensure_creator_member(self, project: Project, user_profile: dict | None) -> None:
         if not user_profile:
             return
@@ -180,17 +137,13 @@ class ProjectRepository:
             if not member.user:
                 continue
             org = member.user.team.name if member.user.team else "미지정"
-            is_owner = member.user.role == UserAccount.Role.OWNER
-            display_role = "소유자" if is_owner else ("관리자" if member.user.role == UserAccount.Role.ADMIN else "연구원")
             grouped[org].append(
                 {
-                    "id": member.user.id,
                     "name": member.user.display_name,
-                    "role": display_role,
+                    "role": member.role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,
-                    "is_owner": is_owner,
                 }
             )
 

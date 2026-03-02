@@ -23,7 +23,44 @@
       {% empty %}
       <tr><td colspan="5" class="pn-sub">파일이 없습니다.</td></tr>
       {% endfor %}
-    </tbody>
-  </table>
-</section>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<div id="downloadModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.4);align-items:center;justify-content:center;padding:20px;z-index:100;">
+  <div class="pn-card" style="max-width:760px;width:100%;display:grid;grid-template-columns:1.2fr 1fr;gap:12px">
+    <section>
+      <h3 style="margin:0 0 8px">연구노트 다운로드(PDF내보내기)</h3>
+      <div class="pn-card" style="background:#f8fafc;margin-bottom:10px">
+        <label class="pn-label">페이지 방향</label>
+        <div style="display:flex;gap:8px"><button class="pn-btn soft">세로</button><button class="pn-btn ghost">가로</button></div>
+      </div>
+      <div class="pn-card" style="background:#f8fafc">
+        <label class="pn-label">PDF 설정</label>
+        <div style="display:flex;gap:8px"><button class="pn-btn soft">암호화</button><button class="pn-btn ghost">암호화 해제</button></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px">
+        <button class="pn-btn ghost" id="closeDownload">취소</button>
+        <button class="pn-btn">연구노트 다운로드</button>
+      </div>
+    </section>
+    <section class="pn-card" style="background:#eef3ff">
+      <h4 style="margin-top:0">연구노트 미리보기</h4>
+      <div style="min-height:280px;background:#fff;border:1px solid #ced9ef;border-radius:10px;padding:12px">
+        <div class="pn-sub">표지(샘플)</div>
+        <strong style="font-size:18px;color:#5b62a2">연구노트</strong>
+        <div style="margin-top:6px;font-size:13px">연구자명: {{ note.owner }}</div>
+        <div style="font-size:13px">연구과제명: {{ note.title|truncatechars:24 }}</div>
+        <div style="font-size:13px">연구기간: {{ note.period }}</div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+  const modal = document.getElementById('downloadModal');
+  document.getElementById('openDownload').addEventListener('click', () => { modal.style.display = 'flex'; });
+  document.getElementById('closeDownload').addEventListener('click', () => { modal.style.display = 'none'; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+</script>
 {% endblock %}

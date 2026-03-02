@@ -25,20 +25,16 @@
   </div>
 </section>
 
-<section id="projectEditSection" class="pn-card" style="display:none;margin-bottom:12px">
-  <h3 style="margin:0 0 10px">프로젝트 수정</h3>
-  <form id="projectEditForm" class="pn-grid" style="gap:12px">
-    <div class="pn-row">
-      <div>
-        <label class="pn-label">과제명</label>
-        <input class="pn-input" name="name" value="{{ project.name }}" required />
-      </div>
-      <div>
-        <label class="pn-label">과제 책임자</label>
-        <select class="pn-input" name="manager" required>
-          {% for manager in manager_options %}
-          <option value="{{ manager.username }}" {% if manager.username == project.manager %}selected{% endif %}>{{ manager.display_name }} ({{ manager.username }})</option>
-          {% endfor %}
+<div style="grid-template-columns:230px 1fr;align-items:start">
+  <section class="pn-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+      <h3 style="margin:0">연구노트 업데이트</h3>
+      {% if selected_note %}<a class="pn-btn soft" style="text-decoration:none" href="/frontend/research-notes/{{ selected_note.id }}">연구노트 수정</a>{% endif %}
+    </div>
+    <form id="noteUpdateForm" class="pn-grid" style="margin-bottom:12px">
+      <div><label class="pn-label">연구노트 선택</label>
+        <select name="note_id" class="pn-select">
+          {% for note in project_notes %}<option value="{{ note.id }}">{{ note.title }}</option>{% endfor %}
         </select>
       </div>
     </div>
@@ -126,8 +122,13 @@
           </tr>
         </table>
 
-        <div style="text-align:center;color:#475569;font-size:14px">ProjectNote</div>
-      </div>
+<section class="pn-card" id="projectResearchersSection" style="margin-top:12px">
+  <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
+  {% for group in researcher_groups %}
+  <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>{{ group.group }}</strong>
+      <small class="pn-sub">리드 {{ group.lead }}</small>
     </div>
   </div>
 </section>

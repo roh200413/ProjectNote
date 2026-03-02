@@ -23,7 +23,7 @@ def final_download_api(_request):
 
 @require_http_methods(["GET", "POST"])
 def signature_api(request):
-    username = (effective_user_profile(request) or {}).get("username", "")
+    username = request.session.get("user_profile", {}).get("username", "")
     if not username:
         return JsonResponse({"detail": "로그인이 필요합니다."}, status=401)
     if request.method == "GET":
@@ -51,7 +51,7 @@ def final_download_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    username = (effective_user_profile(request) or {}).get("username", "")
+    username = request.session.get("user_profile", {}).get("username", "")
     return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature(username)}))
 
 
@@ -59,7 +59,7 @@ def signature_page(request):
 @ensure_csrf_cookie
 @login_required_page
 def my_page(request):
-    profile = (effective_user_profile(request) or {}).copy()
+    profile = request.session.get("user_profile", {}).copy()
     username = profile.get("username", "")
     profile["signature"] = signature_repository.read_signature(username).get("signature_data_url", "") if username else ""
     return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
@@ -72,7 +72,7 @@ def update_my_signature(request):
     if not signature_data_url.startswith("data:image/"):
         return JsonResponse({"message": "유효한 이미지 데이터가 아닙니다."}, status=400)
 
-    username = (effective_user_profile(request) or {}).get("username", "")
+    username = request.session.get("user_profile", {}).get("username", "")
     if not username:
         return JsonResponse({"message": "로그인이 필요합니다."}, status=401)
     signature_repository.update_signature(username=username, signature_data_url=signature_data_url)

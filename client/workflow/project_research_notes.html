@@ -2,8 +2,39 @@
 {% block title %}프로젝트 연구노트{% endblock %}
 {% block page_title %}프로젝트 연구노트{% endblock %}
 {% block page_actions %}
+<div style="display:flex;gap:8px">
+  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects/{{ project.id }}">프로젝트 상세</a>
+  <a class="pn-btn" style="text-decoration:none" href="/frontend/projects/{{ project.id }}/researchers">프로젝트 연구자</a>
+</div>
 {% endblock %}
 {% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <div>
+      <h3 style="margin:0 0 6px">연구폴더 ({{ note_count }})</h3>
+      <div class="pn-sub">연구폴더는 최대 50개까지 생성 가능합니다.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="pn-btn ghost" type="button">생성일자 최신</button>
+      <button class="pn-btn" type="button">연구폴더 생성</button>
+    </div>
+  </div>
+</section>
+
+<section class="pn-grid cols-3" style="margin-bottom:12px">
+  {% for note in project_notes %}
+  <article class="pn-card" style="min-height:150px;display:flex;flex-direction:column;justify-content:space-between">
+    <div>
+      <div style="font-size:24px">📁</div>
+      <h4 style="margin:8px 0 4px">[{{ note.title }}]</h4>
+      <div class="pn-sub">Update {{ note.last_updated_at|slice:':10' }}</div>
+    </div>
+    <div class="pn-sub">파일 {{ note.files }}</div>
+  </article>
+  {% empty %}
+  <article class="pn-card"><div class="pn-sub">등록된 연구폴더가 없습니다.</div></article>
+  {% endfor %}
+</section>
 
 <section class="pn-card" style="margin-bottom:12px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
@@ -11,16 +42,14 @@
     <div style="display:flex;gap:8px">
       <button class="pn-btn ghost" type="button">파일 이동</button>
       <button class="pn-btn ghost" type="button">파일 삭제</button>
-      <button class="pn-btn" id="openUploadModalBtn" type="button">연구파일 추가</button>
+      <button class="pn-btn" type="button">연구파일 추가</button>
     </div>
   </div>
 
-  <div id="projectFileDropzone" style="margin-top:10px;padding:28px 12px;border:1px dashed #4f79ff;border-radius:12px;background:#f7faff;text-align:center;color:#1d4ed8;font-weight:700;cursor:pointer">
-    <div id="dropMainText">마우스로 드래그 해서 연구파일을 추가해주세요.</div>
+  <div style="margin-top:10px;padding:28px 12px;border:1px dashed #4f79ff;border-radius:12px;background:#f7faff;text-align:center;color:#1d4ed8;font-weight:700">
+    마우스로 드래그 해서 연구파일을 추가해주세요.
     <div class="pn-sub" style="margin-top:8px">추가 가능한 파일 유형: Jpeg, Jpg, Png, SVG, tiff, Webp, Heif, Heic, Doc, Docx, PPTX, PPT, Xls, Xlsx, PDF</div>
   </div>
-  <input id="projectFileInput" type="file" style="display:none" accept=".jpeg,.jpg,.png,.svg,.tiff,.webp,.heif,.heic,.doc,.docx,.pptx,.ppt,.xls,.xlsx,.pdf" />
-  <div id="uploadToast" class="pn-sub" style="margin-top:8px"></div>
 
   <table class="pn-table" style="margin-top:12px">
     <thead>
@@ -29,7 +58,7 @@
         <th>형식</th>
         <th>작성일자</th>
         <th>작성자</th>
-        <th>부여</th>
+        <th>뷰어</th>
       </tr>
     </thead>
     <tbody>
@@ -47,134 +76,4 @@
     </tbody>
   </table>
 </section>
-
-<div id="researchFileMetaModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
-  <div class="pn-card" style="width:min(560px,100%);margin:0">
-    <h3 style="margin-top:0">연구파일 정보 입력</h3>
-    <div class="pn-sub" id="selectedFileNameText" style="margin-bottom:12px"></div>
-    <div style="display:grid;grid-template-columns:1fr;gap:10px">
-      <label class="pn-sub">파일명</label>
-      <input id="metaFileName" class="pn-input" readonly />
-      <label class="pn-sub">제목</label>
-      <input id="metaTitle" class="pn-input" placeholder="제목" />
-      <label class="pn-sub">작성자</label>
-      <select id="metaAuthor" class="pn-input">
-        {% for author in author_options %}
-        <option value="{{ author }}" {% if author == default_author %}selected{% endif %}>{{ author }}</option>
-        {% endfor %}
-      </select>
-      <input id="metaCreatedAt" class="pn-input" type="datetime-local" />
-      <input id="metaUpdatedAt" class="pn-input" type="datetime-local" />
-      <textarea id="metaSummary" class="pn-input" placeholder="추가 설명" rows="4" style="resize:vertical"></textarea>
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
-      <button type="button" class="pn-btn ghost" id="cancelMetaBtn">취소</button>
-      <button type="button" class="pn-btn" id="saveMetaBtn">저장</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  const dropzone = document.getElementById('projectFileDropzone');
-  const fileInput = document.getElementById('projectFileInput');
-  const openUploadModalBtn = document.getElementById('openUploadModalBtn');
-  const uploadToast = document.getElementById('uploadToast');
-  const modal = document.getElementById('researchFileMetaModal');
-  const selectedFileNameText = document.getElementById('selectedFileNameText');
-  const saveMetaBtn = document.getElementById('saveMetaBtn');
-  const cancelMetaBtn = document.getElementById('cancelMetaBtn');
-
-  const allowedExtensions = new Set(['jpeg','jpg','png','svg','tiff','webp','heif','heic','doc','docx','pptx','ppt','xls','xlsx','pdf']);
-  let selectedFile = null;
-
-  function getCsrfToken() {
-    const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
-    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
-  }
-
-  function getExtension(name) {
-    const idx = name.lastIndexOf('.');
-    return idx === -1 ? '' : name.slice(idx + 1).toLowerCase();
-  }
-
-  function nowDateTimeLocal() {
-    const now = new Date();
-    const offset = now.getTimezoneOffset();
-    const local = new Date(now.getTime() - offset * 60000);
-    return local.toISOString().slice(0, 16);
-  }
-
-  function openMetaModal(file) {
-    selectedFile = file;
-    selectedFileNameText.textContent = `선택된 파일: ${file.name}`;
-    document.getElementById('metaFileName').value = file.name;
-    document.getElementById('metaTitle').value = file.name.replace(/\.[^/.]+$/, '');
-    if (!document.getElementById('metaAuthor').value) {
-      document.getElementById('metaAuthor').value = '{{ default_author|escapejs }}';
-    }
-    document.getElementById('metaCreatedAt').value = nowDateTimeLocal();
-    document.getElementById('metaUpdatedAt').value = nowDateTimeLocal();
-    document.getElementById('metaSummary').value = '';
-    modal.style.display = 'flex';
-  }
-
-  function closeMetaModal() {
-    modal.style.display = 'none';
-    selectedFile = null;
-    fileInput.value = '';
-  }
-
-  function handleFile(file) {
-    if (!file) return;
-    if (!allowedExtensions.has(getExtension(file.name))) {
-      uploadToast.textContent = '지원하지 않는 파일 형식입니다. PDF, JPG, PNG 등을 업로드해주세요.';
-      return;
-    }
-    openMetaModal(file);
-  }
-
-  dropzone.addEventListener('click', () => fileInput.click());
-  openUploadModalBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
-
-  dropzone.addEventListener('dragover', e => {
-    e.preventDefault();
-    dropzone.style.borderColor = '#2463eb';
-  });
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.style.borderColor = '#4f79ff';
-  });
-  dropzone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropzone.style.borderColor = '#4f79ff';
-    handleFile(e.dataTransfer.files[0]);
-  });
-
-  cancelMetaBtn.addEventListener('click', closeMetaModal);
-
-  saveMetaBtn.addEventListener('click', async () => {
-    if (!selectedFile) return;
-
-    const formData = new FormData();
-    formData.append('research_note_file', selectedFile);
-    formData.append('title', document.getElementById('metaTitle').value.trim());
-    formData.append('author', document.getElementById('metaAuthor').value.trim());
-    formData.append('created_at', document.getElementById('metaCreatedAt').value);
-    formData.append('updated_at', document.getElementById('metaUpdatedAt').value);
-    formData.append('summary', document.getElementById('metaSummary').value.trim());
-
-    const response = await fetch('/api/v1/projects/{{ project.id }}/research-notes/upload', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-      credentials: 'same-origin'
-    });
-    const body = await response.json();
-    uploadToast.textContent = body.message || body.detail || '저장 완료';
-    if (response.ok) {
-      closeMetaModal();
-      window.location.reload();
-    }
-  });
-</script>
 {% endblock %}
