@@ -37,11 +37,6 @@ def _resolve_team_id_from_session(profile: dict) -> int | None:
     return None
 
 
-def _can_manage(request) -> bool:
-    profile = request.session.get("user_profile", {})
-    return bool(profile.get("is_super_admin") or profile.get("role") == "관리자")
-
-
 @require_http_methods(["GET", "POST"])
 @login_required_page
 def researchers_api(request):
@@ -89,13 +84,34 @@ def researchers_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def researchers_page(request):
+    profile = effective_user_profile(request) or {}
+    team_id = _resolve_team_id_from_session(profile)
+    all_researchers = researcher_repository.list_researchers()
+    scoped = [item for item in all_researchers if team_id is None or item.get("team_id") == team_id]
+    owner_researchers = [item for item in scoped if item.get("role") == "소유자"]
+    member_researchers = [item for item in scoped if item.get("role") != "소유자" and item.get("is_approved")]
+    pending_researchers = [
+        {
+            "id": item["id"],
+            "name": item["name"],
+            "username": item["username"],
+            "email": item["email"],
+            "team": item.get("organization", "미지정"),
+        }
+        for item in scoped
+        if not item.get("is_approved")
+    ]
+
     return render(
         request,
         "workflow/researchers.html",
         page_context(
             request,
             {
-                "researchers": researcher_repository.list_researchers(),
+                "researchers": scoped,
+                "owner_researchers": owner_researchers,
+                "member_researchers": member_researchers,
+                "pending_researchers": pending_researchers,
                 "teams": researcher_repository.list_teams(),
                 "can_manage_researchers": _can_manage(request),
             },
@@ -122,4 +138,3 @@ def collaboration_integrations_page(request):
         "workflow/collaboration_integrations.html",
         page_context(request, {}),
     )
-
