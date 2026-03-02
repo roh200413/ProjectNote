@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/v1/projects", api.projects),
     path("api/v1/project-management", api.project_management_api),
     path("api/v1/projects/<str:project_id>/update", projects_api.project_update_api),
+    path("api/v1/projects/<str:project_id>/cover", projects_api.project_cover_update_api),
     path("api/v1/projects/<str:project_id>/researchers", projects_api.project_add_researcher_api),
     path("api/v1/projects/<str:project_id>/researchers/remove", projects_api.project_remove_researcher_api),
     path("api/v1/projects/<str:project_id>/research-notes/upload", projects_api.project_upload_research_note_api),
