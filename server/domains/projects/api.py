@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import Project
+from .models import Project, ProjectMember
 from server.domains.admin.models import UserAccount
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 from server.application.web_support import (
@@ -311,6 +311,7 @@ def project_update_api(request, project_id: str):
         updated = project_repository.update_project(project_id, {
             "name": payload.get("name", ""),
             "manager": payload.get("manager", ""),
+            "business_name": payload.get("business_name", ""),
             "organization": payload.get("organization", ""),
             "code": payload.get("code", ""),
             "description": payload.get("description", ""),
@@ -333,68 +334,49 @@ def project_add_researcher_api(request, project_id: str):
     if not str(user_id).isdigit():
         return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
 
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def project_researchers_page(request, project_id: str):
     try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
 
-    return render(
-        request,
-        "workflow/project_researchers.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "researcher_groups": project_repository.project_researcher_groups(project_id),
-            },
-        ),
+    user = UserAccount.objects.select_related("team").filter(id=int(user_id), is_approved=True).first()
+    if not user:
+        return JsonResponse({"detail": "연구원을 찾을 수 없습니다."}, status=404)
+
+    if project.company_id and user.team_id != project.company_id:
+        return JsonResponse({"detail": "우리팀 연구원만 추가할 수 있습니다."}, status=400)
+
+    member_role = "admin" if user.role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN} else "member"
+    _, created = ProjectMember.objects.get_or_create(
+        project=project,
+        user=user,
+        defaults={"role": member_role, "contribution": "프로젝트 참여"},
     )
+    if not created:
+        return JsonResponse({"message": "이미 등록된 연구원입니다."}, status=200)
+    return JsonResponse({"message": "연구자가 추가되었습니다."}, status=200)
 
 
+@require_http_methods(["POST"])
+def project_remove_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
 
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def project_research_notes_page(request, project_id: str):
-    try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
+    user_id = request.POST.get("user_id", "")
+    if not str(user_id).isdigit():
+        return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
 
-    note_ids = project_repository.project_note_ids(project_id)
-    all_notes = research_note_repository.list_research_notes()
-    project_notes = [note for note in all_notes if note["id"] in note_ids]
+    membership = ProjectMember.objects.select_related("user").filter(project_id=project_id, user_id=int(user_id)).first()
+    if not membership or not membership.user:
+        return JsonResponse({"detail": "프로젝트 연구자를 찾을 수 없습니다."}, status=404)
 
-    file_rows = []
-    for note in project_notes:
-        for file in research_note_repository.list_note_files(note["id"]):
-            file_rows.append({
-                "note_title": note["title"],
-                "name": file["name"],
-                "format": file["format"],
-                "created": file["created"],
-                "author": file["author"],
-                "note_id": note["id"],
-            })
+    if membership.user.role == UserAccount.Role.OWNER:
+        return JsonResponse({"detail": "소유자는 프로젝트 연구자에서 제외할 수 없습니다."}, status=400)
 
-    return render(
-        request,
-        "workflow/project_research_notes.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "project_notes": project_notes,
-                "project_files": file_rows,
-                "note_count": len(project_notes),
-                "file_count": len(file_rows),
-            },
-        ),
-    )
+    membership.delete()
+    return JsonResponse({"message": "연구자가 제외되었습니다."}, status=200)
+
 
 @require_GET
 def dashboard_summary(_request):
