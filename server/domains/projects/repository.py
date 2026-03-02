@@ -83,6 +83,7 @@ class ProjectRepository:
         return Project.objects.create(
             name=command.name,
             manager=command.manager,
+            business_name=command.business_name,
             organization=organization,
             company=company,
             code=command.code,
@@ -166,6 +167,7 @@ class ProjectRepository:
             "name": project.name,
             "status": project.status,
             "manager": project.manager,
+            "business_name": project.business_name,
             "organization": project.organization,
             "company_id": project.company_id,
             "company_name": project.company.name if project.company else project.organization,

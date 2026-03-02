@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import Project
+from .models import Project, ProjectMember
 from server.domains.admin.models import UserAccount
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 from server.application.web_support import (
@@ -311,6 +311,7 @@ def project_update_api(request, project_id: str):
         updated = project_repository.update_project(project_id, {
             "name": payload.get("name", ""),
             "manager": payload.get("manager", ""),
+            "business_name": payload.get("business_name", ""),
             "organization": payload.get("organization", ""),
             "code": payload.get("code", ""),
             "description": payload.get("description", ""),
@@ -332,6 +333,50 @@ def project_add_researcher_api(request, project_id: str):
     user_id = request.POST.get("user_id", "")
     if not str(user_id).isdigit():
         return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    user = UserAccount.objects.select_related("team").filter(id=int(user_id), is_approved=True).first()
+    if not user:
+        return JsonResponse({"detail": "연구원을 찾을 수 없습니다."}, status=404)
+
+    if project.company_id and user.team_id != project.company_id:
+        return JsonResponse({"detail": "우리팀 연구원만 추가할 수 있습니다."}, status=400)
+
+    member_role = "admin" if user.role in {UserAccount.Role.OWNER, UserAccount.Role.ADMIN} else "member"
+    _, created = ProjectMember.objects.get_or_create(
+        project=project,
+        user=user,
+        defaults={"role": member_role, "contribution": "프로젝트 참여"},
+    )
+    if not created:
+        return JsonResponse({"message": "이미 등록된 연구원입니다."}, status=200)
+    return JsonResponse({"message": "연구자가 추가되었습니다."}, status=200)
+
+
+@require_http_methods(["POST"])
+def project_remove_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    user_id = request.POST.get("user_id", "")
+    if not str(user_id).isdigit():
+        return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
+
+    membership = ProjectMember.objects.select_related("user").filter(project_id=project_id, user_id=int(user_id)).first()
+    if not membership or not membership.user:
+        return JsonResponse({"detail": "프로젝트 연구자를 찾을 수 없습니다."}, status=404)
+
+    if membership.user.role == UserAccount.Role.OWNER:
+        return JsonResponse({"detail": "소유자는 프로젝트 연구자에서 제외할 수 없습니다."}, status=400)
+
+    membership.delete()
+    return JsonResponse({"message": "연구자가 제외되었습니다."}, status=200)
+
 
 @require_GET
 @ensure_csrf_cookie
