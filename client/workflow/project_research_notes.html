@@ -54,8 +54,13 @@
     <div class="pn-sub" id="selectedFileNameText" style="margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr;gap:10px">
       <input id="metaTitle" class="pn-input" placeholder="제목" />
-      <input id="metaAuthor" class="pn-input" placeholder="작성자" />
-      <input id="metaPeriod" class="pn-input" placeholder="작성일자(예: 2026.03.02)" />
+      <select id="metaAuthor" class="pn-input">
+        {% for author in author_options %}
+        <option value="{{ author }}" {% if author == default_author %}selected{% endif %}>{{ author }}</option>
+        {% endfor %}
+      </select>
+      <input id="metaCreatedAt" class="pn-input" type="datetime-local" />
+      <input id="metaUpdatedAt" class="pn-input" type="datetime-local" />
       <textarea id="metaSummary" class="pn-input" placeholder="추가 설명" rows="4" style="resize:vertical"></textarea>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
@@ -88,12 +93,22 @@
     return idx === -1 ? '' : name.slice(idx + 1).toLowerCase();
   }
 
+  function nowDateTimeLocal() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    const local = new Date(now.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 16);
+  }
+
   function openMetaModal(file) {
     selectedFile = file;
     selectedFileNameText.textContent = `선택된 파일: ${file.name}`;
     document.getElementById('metaTitle').value = file.name;
-    document.getElementById('metaAuthor').value = '';
-    document.getElementById('metaPeriod').value = '';
+    if (!document.getElementById('metaAuthor').value) {
+      document.getElementById('metaAuthor').value = '{{ default_author|escapejs }}';
+    }
+    document.getElementById('metaCreatedAt').value = nowDateTimeLocal();
+    document.getElementById('metaUpdatedAt').value = nowDateTimeLocal();
     document.getElementById('metaSummary').value = '';
     modal.style.display = 'flex';
   }
@@ -139,7 +154,8 @@
     formData.append('research_note_file', selectedFile);
     formData.append('title', document.getElementById('metaTitle').value.trim());
     formData.append('author', document.getElementById('metaAuthor').value.trim());
-    formData.append('period', document.getElementById('metaPeriod').value.trim());
+    formData.append('created_at', document.getElementById('metaCreatedAt').value);
+    formData.append('updated_at', document.getElementById('metaUpdatedAt').value);
     formData.append('summary', document.getElementById('metaSummary').value.trim());
 
     const response = await fetch('/api/v1/projects/{{ project.id }}/research-notes/upload', {

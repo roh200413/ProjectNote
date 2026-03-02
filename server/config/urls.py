@@ -31,6 +31,7 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
+    path("api/v1/research-notes/<str:note_id>/files/<str:file_id>/update", research_notes_api.research_note_file_update_api),
 
     path("admin/login", auth_api.admin_login_page),
     path("frontend/admin", admin_api.admin_page),
@@ -60,4 +61,5 @@ urlpatterns = [
     path("frontend/research-notes", research_notes_api.research_notes_page),
     path("frontend/research-notes/<str:note_id>", research_notes_api.research_note_detail_page),
     path("frontend/research-notes/<str:note_id>/viewer", research_notes_api.research_note_viewer_page),
+    path("frontend/research-notes/<str:note_id>/files/<str:file_id>/content", research_notes_api.research_note_file_content_page),
 ]
