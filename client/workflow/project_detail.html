@@ -95,24 +95,26 @@
     <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
       <div style="display:grid;gap:8px">
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showBusinessName" checked /> 사업명</label>
-        <input id="coverBusinessInput" class="pn-input" value="{{ project.business_name|default:'-' }}" />
+        <input id="coverBusinessInput" class="pn-input" value="{{ cover_data.business_name|default:'-' }}" />
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showTitle" checked /> 표지 제목</label>
         <label class="pn-label">표지 제목</label>
-        <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
+        <input id="coverTitleInput" class="pn-input" value="{{ cover_data.title|default:project.name }}" />
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showCode" checked /> 과제 번호</label>
         <label class="pn-label">과제 번호</label>
-        <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
+        <input id="coverCodeInput" class="pn-input" value="{{ cover_data.code|default:project.code|default:'-' }}" />
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showOrg" checked /> 기관명</label>
         <label class="pn-label">기관명</label>
-        <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
+        <input id="coverOrgInput" class="pn-input" value="{{ cover_data.organization|default:project.organization|default:'-' }}" />
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showManager" checked /> 책임자</label>
         <label class="pn-label">책임자</label>
-        <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
+        <input id="coverManagerInput" class="pn-input" value="{{ cover_data.manager|default:manager_display|default:project.manager }}" />
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showPeriod" checked /> 기간</label>
         <label class="pn-label">시작일</label>
-        <input id="coverStartDateInput" type="date" class="pn-input" value="{{ project.start_date|default:'' }}" />
+        <input id="coverStartDateInput" type="date" class="pn-input" value="{{ cover_data.start_date|default:project.start_date|default:'' }}" />
         <label class="pn-label">종료일</label>
-        <input id="coverEndDateInput" type="date" class="pn-input" value="{{ project.end_date|default:'' }}" />
+        <input id="coverEndDateInput" type="date" class="pn-input" value="{{ cover_data.end_date|default:project.end_date|default:'' }}" />
+        <button id="saveCoverBtn" type="button" class="pn-btn" style="margin-top:8px">저장</button>
+        <div id="coverSaveToast" class="pn-sub"></div>
       </div>
 
       <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
@@ -120,25 +122,25 @@
           <div>
             <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">Electronic Lab Notebook</div>
             <div style="margin-top:12mm;text-align:center;font-size:30px;font-weight:700">연구노트</div>
-            <h1 id="coverTitleText" style="margin:3mm 0 0;text-align:center;font-size:40px;line-height:1.35">{{ project.name }}</h1>
+            <h1 id="coverTitleText" style="margin:3mm 0 0;text-align:center;font-size:40px;line-height:1.35">{{ cover_data.title|default:project.name }}</h1>
           </div>
 
           <table style="width:100%;border-collapse:collapse;font-size:16px">
             <tr id="coverCodeRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
-              <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
+              <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.code|default:project.code|default:'-' }}</td>
             </tr>
             <tr id="coverBusinessRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">사업명</th>
-              <td id="coverBusinessText" style="border:1px solid #cbd5e1;padding:10px">{{ project.business_name|default:'-' }}</td>
+              <td id="coverBusinessText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.business_name|default:project.business_name|default:'-' }}</td>
             </tr>
             <tr id="coverOrgRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
-              <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
+              <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.organization|default:project.organization|default:'-' }}</td>
             </tr>
             <tr id="coverManagerRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
-              <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
+              <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.manager|default:manager_display|default:project.manager }}</td>
             </tr>
             <tr id="coverPeriodRow">
               <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기간</th>
@@ -223,12 +225,59 @@
     update();
   }
 
+  const visibilityDefaults = {
+    showBusinessName: {{ cover_data.show_business_name|yesno:"true,false" }},
+    showTitle: {{ cover_data.show_title|yesno:"true,false" }},
+    showCode: {{ cover_data.show_code|yesno:"true,false" }},
+    showOrg: {{ cover_data.show_org|yesno:"true,false" }},
+    showManager: {{ cover_data.show_manager|yesno:"true,false" }},
+    showPeriod: {{ cover_data.show_period|yesno:"true,false" }}
+  };
+
+  function setCheckbox(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!value;
+  }
+
+  setCheckbox('showBusinessName', visibilityDefaults.showBusinessName);
+  setCheckbox('showTitle', visibilityDefaults.showTitle);
+  setCheckbox('showCode', visibilityDefaults.showCode);
+  setCheckbox('showOrg', visibilityDefaults.showOrg);
+  setCheckbox('showManager', visibilityDefaults.showManager);
+  setCheckbox('showPeriod', visibilityDefaults.showPeriod);
+
   bindCoverVisibility('showBusinessName', 'coverBusinessRow');
   bindCoverVisibility('showTitle', 'coverTitleText');
   bindCoverVisibility('showCode', 'coverCodeRow');
   bindCoverVisibility('showOrg', 'coverOrgRow');
   bindCoverVisibility('showManager', 'coverManagerRow');
   bindCoverVisibility('showPeriod', 'coverPeriodRow');
+
+  document.getElementById('saveCoverBtn')?.addEventListener('click', async () => {
+    const formData = new FormData();
+    formData.append('title', coverTitleInput?.value || '');
+    formData.append('code', coverCodeInput?.value || '');
+    formData.append('business_name', coverBusinessInput?.value || '');
+    formData.append('organization', coverOrgInput?.value || '');
+    formData.append('manager', coverManagerInput?.value || '');
+    formData.append('start_date', coverStartDateInput?.value || '');
+    formData.append('end_date', coverEndDateInput?.value || '');
+    formData.append('show_business_name', document.getElementById('showBusinessName')?.checked ? '1' : '0');
+    formData.append('show_title', document.getElementById('showTitle')?.checked ? '1' : '0');
+    formData.append('show_code', document.getElementById('showCode')?.checked ? '1' : '0');
+    formData.append('show_org', document.getElementById('showOrg')?.checked ? '1' : '0');
+    formData.append('show_manager', document.getElementById('showManager')?.checked ? '1' : '0');
+    formData.append('show_period', document.getElementById('showPeriod')?.checked ? '1' : '0');
+
+    const response = await fetch('/api/v1/projects/{{ project.id }}/cover', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json().catch(() => ({}));
+    document.getElementById('coverSaveToast').textContent = response.ok ? (body.message || '저장되었습니다.') : (body.detail || '저장 실패');
+  });
 
 </script>
 {% endblock %}

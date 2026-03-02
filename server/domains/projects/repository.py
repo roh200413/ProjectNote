@@ -140,11 +140,13 @@ class ProjectRepository:
             org = member.user.team.name if member.user.team else "미지정"
             grouped[org].append(
                 {
+                    "id": member.user.id,
                     "name": member.user.display_name,
                     "role": member.role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,
+                    "is_owner": member.user.role == UserAccount.Role.OWNER,
                 }
             )
 

@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import Project, ProjectMember
+from .models import Project, ProjectMember, ProjectNoteCover
 from server.domains.admin.models import UserAccount
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 from server.application.web_support import (
@@ -30,6 +30,24 @@ def _manager_options_for_team(team_id: int | None) -> list[dict]:
         users = users.filter(team_id=team_id)
     users = users.order_by("display_name")
     return [{"username": user.username, "display_name": user.display_name} for user in users]
+
+
+def _cover_to_dict(cover: ProjectNoteCover, project: Project, manager_display: str) -> dict:
+    return {
+        "title": cover.title or project.name,
+        "code": cover.code or project.code,
+        "business_name": cover.business_name or project.business_name,
+        "organization": cover.organization or project.organization,
+        "manager": cover.manager or manager_display,
+        "start_date": cover.start_date.isoformat() if cover.start_date else (project.start_date.isoformat() if project.start_date else ""),
+        "end_date": cover.end_date.isoformat() if cover.end_date else (project.end_date.isoformat() if project.end_date else ""),
+        "show_business_name": cover.show_business_name,
+        "show_title": cover.show_title,
+        "show_code": cover.show_code,
+        "show_org": cover.show_org,
+        "show_manager": cover.show_manager,
+        "show_period": cover.show_period,
+    }
 
 
 @require_GET
@@ -93,7 +111,8 @@ def project_detail_page(request, project_id: str):
     if not project_repository.can_view_project(project_id, profile):
         raise Http404("Project not found")
     try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
+        project_obj = Project.objects.get(id=project_id)
+        project = project_repository.project_to_dict(project_obj)
     except Project.DoesNotExist as exc:
         raise Http404("Project not found") from exc
 
@@ -104,6 +123,19 @@ def project_detail_page(request, project_id: str):
     selected_note_files = research_note_repository.list_note_files(selected_note["id"]) if selected_note else []
     manager_options = _manager_options_for_team(profile.get("team_id"))
     manager_display = next((item["display_name"] for item in manager_options if item["username"] == project.get("manager")), project.get("manager", "-"))
+    cover, _ = ProjectNoteCover.objects.get_or_create(
+        project=project_obj,
+        defaults={
+            "title": project_obj.name,
+            "code": project_obj.code,
+            "business_name": project_obj.business_name,
+            "organization": project_obj.organization,
+            "manager": manager_display,
+            "start_date": project_obj.start_date,
+            "end_date": project_obj.end_date,
+        },
+    )
+    cover_data = _cover_to_dict(cover, project_obj, manager_display)
     return render(
         request,
         "workflow/project_detail.html",
@@ -117,6 +149,7 @@ def project_detail_page(request, project_id: str):
                 "selected_note_files": selected_note_files,
                 "manager_options": manager_options,
                 "manager_display": manager_display,
+                "cover_data": cover_data,
             },
         ),
     )
@@ -325,6 +358,51 @@ def project_update_api(request, project_id: str):
 
 
 @require_http_methods(["POST"])
+def project_cover_update_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+    project = Project.objects.filter(id=project_id).first()
+    if not project:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    cover, _ = ProjectNoteCover.objects.get_or_create(project=project)
+
+    def _as_bool(key: str, default: bool) -> bool:
+        raw = str(request.POST.get(key, "")).strip().lower()
+        if raw in {"1", "true", "on", "yes"}:
+            return True
+        if raw in {"0", "false", "off", "no"}:
+            return False
+        return default
+
+    def _as_date(key: str):
+        raw = str(request.POST.get(key, "")).strip()
+        if not raw:
+            return None
+        try:
+            return datetime.strptime(raw, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    cover.title = str(request.POST.get("title", project.name)).strip()
+    cover.code = str(request.POST.get("code", project.code)).strip()
+    cover.business_name = str(request.POST.get("business_name", project.business_name)).strip()
+    cover.organization = str(request.POST.get("organization", project.organization)).strip()
+    cover.manager = str(request.POST.get("manager", project.manager)).strip()
+    cover.start_date = _as_date("start_date")
+    cover.end_date = _as_date("end_date")
+    cover.show_business_name = _as_bool("show_business_name", True)
+    cover.show_title = _as_bool("show_title", True)
+    cover.show_code = _as_bool("show_code", True)
+    cover.show_org = _as_bool("show_org", True)
+    cover.show_manager = _as_bool("show_manager", True)
+    cover.show_period = _as_bool("show_period", True)
+    cover.save()
+    return JsonResponse({"message": "표지 설정이 저장되었습니다."}, status=200)
+
+
+@require_http_methods(["POST"])
 def project_add_researcher_api(request, project_id: str):
     profile = effective_user_profile(request) or {}
     if not project_repository.can_manage_project_members(project_id, profile):
@@ -377,69 +455,6 @@ def project_remove_researcher_api(request, project_id: str):
     membership.delete()
     return JsonResponse({"message": "연구자가 제외되었습니다."}, status=200)
 
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def project_researchers_page(request, project_id: str):
-    try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    return render(
-        request,
-        "workflow/project_researchers.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "researcher_groups": project_repository.project_researcher_groups(project_id),
-            },
-        ),
-    )
-
-
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def project_research_notes_page(request, project_id: str):
-    try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    note_ids = project_repository.project_note_ids(project_id)
-    all_notes = research_note_repository.list_research_notes()
-    project_notes = [note for note in all_notes if note["id"] in note_ids]
-
-    file_rows = []
-    for note in project_notes:
-        for file in research_note_repository.list_note_files(note["id"]):
-            file_rows.append({
-                "note_title": note["title"],
-                "name": file["name"],
-                "format": file["format"],
-                "created": file["created"],
-                "author": file["author"],
-                "note_id": note["id"],
-            })
-
-    return render(
-        request,
-        "workflow/project_research_notes.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "project_notes": project_notes,
-                "project_files": file_rows,
-                "note_count": len(project_notes),
-                "file_count": len(file_rows),
-            },
-        ),
-    )
 
 @require_GET
 def dashboard_summary(_request):
