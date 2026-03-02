@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/v1/projects/<str:project_id>/update", projects_api.project_update_api),
     path("api/v1/projects/<str:project_id>/researchers", projects_api.project_add_researcher_api),
     path("api/v1/projects/<str:project_id>/researchers/remove", projects_api.project_remove_researcher_api),
+    path("api/v1/projects/<str:project_id>/research-notes/upload", projects_api.project_upload_research_note_api),
     path("api/v1/researchers", api.researchers_api),
     path("api/v1/data-updates", api.data_updates_api),
     path("api/v1/final-download", api.final_download_api),
@@ -30,6 +31,7 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
+    path("api/v1/research-notes/<str:note_id>/files/<str:file_id>/update", research_notes_api.research_note_file_update_api),
 
     path("admin/login", auth_api.admin_login_page),
     path("frontend/admin", admin_api.admin_page),
@@ -59,4 +61,5 @@ urlpatterns = [
     path("frontend/research-notes", research_notes_api.research_notes_page),
     path("frontend/research-notes/<str:note_id>", research_notes_api.research_note_detail_page),
     path("frontend/research-notes/<str:note_id>/viewer", research_notes_api.research_note_viewer_page),
+    path("frontend/research-notes/<str:note_id>/files/<str:file_id>/content", research_notes_api.research_note_file_content_page),
 ]

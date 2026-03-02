@@ -11,7 +11,7 @@
   <h2 style="margin:8px 0 12px">{{ project.name }}</h2>
   <div class="pn-sub" style="margin-bottom:8px">집단별 연구자 목록 상세</div>
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
-    <div><div class="pn-sub">책임자</div><strong>{{ project.manager }}</strong></div>
+    <div><div class="pn-sub">책임자</div><strong>{{ manager_display }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
     <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
@@ -35,7 +35,11 @@
       </div>
       <div>
         <label class="pn-label">과제 책임자</label>
-        <input class="pn-input" name="manager" value="{{ project.manager }}" required />
+        <select class="pn-input" name="manager" required>
+          {% for manager in manager_options %}
+          <option value="{{ manager.username }}" {% if manager.username == project.manager %}selected{% endif %}>{{ manager.display_name }} ({{ manager.username }})</option>
+          {% endfor %}
+        </select>
       </div>
     </div>
     <div class="pn-row">
@@ -78,6 +82,56 @@
 </section>
 
 
+<section id="projectCoverSection" class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 10px">표지 편집 (A4 세로)</h3>
+  <div class="pn-sub" style="margin-bottom:10px">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
+
+  <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
+    <div style="display:grid;gap:8px">
+      <label class="pn-label">표지 제목</label>
+      <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
+      <label class="pn-label">과제 번호</label>
+      <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
+      <label class="pn-label">기관명</label>
+      <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
+      <label class="pn-label">책임자</label>
+      <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
+      <label class="pn-label">제출일</label>
+      <input id="coverDateInput" type="date" class="pn-input" value="" />
+    </div>
+
+    <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
+      <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+        <div>
+          <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
+          <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;font-size:16px">
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
+            <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
+            <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
+            <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
+          </tr>
+          <tr>
+            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
+            <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
+          </tr>
+        </table>
+
+        <div style="text-align:center;color:#475569;font-size:14px">ProjectNote</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <script>
   function toggleProjectEdit(show) {
     document.getElementById('projectInfoSection').style.display = show ? 'none' : 'block';
@@ -98,5 +152,36 @@
       setTimeout(() => window.location.reload(), 300);
     }
   });
+  const coverTitleInput = document.getElementById('coverTitleInput');
+  const coverCodeInput = document.getElementById('coverCodeInput');
+  const coverOrgInput = document.getElementById('coverOrgInput');
+  const coverManagerInput = document.getElementById('coverManagerInput');
+  const coverDateInput = document.getElementById('coverDateInput');
+
+  function bindCoverField(input, targetId, fallback='-') {
+    const target = document.getElementById(targetId);
+    if (!input || !target) return;
+    const update = () => {
+      const value = (input.value || '').trim();
+      target.textContent = value || fallback;
+    };
+    input.addEventListener('input', update);
+    update();
+  }
+
+  bindCoverField(coverTitleInput, 'coverTitleText', '{{ project.name|escapejs }}');
+  bindCoverField(coverCodeInput, 'coverCodeText', '-');
+  bindCoverField(coverOrgInput, 'coverOrgText', '-');
+  bindCoverField(coverManagerInput, 'coverManagerText', '-');
+
+  if (coverDateInput) {
+    const dateTarget = document.getElementById('coverDateText');
+    const updateDate = () => {
+      dateTarget.textContent = coverDateInput.value || '-';
+    };
+    coverDateInput.addEventListener('change', updateDate);
+    updateDate();
+  }
+
 </script>
 {% endblock %}
