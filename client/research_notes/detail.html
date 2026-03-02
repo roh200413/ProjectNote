@@ -76,9 +76,11 @@
     <section class="pn-card" style="background:#eef3ff">
       <h4 style="margin-top:0">연구노트 미리보기</h4>
       <div style="min-height:280px;background:#fff;border:1px solid #ced9ef;border-radius:10px;padding:12px">
-        <div class="pn-sub">표지</div>
-        <strong>{{ note.title|truncatechars:36 }}</strong>
-        <div class="pn-sub" style="margin-top:8px">{{ note.owner }} · {{ note.period }}</div>
+        <div class="pn-sub">표지(샘플)</div>
+        <strong style="font-size:18px;color:#5b62a2">연구노트</strong>
+        <div style="margin-top:6px;font-size:13px">연구자명: {{ note.owner }}</div>
+        <div style="font-size:13px">연구과제명: {{ note.title|truncatechars:24 }}</div>
+        <div style="font-size:13px">연구기간: {{ note.period }}</div>
       </div>
     </section>
   </div>
