@@ -32,7 +32,7 @@
           {% endif %}
         </div>
 
-        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:0;align-items:stretch;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;align-items:stretch;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
           <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
             <div style="padding:6px;display:flex;flex-direction:column">
               <div class="pn-sub" style="font-size:11px">작성자</div>
@@ -53,13 +53,15 @@
             <div style="flex:1;display:flex;align-items:center;justify-content:center" class="pn-sub">사인 없음</div>
             {% endif %}
           </div>
-          <div style="padding:6px;border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:flex;flex-direction:column">
-            <div class="pn-sub" style="font-size:11px">점검자</div>
-            <input id="reviewerName" class="pn-input" value="{{ manager_name|default:'미지정' }}" style="margin:auto 0;height:30px" />
-          </div>
-          <div style="padding:6px;border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:flex;flex-direction:column">
-            <div class="pn-sub" style="font-size:11px">점검 일자</div>
-            <input id="reviewerDate" class="pn-input" value="{{ reviewer_date|default:'-' }}" style="margin:auto 0;height:30px" />
+          <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
+            <div style="padding:6px;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">점검자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ manager_name|default:'미지정' }}</div>
+            </div>
+            <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">점검 일자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ reviewer_date|default:'-' }}</div>
+            </div>
           </div>
           <div style="padding:6px;display:flex;flex-direction:column;gap:6px;min-height:20mm">
             <div class="pn-sub" style="font-size:11px">점검자 사인</div>
@@ -80,21 +82,21 @@
     <h3 style="margin-top:0">연구노트 정보 편집</h3>
     <div style="display:grid;gap:8px">
       <label class="pn-sub">제목</label>
-      <input id="editTitle" class="pn-input" value="{{ note.title }}" />
+      <input id="editTitle" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ note.title }}" />
 
       <label class="pn-sub">작성자</label>
-      <input id="editAuthor" class="pn-input" value="{{ file.author|default:'-' }}" />
+      <input id="editAuthor" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ file.author|default:'-' }}" />
 
       <label class="pn-sub">작성일</label>
-      <input id="editCreated" class="pn-input" value="{{ author_date|default:'-' }}" />
+      <input id="editCreated" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ author_date|default:'-' }}" />
 
       <label class="pn-sub">점검자</label>
-      <input class="pn-input" value="{{ manager_name|default:'미지정' }}" readonly />
+      <input class="pn-input" style="width:100%;box-sizing:border-box" value="{{ manager_name|default:'미지정' }}" readonly />
 
       <label class="pn-sub">점검 일자</label>
-      <input class="pn-input" value="{{ reviewer_date|default:'-' }}" readonly />
+      <input class="pn-input" style="width:100%;box-sizing:border-box" value="{{ reviewer_date|default:'-' }}" readonly />
 
-      <button id="saveNoteMetaBtn" class="pn-btn" type="button">저장</button>
+      <button id="saveNoteMetaBtn" class="pn-btn" style="width:100%" type="button">저장</button>
       <div id="saveToast" class="pn-sub"></div>
     </div>
 
