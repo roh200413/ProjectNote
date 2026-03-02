@@ -11,4 +11,3 @@ projectnote.db
 
 # uploaded research-note files (runtime data)
 storage/
-server/note_storage/
