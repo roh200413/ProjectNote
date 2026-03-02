@@ -27,6 +27,19 @@ class ResearchNoteRepository:
     def list_note_folders(self, note_id: str) -> list[str]:
         return list(ResearchNoteFolder.objects.filter(note_id=note_id).order_by("id").values_list("name", flat=True))
 
+    def get_note_file(self, note_id: str, file_id: str) -> dict:
+        file = ResearchNoteFile.objects.get(id=file_id, note_id=note_id)
+        return {"id": str(file.id), "name": file.name, "author": file.author, "format": file.format, "created": file.created}
+
+    def update_note_file(self, note_id: str, file_id: str, author: str | None, created: str | None) -> dict:
+        file = ResearchNoteFile.objects.get(id=file_id, note_id=note_id)
+        if author is not None:
+            file.author = author.strip() or file.author
+        if created is not None:
+            file.created = created.strip() or file.created
+        file.save(update_fields=["author", "created", "updated_at"])
+        return {"id": str(file.id), "name": file.name, "author": file.author, "format": file.format, "created": file.created}
+
     @staticmethod
     def note_to_dict(note: ResearchNote) -> dict:
         return {
