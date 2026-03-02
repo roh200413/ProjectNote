@@ -7,3 +7,8 @@ projectnote.db
 
 .idea/
 *.egg-info/
+.env
+
+# uploaded research-note files (runtime data)
+storage/
+server/note_storage/

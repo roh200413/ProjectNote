@@ -78,6 +78,13 @@ def login_page(request):
         )
 
     if not user.get("is_super_admin") and user.get("team") in {None, "-", ""}:
+        if bool(user.get("requested_team_name")) and not bool(user.get("is_approved", False)):
+            return render(
+                request,
+                "auth/login.html",
+                {"error": "관리자 승인 대기 중입니다.", "next": next_url},
+                status=403,
+            )
         return render(
             request,
             "auth/login.html",
