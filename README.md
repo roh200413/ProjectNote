@@ -131,7 +131,13 @@ python manage.py check
 ```
 
 ## 환경 변수
-`.env.example` 파일을 참고하세요.
+`.env.example` 파일을 복사해 `.env`를 만든 뒤 사용하세요.
+
+```bash
+cp .env.example .env
+```
+
+- `RESEARCH_NOTES_STORAGE_ROOT`: 연구노트 파일 저장 경로(파일시스템 절대경로 권장)
 
 ## 슈퍼 어드민 계정 관리(JSON)
 - 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `server/super_admin_accounts.json`에서 관리합니다.
