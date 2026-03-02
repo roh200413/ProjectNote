@@ -76,7 +76,11 @@ def project_create_page(request):
         "workflow/project_create.html",
         page_context(
             request,
-            {"user_groups": admin_repository.user_groups_for_selection(request.session.get("user_profile", {}).get("team_id"))},
+            {
+                "user_groups": admin_repository.user_groups_for_selection(team_id),
+                "manager_options": manager_options,
+                "default_manager": default_manager,
+            },
         ),
     )
 
@@ -225,6 +229,109 @@ def project_research_notes_page(request, project_id: str):
 
 
 
+@require_http_methods(["POST"])
+def project_upload_research_note_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    upload = request.FILES.get("research_note_file")
+    if not upload:
+        return JsonResponse({"message": "업로드할 파일이 없습니다."}, status=400)
+
+    safe_name = Path(upload.name).name
+    extension = Path(safe_name).suffix.lstrip(".").lower()
+    allowed_extensions = {
+        "jpeg", "jpg", "png", "svg", "tiff", "webp", "heif", "heic", "doc", "docx", "pptx", "ppt", "xls", "xlsx", "pdf"
+    }
+    if extension not in allowed_extensions:
+        return JsonResponse({"message": "지원하지 않는 파일 형식입니다."}, status=400)
+
+    owner_name = str(profile.get("name") or profile.get("username") or "미지정").strip() or "미지정"
+    title = str(request.POST.get("title", "")).strip() or safe_name
+    summary = str(request.POST.get("summary", "")).strip()
+    author = str(request.POST.get("author", owner_name)).strip() or owner_name
+
+    now = datetime.now(timezone.utc)
+
+    def _display_datetime(value: str | None) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return now.strftime("%Y.%m.%d / %I:%M %p")
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return now.strftime("%Y.%m.%d / %I:%M %p")
+        return parsed.strftime("%Y.%m.%d / %I:%M %p")
+
+    created_text = _display_datetime(request.POST.get("created_at"))
+    updated_text = _display_datetime(request.POST.get("updated_at"))
+
+    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
+    note = ResearchNote.objects.create(
+        project=project,
+        title=title,
+        owner=owner_name,
+        project_code=project.code,
+        period=updated_text,
+        files=1,
+        members=1,
+        summary=summary,
+    )
+
+    username = str(profile.get("username") or "anonymous").strip() or "anonymous"
+    note_folder = storage_root / username / str(note.id)
+    note_folder.mkdir(parents=True, exist_ok=True)
+    target_path = note_folder / safe_name
+    with target_path.open("wb") as destination:
+        for chunk in upload.chunks():
+            destination.write(chunk)
+
+    ResearchNoteFile.objects.create(
+        note=note,
+        name=safe_name,
+        author=author,
+        format=extension,
+        created=created_text,
+    )
+    ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
+
+    return JsonResponse({"message": "연구파일이 등록되었습니다.", "note_id": str(note.id)}, status=201)
+
+
+@require_http_methods(["POST"])
+def project_update_api(request, project_id: str):
+    payload = request.POST.copy()
+    try:
+        updated = project_repository.update_project(project_id, {
+            "name": payload.get("name", ""),
+            "manager": payload.get("manager", ""),
+            "organization": payload.get("organization", ""),
+            "code": payload.get("code", ""),
+            "description": payload.get("description", ""),
+            "start_date": payload.get("start_date", ""),
+            "end_date": payload.get("end_date", ""),
+            "status": payload.get("status", "draft"),
+        })
+    except ValueError as exc:
+        return JsonResponse({"detail": str(exc)}, status=404)
+    return JsonResponse(updated)
+
+
+@require_http_methods(["POST"])
+def project_add_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    user_id = request.POST.get("user_id", "")
+    if not str(user_id).isdigit():
+        return JsonResponse({"detail": "유효한 연구원을 선택하세요."}, status=400)
 
 @require_GET
 @ensure_csrf_cookie
