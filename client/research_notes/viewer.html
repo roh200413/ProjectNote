@@ -17,7 +17,6 @@
           <div>
             <h3 style="margin:0 0 6px">{{ note.title }}</h3>
           </div>
-          <div class="pn-sub">작성자: {{ file.author }}</div>
         </div>
 
         <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;flex:1;min-height:220mm;background:#fff">
@@ -60,15 +59,11 @@
   </section>
 
   <aside class="pn-card">
-    <h3 style="margin-top:0">파일 정보 편집</h3>
+    <h3 style="margin-top:0">연구노트 정보 편집</h3>
     <div style="display:grid;gap:8px">
-      <label class="pn-sub">파일명</label>
-      <input class="pn-input" value="{{ file.name }}" readonly />
-      <label class="pn-sub">작성자</label>
-      <input id="editAuthor" class="pn-input" value="{{ file.author }}" />
-      <label class="pn-sub">작성일</label>
-      <input id="editCreated" class="pn-input" value="{{ file.created }}" placeholder="예: 2026.03.02 / 10:30 AM" />
-      <button id="saveFileMetaBtn" class="pn-btn" type="button">저장</button>
+      <label class="pn-sub">제목</label>
+      <input id="editTitle" class="pn-input" value="{{ note.title }}" />
+      <button id="saveNoteMetaBtn" class="pn-btn" type="button">저장</button>
       <div id="saveToast" class="pn-sub"></div>
     </div>
 
@@ -85,12 +80,12 @@
     return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
   }
 
-  document.getElementById('saveFileMetaBtn').addEventListener('click', async () => {
+  document.getElementById('saveNoteMetaBtn').addEventListener('click', async () => {
     const formData = new FormData();
-    formData.append('author', document.getElementById('editAuthor').value.trim());
-    formData.append('created', document.getElementById('editCreated').value.trim());
+    formData.append('title', document.getElementById('editTitle').value.trim());
+    formData.append('summary', '{{ note.summary|default:""|escapejs }}');
 
-    const response = await fetch('/api/v1/research-notes/{{ note.id }}/files/{{ file.id }}/update', {
+    const response = await fetch('/api/v1/research-notes/{{ note.id }}/update', {
       method: 'POST',
       headers: {'X-CSRFToken': getCsrfToken()},
       body: formData,
