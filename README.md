@@ -137,7 +137,10 @@ python manage.py check
 touch .env
 ```
 
-- `RESEARCH_NOTES_STORAGE_ROOT`: 연구노트 파일 저장 경로(파일시스템 절대경로 권장)
+- `RESEARCH_NOTES_STORAGE_MODE`: `internal` 또는 `external` (기본값: `internal`)
+  - `internal`: `server/config/settings.py`에 정의된 고정 루트(`server/note_storage`) 사용
+  - `external`: `.env`의 `RESEARCH_NOTES_STORAGE_ROOT` 경로 사용
+- `RESEARCH_NOTES_STORAGE_ROOT`: `RESEARCH_NOTES_STORAGE_MODE=external`일 때 사용할 연구노트 파일 저장 경로
 
 ## 슈퍼 어드민 계정 관리(JSON)
 - 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `server/super_admin_accounts.json`에서 관리합니다.

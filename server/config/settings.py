@@ -67,7 +67,14 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
-RESEARCH_NOTES_STORAGE_ROOT = os.getenv(
-    "RESEARCH_NOTES_STORAGE_ROOT", str(PROJECT_ROOT / "storage" / "research_notes")
-)
+RESEARCH_NOTES_STORAGE_FIXED_ROOT = BASE_DIR / "note_storage"
+RESEARCH_NOTES_STORAGE_MODE = os.getenv("RESEARCH_NOTES_STORAGE_MODE", "internal").strip().lower()
+
+if RESEARCH_NOTES_STORAGE_MODE == "external":
+    RESEARCH_NOTES_STORAGE_ROOT = os.getenv(
+        "RESEARCH_NOTES_STORAGE_ROOT", str(PROJECT_ROOT / "storage" / "research_notes")
+    )
+else:
+    RESEARCH_NOTES_STORAGE_ROOT = str(RESEARCH_NOTES_STORAGE_FIXED_ROOT)
+
 Path(RESEARCH_NOTES_STORAGE_ROOT).mkdir(parents=True, exist_ok=True)
