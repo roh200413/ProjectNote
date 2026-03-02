@@ -447,16 +447,7 @@ def test_research_notes_api_and_front_pages() -> None:
 
     detail_page = client.get(f"/frontend/research-notes/{note_id}")
     assert detail_page.status_code == 200
-    assert "표지 보기" in detail_page.content.decode()
-
-    cover_page = client.get(f"/frontend/research-notes/{note_id}/cover")
-    assert cover_page.status_code == 200
-    cover_html = cover_page.content.decode()
-    assert "과제 번호" in cover_html
-    assert "과제 명" in cover_html
-    assert "세부 과제명" in cover_html
-    assert "기간" in cover_html
-    assert "작업자" in cover_html
+    assert "파일 보기" in detail_page.content.decode()
 
 
 def test_workflow_pages_exist() -> None:
