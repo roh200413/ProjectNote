@@ -67,6 +67,39 @@ def research_note_detail_page(request, note_id: str):
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
+def research_note_cover_page(request, note_id: str):
+    note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
+    if not note_obj:
+        raise Http404("Research note not found")
+
+    note = research_note_repository.get_research_note(note_id)
+    project = note_obj.project
+    period_text = note.get("period", "-")
+    if project and (project.start_date or project.end_date):
+        start = project.start_date.isoformat() if project.start_date else "-"
+        end = project.end_date.isoformat() if project.end_date else "-"
+        period_text = f"{start} ~ {end}"
+
+    return render(
+        request,
+        "research_notes/cover.html",
+        page_context(
+            request,
+            {
+                "note": note,
+                "project_code": project.code if project and project.code else note.get("project_code") or "-",
+                "project_name": project.name if project and project.name else "-",
+                "sub_project_name": note.get("title") or "-",
+                "period": period_text,
+                "worker": note.get("owner") or "-",
+            },
+        ),
+    )
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
 def research_note_viewer_page(request, note_id: str):
     try:
         note = research_note_repository.get_research_note(note_id)
