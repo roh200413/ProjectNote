@@ -228,6 +228,7 @@ def project_research_notes_page(request, project_id: str):
                 "created": file["created"],
                 "author": file["author"],
                 "note_id": note["id"],
+                "file_id": file["id"],
             })
 
     author_options = []
@@ -260,6 +261,75 @@ def project_research_notes_page(request, project_id: str):
         ),
     )
 
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def project_research_notes_print_page(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        raise Http404("Project not found")
+
+    try:
+        project_obj = Project.objects.get(id=project_id)
+        project = project_repository.project_to_dict(project_obj)
+    except Project.DoesNotExist as exc:
+        raise Http404("Project not found") from exc
+
+    note_ids = project_repository.project_note_ids(project_id)
+    all_notes = research_note_repository.list_research_notes()
+    project_notes = [note for note in all_notes if note["id"] in note_ids]
+
+    manager_display = project.get("manager", "-")
+    cover, _ = ProjectNoteCover.objects.get_or_create(
+        project=project_obj,
+        defaults={
+            "title": project_obj.name,
+            "code": project_obj.code,
+            "business_name": project_obj.business_name,
+            "organization": project_obj.organization,
+            "manager": manager_display,
+            "start_date": project_obj.start_date,
+            "end_date": project_obj.end_date,
+        },
+    )
+    cover_data = _cover_to_dict(cover, project_obj, manager_display)
+
+    def _period_text() -> str:
+        if not cover_data.get("show_period"):
+            return ""
+        start = str(cover_data.get("start_date") or "").strip()
+        end = str(cover_data.get("end_date") or "").strip()
+        if start and end:
+            return f"{start} ~ {end}"
+        return start or end
+
+    printable_files = []
+    for note in project_notes:
+        for file in research_note_repository.list_note_files(note["id"]):
+            printable_files.append(
+                {
+                    "note_title": note["title"],
+                    "name": file["name"],
+                    "format": file["format"],
+                    "content_url": f"/frontend/research-notes/{note['id']}/files/{file['id']}/content",
+                }
+            )
+
+    return render(
+        request,
+        "workflow/project_research_notes_print.html",
+        page_context(
+            request,
+            {
+                "project": project,
+                "cover_data": cover_data,
+                "period_text": _period_text(),
+                "printable_files": printable_files,
+            },
+        ),
+    )
 
 
 @require_http_methods(["POST"])

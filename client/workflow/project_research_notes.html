@@ -6,9 +6,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
     <h3 style="margin:0">연구파일 ({{ file_count }})</h3>
     <div style="display:flex;gap:8px">
-      <button class="pn-btn ghost" type="button">파일 이동</button>
-      <button class="pn-btn ghost" type="button">파일 삭제</button>
-      <button class="pn-btn" id="openUploadModalBtn" type="button">연구파일 추가</button>
+      <a class="pn-btn" style="text-decoration:none" href="/frontend/projects/{{ project.id }}/research-notes/print" target="_blank">연구노트 출력하기</a>
     </div>
   </div>
 
