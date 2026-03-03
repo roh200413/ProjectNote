@@ -22,6 +22,7 @@ class ProjectService:
         payload = CreateProjectPayload(
             name=post_data.get("name", "새 프로젝트"),
             manager=post_data.get("manager", "미지정"),
+            business_name=post_data.get("business_name", ""),
             organization=post_data.get("organization", "미지정"),
             company_id=int(post_data.get("company_id")) if str(post_data.get("company_id", "")).isdigit() else None,
             code=post_data.get("code", ""),
@@ -35,6 +36,7 @@ class ProjectService:
         command = CreateProjectCommand(
             name=payload.name,
             manager=payload.manager,
+            business_name=payload.business_name,
             organization=payload.organization,
             company_id=payload.company_id,
             code=payload.code,
