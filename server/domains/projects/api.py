@@ -1,12 +1,16 @@
 import uuid
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
-from django.http import Http404, JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
+from pypdf import PdfReader, PdfWriter
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 from .models import Project, ProjectMember, ProjectNoteCover
 from server.domains.admin.models import UserAccount
@@ -330,6 +334,110 @@ def project_research_notes_print_page(request, project_id: str):
             },
         ),
     )
+
+
+@require_GET
+def project_research_notes_export_pdf_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    project_obj = Project.objects.filter(id=project_id).first()
+    if not project_obj:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    project = project_repository.project_to_dict(project_obj)
+    manager_display = project.get("manager", "-")
+    cover, _ = ProjectNoteCover.objects.get_or_create(
+        project=project_obj,
+        defaults={
+            "title": project_obj.name,
+            "code": project_obj.code,
+            "business_name": project_obj.business_name,
+            "organization": project_obj.organization,
+            "manager": manager_display,
+            "start_date": project_obj.start_date,
+            "end_date": project_obj.end_date,
+        },
+    )
+    cover_data = _cover_to_dict(cover, project_obj, manager_display)
+
+    # 1) 표지 PDF(A4)를 먼저 생성
+    cover_buffer = BytesIO()
+    c = canvas.Canvas(cover_buffer, pagesize=A4)
+    w, h = A4
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
+    c.setFont("Helvetica-Bold", 26)
+    c.drawCentredString(w / 2, h - 130, "연구노트")
+    if cover_data.get("show_title"):
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
+
+    lines = []
+    if cover_data.get("show_business_name"):
+        lines.append(("사업명", str(cover_data.get("business_name") or "-")))
+    if cover_data.get("show_code"):
+        lines.append(("과제 번호", str(cover_data.get("code") or "-")))
+    if cover_data.get("show_org"):
+        lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
+    if cover_data.get("show_manager"):
+        lines.append(("작업자", str(cover_data.get("manager") or "-")))
+    if cover_data.get("show_period"):
+        start = str(cover_data.get("start_date") or "").strip()
+        end = str(cover_data.get("end_date") or "").strip()
+        period = f"{start} ~ {end}" if start and end else (start or end or "-")
+        lines.append(("기간", period))
+
+    y = h - 240
+    c.setFont("Helvetica", 12)
+    for label, value in lines:
+        c.drawString(70, y, f"{label}:")
+        c.drawString(150, y, value)
+        y -= 24
+
+    footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
+    c.showPage()
+    c.save()
+    cover_buffer.seek(0)
+
+    # 2) PDF 단순 병합 (표지 + 각 연구파일 PDF)
+    writer = PdfWriter()
+    writer.append(PdfReader(cover_buffer))
+
+    note_ids = project_repository.project_note_ids(project_id)
+    all_notes = research_note_repository.list_research_notes()
+    project_notes = [note for note in all_notes if note["id"] in note_ids]
+
+    appended = 0
+    for note in project_notes:
+        for file in research_note_repository.list_note_files(note["id"]):
+            if str(file.get("format", "")).lower() != "pdf":
+                continue
+            safe_name = Path(file["name"]).name
+            candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note["id"])]
+            if not candidates:
+                storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
+                candidates = list(storage_root.glob(f"*/{note['id']}/{safe_name}"))
+            source = next((cpath for cpath in candidates if cpath.exists() and cpath.is_file()), None)
+            if not source:
+                continue
+            try:
+                with source.open("rb") as f:
+                    writer.append(PdfReader(f))
+                    appended += 1
+            except Exception:
+                continue
+
+    output = BytesIO()
+    writer.write(output)
+    output.seek(0)
+    filename = f"project_{project_id}_research_notes.pdf"
+    response = FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
+    response["X-Appended-Pdf-Count"] = str(appended)
+    return response
 
 
 @require_http_methods(["POST"])

@@ -21,6 +21,7 @@ urlpatterns = [
     path("api/v1/projects/<str:project_id>/researchers", projects_api.project_add_researcher_api),
     path("api/v1/projects/<str:project_id>/researchers/remove", projects_api.project_remove_researcher_api),
     path("api/v1/projects/<str:project_id>/research-notes/upload", projects_api.project_upload_research_note_api),
+    path("api/v1/projects/<str:project_id>/research-notes/export-pdf", projects_api.project_research_notes_export_pdf_api),
     path("api/v1/researchers", api.researchers_api),
     path("api/v1/data-updates", api.data_updates_api),
     path("api/v1/final-download", api.final_download_api),
