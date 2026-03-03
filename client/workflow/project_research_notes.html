@@ -6,7 +6,8 @@
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
     <h3 style="margin:0">연구파일 ({{ file_count }})</h3>
     <div style="display:flex;gap:8px">
-      <a class="pn-btn" style="text-decoration:none" href="/frontend/projects/{{ project.id }}/research-notes/print" target="_blank">연구노트 출력하기</a>
+      <button type="button" class="pn-btn" id="openPrintSelectionBtn">연구노트 출력하기</button>
+      <button type="button" class="pn-btn ghost" id="printSelectedBtn" style="display:none">선택 항목 병합 출력</button>
     </div>
   </div>
 
@@ -20,6 +21,7 @@
   <table class="pn-table" style="margin-top:12px">
     <thead>
       <tr>
+        <th id="printSelectHeader" style="display:none;width:42px">선택</th>
         <th>연구파일 정보</th>
         <th>형식</th>
         <th>작성일자</th>
@@ -30,6 +32,14 @@
     <tbody>
       {% for file in project_files %}
       <tr>
+        <td class="print-select-cell" style="display:none;text-align:center">
+          <input
+            type="checkbox"
+            class="print-select-checkbox"
+            value="{{ file.note_id }}:{{ file.file_id }}"
+            aria-label="{{ file.name }} 선택"
+          />
+        </td>
         <td>[{{ file.note_title }}] {{ file.name }}</td>
         <td>{{ file.format }}</td>
         <td>{{ file.created }}</td>
@@ -37,7 +47,7 @@
         <td><a href="/frontend/research-notes/{{ file.note_id }}/viewer">열기</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="5" class="pn-sub">등록된 연구파일이 없습니다.</td></tr>
+      <tr><td colspan="6" class="pn-sub">등록된 연구파일이 없습니다.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -74,6 +84,11 @@
   const fileInput = document.getElementById('projectFileInput');
   const openUploadModalBtn = document.getElementById('openUploadModalBtn');
   const uploadToast = document.getElementById('uploadToast');
+  const openPrintSelectionBtn = document.getElementById('openPrintSelectionBtn');
+  const printSelectedBtn = document.getElementById('printSelectedBtn');
+  const printSelectHeader = document.getElementById('printSelectHeader');
+  const printSelectCells = Array.from(document.querySelectorAll('.print-select-cell'));
+  const printCheckboxes = Array.from(document.querySelectorAll('.print-select-checkbox'));
   const modal = document.getElementById('researchFileMetaModal');
   const selectedFileNameText = document.getElementById('selectedFileNameText');
   const saveMetaBtn = document.getElementById('saveMetaBtn');
@@ -81,6 +96,7 @@
 
   const allowedExtensions = new Set(['jpeg','jpg','png','svg','tiff','webp','heif','heic','doc','docx','pptx','ppt','xls','xlsx','pdf']);
   let selectedFile = null;
+  let printSelectionMode = false;
 
   function getCsrfToken() {
     const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
@@ -129,8 +145,47 @@
   }
 
   dropzone.addEventListener('click', () => fileInput.click());
-  openUploadModalBtn.addEventListener('click', () => fileInput.click());
+  if (openUploadModalBtn) {
+    openUploadModalBtn.addEventListener('click', () => fileInput.click());
+  }
   fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+  function setPrintSelectionMode(enabled) {
+    printSelectionMode = enabled;
+    printSelectHeader.style.display = enabled ? '' : 'none';
+    printSelectCells.forEach(cell => {
+      cell.style.display = enabled ? '' : 'none';
+    });
+    if (!enabled) {
+      printCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+      printSelectedBtn.style.display = 'none';
+      openPrintSelectionBtn.textContent = '연구노트 출력하기';
+      return;
+    }
+    printSelectedBtn.style.display = '';
+    openPrintSelectionBtn.textContent = '선택 취소';
+  }
+
+  openPrintSelectionBtn.addEventListener('click', () => {
+    setPrintSelectionMode(!printSelectionMode);
+  });
+
+  printSelectedBtn.addEventListener('click', () => {
+    const selected = printCheckboxes
+      .filter(checkbox => checkbox.checked)
+      .map(checkbox => checkbox.value);
+
+    if (!selected.length) {
+      uploadToast.textContent = '출력할 연구파일을 선택해주세요.';
+      return;
+    }
+
+    const params = new URLSearchParams();
+    selected.forEach(value => params.append('selected_file', value));
+    window.open(`/api/v1/projects/{{ project.id }}/research-notes/export-pdf?${params.toString()}`, '_blank');
+  });
 
   dropzone.addEventListener('dragover', e => {
     e.preventDefault();

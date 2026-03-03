@@ -35,7 +35,7 @@
 </head>
 <body>
   <div class="print-tools" style="position:sticky;top:0;background:#fff;padding:10px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;z-index:20">
-    <button id="exportSnapshotPdfBtn" type="button" style="border:none;background:#2563eb;color:#fff;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer">PDF 다운로드(화면 그대로 취합)</button>
+    <a href="/api/v1/projects/{{ project.id }}/research-notes/export-pdf" style="border:none;background:#2563eb;color:#fff;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;text-decoration:none">PDF 병합 출력</a>
   </div>
 
   <section class="sheet cover page-break export-page">
@@ -124,62 +124,6 @@
       <div class="empty">출력할 연구파일이 없습니다.</div>
     </section>
   {% endif %}
-
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script>
-    function getCsrfToken() {
-      const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
-      return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
-    }
-
-    async function captureExportPagesAsImages() {
-      const pages = Array.from(document.querySelectorAll('.export-page'));
-      const images = [];
-      for (const page of pages) {
-        const canvas = await window.html2canvas(page, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-        images.push(canvas.toDataURL('image/png'));
-      }
-      return images;
-    }
-
-    document.getElementById('exportSnapshotPdfBtn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('exportSnapshotPdfBtn');
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'PDF 생성 중...';
-      try {
-        const pageImages = await captureExportPagesAsImages();
-        const response = await fetch('/api/v1/projects/{{ project.id }}/research-notes/export-pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken(),
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify({ page_images: pageImages }),
-        });
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          alert(body.detail || 'PDF 생성 실패');
-          return;
-        }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'research_notes_snapshot.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch (_err) {
-        alert('PDF 생성 중 오류가 발생했습니다.');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original;
-      }
-    });
-  </script>
 
 </body>
 </html>

@@ -541,12 +541,27 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     all_notes = research_note_repository.list_research_notes()
     project_notes = [note for note in all_notes if note["id"] in note_ids]
 
+    selected_pairs = set()
+    for raw in request.GET.getlist("selected_file"):
+        token = str(raw or "").strip()
+        if ":" not in token:
+            continue
+        note_id, file_id = token.split(":", 1)
+        note_id = note_id.strip()
+        file_id = file_id.strip()
+        if note_id and file_id:
+            selected_pairs.add((note_id, file_id))
+
     merged_files = 0
     total_files = 0
     image_exts = {"png", "jpg", "jpeg", "webp"}
 
     for note in project_notes:
         for file in research_note_repository.list_note_files(note["id"]):
+            file_id = str(file.get("id") or "").strip()
+            note_id = str(note["id"])
+            if selected_pairs and (note_id, file_id) not in selected_pairs:
+                continue
             total_files += 1
             fmt = str(file.get("format", "")).lower()
             file_title = f"[{note['title']}] {file.get('name', '-') }"
