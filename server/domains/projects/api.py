@@ -384,9 +384,9 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     if cover_data.get("show_manager"):
         lines.append(("작업자", str(cover_data.get("manager") or "-")))
     if cover_data.get("show_period"):
-        start = str(cover_data.get("start_date") or "").strip()
-        end = str(cover_data.get("end_date") or "").strip()
-        period = f"{start} ~ {end}" if start and end else (start or end or "-")
+        start_text = str(cover_data.get("start_date") or "").strip()
+        end_text = str(cover_data.get("end_date") or "").strip()
+        period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
         lines.append(("기간", period))
 
     y = h - 240
@@ -403,7 +403,29 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     c.save()
     cover_buffer.seek(0)
 
-    # 2) PDF 단순 병합 (표지 + 각 연구파일 PDF)
+    def _find_source_file(note_id: str, file_name: str):
+        safe_name = Path(file_name).name
+        candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
+        if not candidates:
+            storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
+            candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
+        return next((candidate for candidate in candidates if candidate.exists() and candidate.is_file()), None)
+
+    def _append_single_page_pdf(title: str, subtitle: str, content_builder):
+        page_buffer = BytesIO()
+        pdf = canvas.Canvas(page_buffer, pagesize=A4)
+        pw, ph = A4
+        pdf.setFont("Helvetica-Bold", 14)
+        pdf.drawString(40, ph - 50, title)
+        pdf.setFont("Helvetica", 11)
+        pdf.drawString(40, ph - 68, subtitle)
+        content_builder(pdf, pw, ph)
+        pdf.showPage()
+        pdf.save()
+        page_buffer.seek(0)
+        writer.append(PdfReader(page_buffer))
+
+    # 2) PDF 단순 병합 (표지 + 각 연구파일을 순서대로)
     writer = PdfWriter()
     writer.append(PdfReader(cover_buffer))
 
@@ -411,32 +433,52 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     all_notes = research_note_repository.list_research_notes()
     project_notes = [note for note in all_notes if note["id"] in note_ids]
 
-    appended = 0
+    merged_files = 0
+    total_files = 0
+    image_exts = {"png", "jpg", "jpeg", "webp"}
+
     for note in project_notes:
         for file in research_note_repository.list_note_files(note["id"]):
-            if str(file.get("format", "")).lower() != "pdf":
-                continue
-            safe_name = Path(file["name"]).name
-            candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note["id"])]
-            if not candidates:
-                storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-                candidates = list(storage_root.glob(f"*/{note['id']}/{safe_name}"))
-            source = next((cpath for cpath in candidates if cpath.exists() and cpath.is_file()), None)
-            if not source:
-                continue
-            try:
-                with source.open("rb") as f:
-                    writer.append(PdfReader(f))
-                    appended += 1
-            except Exception:
-                continue
+            total_files += 1
+            fmt = str(file.get("format", "")).lower()
+            file_title = f"[{note['title']}] {file.get('name', '-') }"
+            source = _find_source_file(note["id"], str(file.get("name", "")))
+
+            if fmt == "pdf" and source:
+                try:
+                    with source.open("rb") as pdf_file:
+                        writer.append(PdfReader(pdf_file))
+                        merged_files += 1
+                    continue
+                except Exception:
+                    pass
+
+            if fmt in image_exts and source:
+                try:
+                    def _draw_image(pdf, pw, ph, source_path=str(source)):
+                        left, bottom, width, height = 40, 80, pw - 80, ph - 170
+                        pdf.drawImage(source_path, left, bottom, width=width, height=height, preserveAspectRatio=True, anchor='c')
+                    _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_image)
+                    merged_files += 1
+                    continue
+                except Exception:
+                    pass
+
+            def _draw_placeholder(pdf, pw, ph, fmt_text=fmt):
+                pdf.setFont("Helvetica", 12)
+                pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt_text or '알수없음'})은 PDF 병합 미지원 형식입니다.")
+                pdf.drawString(40, ph - 130, "원본은 프로젝트 연구노트 화면에서 개별 확인해주세요.")
+
+            _append_single_page_pdf(file_title, f"형식: {fmt.upper() if fmt else '-'}", _draw_placeholder)
+            merged_files += 1
 
     output = BytesIO()
     writer.write(output)
     output.seek(0)
     filename = f"project_{project_id}_research_notes.pdf"
     response = FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
-    response["X-Appended-Pdf-Count"] = str(appended)
+    response["X-Merged-File-Count"] = str(merged_files)
+    response["X-Total-File-Count"] = str(total_files)
     return response
 
 
