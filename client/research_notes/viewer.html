@@ -5,22 +5,19 @@
 <div style="display:flex;gap:8px">
   <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">목록</a>
   <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">원본파일 다운로드</a>
+  <a class="pn-btn" style="text-decoration:none" href="/api/v1/research-notes/{{ note.id }}/viewer-export-pdf?file={{ selected_file.id }}" target="_blank">현재 보기 PDF 저장</a>
 </div>
 {% endblock %}
 {% block content %}
 <div class="pn-grid" style="grid-template-columns:1fr 360px;align-items:start">
   <section class="pn-card" style="padding:0;overflow:hidden">
-    <div style="padding:12px 14px;border-bottom:1px solid var(--line)">
-      <strong>{{ file.name }}</strong>
-    </div>
+    <div style="padding:12px 14px;border-bottom:1px solid var(--line)"><strong>연구노트</strong></div>
     <div style="background:#eef2f8;min-height:600px;padding:18px">
       <section class="pn-card" style="background:#ffffff;width:210mm;min-height:297mm;max-width:100%;margin:0 auto;padding:12mm;box-sizing:border-box;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-          <div>
-            <h3 style="margin:0 0 6px">{{ note.title }}</h3>
-            <div class="pn-sub">파일명: {{ file.name }}</div>
+          <div style="width:100%;border-bottom:1px solid #cbd5e1;padding-bottom:6px">
+            <h3 style="margin:0">{{ note.title }}</h3>
           </div>
-          <div class="pn-sub">작성자: {{ file.author }}</div>
         </div>
 
         <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;flex:1;min-height:220mm;background:#fff">
@@ -36,21 +33,45 @@
           {% endif %}
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
-          <div>
-            <div class="pn-sub">작성자 사인</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;align-items:stretch;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+          <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
+            <div style="padding:6px;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">작성자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ file.author|default:'-' }}</div>
+            </div>
+            <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">작성 일자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ author_date|default:'-' }}</div>
+            </div>
+          </div>
+          <div style="padding:6px;border-right:1px solid #d1d5db;display:flex;flex-direction:column;gap:6px;min-height:20mm">
+            <div class="pn-sub" style="font-size:11px">사인</div>
             {% if author_signature_data_url %}
-            <img src="{{ author_signature_data_url }}" alt="작성자 사인" style="max-width:100%;height:22mm;object-fit:contain;border:1px solid #d1d5db;border-radius:8px;background:#fff" />
+            <div style="flex:1;display:flex;align-items:center;justify-content:center">
+              <img src="{{ author_signature_data_url }}" alt="작성자 사인" style="max-width:100%;height:12mm;object-fit:contain" />
+            </div>
             {% else %}
-            <div class="pn-sub">사인 없음</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center" class="pn-sub">사인 없음</div>
             {% endif %}
           </div>
-          <div>
-            <div class="pn-sub">관리자 사인 ({{ manager_name|default:'미지정' }})</div>
+          <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
+            <div style="padding:6px;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">점검자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ manager_name|default:'미지정' }}</div>
+            </div>
+            <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
+              <div class="pn-sub" style="font-size:11px">점검 일자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ reviewer_date|default:'-' }}</div>
+            </div>
+          </div>
+          <div style="padding:6px;display:flex;flex-direction:column;gap:6px;min-height:20mm">
+            <div class="pn-sub" style="font-size:11px">점검자 사인</div>
             {% if manager_signature_data_url %}
-            <img src="{{ manager_signature_data_url }}" alt="관리자 사인" style="max-width:100%;height:22mm;object-fit:contain;border:1px solid #d1d5db;border-radius:8px;background:#fff" />
+            <div style="flex:1;display:flex;align-items:center;justify-content:center">
+              <img src="{{ manager_signature_data_url }}" alt="점검자 사인" style="max-width:100%;height:12mm;object-fit:contain" />
+            </div>
             {% else %}
-            <div class="pn-sub">사인 없음</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center" class="pn-sub">사인 없음</div>
             {% endif %}
           </div>
         </div>
@@ -59,15 +80,24 @@
   </section>
 
   <aside class="pn-card">
-    <h3 style="margin-top:0">파일 정보 편집</h3>
+    <h3 style="margin-top:0">연구노트 정보 편집</h3>
     <div style="display:grid;gap:8px">
-      <label class="pn-sub">파일명</label>
-      <input class="pn-input" value="{{ file.name }}" readonly />
+      <label class="pn-sub">제목</label>
+      <input id="editTitle" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ note.title }}" />
+
       <label class="pn-sub">작성자</label>
-      <input id="editAuthor" class="pn-input" value="{{ file.author }}" />
+      <input id="editAuthor" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ file.author|default:'-' }}" />
+
       <label class="pn-sub">작성일</label>
-      <input id="editCreated" class="pn-input" value="{{ file.created }}" placeholder="예: 2026.03.02 / 10:30 AM" />
-      <button id="saveFileMetaBtn" class="pn-btn" type="button">저장</button>
+      <input id="editCreated" class="pn-input" style="width:100%;box-sizing:border-box" value="{{ author_date|default:'-' }}" />
+
+      <label class="pn-sub">점검자</label>
+      <input class="pn-input" style="width:100%;box-sizing:border-box" value="{{ manager_name|default:'미지정' }}" readonly />
+
+      <label class="pn-sub">점검 일자</label>
+      <input class="pn-input" style="width:100%;box-sizing:border-box" value="{{ reviewer_date|default:'-' }}" readonly />
+
+      <button id="saveNoteMetaBtn" class="pn-btn" style="width:100%" type="button">저장</button>
       <div id="saveToast" class="pn-sub"></div>
     </div>
 
@@ -84,19 +114,37 @@
     return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
   }
 
-  document.getElementById('saveFileMetaBtn').addEventListener('click', async () => {
-    const formData = new FormData();
-    formData.append('author', document.getElementById('editAuthor').value.trim());
-    formData.append('created', document.getElementById('editCreated').value.trim());
+  document.getElementById('saveNoteMetaBtn').addEventListener('click', async () => {
+    const noteFormData = new FormData();
+    noteFormData.append('title', document.getElementById('editTitle').value.trim());
+    noteFormData.append('summary', '{{ note.summary|default:""|escapejs }}');
 
-    const response = await fetch('/api/v1/research-notes/{{ note.id }}/files/{{ file.id }}/update', {
-      method: 'POST',
-      headers: {'X-CSRFToken': getCsrfToken()},
-      body: formData,
-      credentials: 'same-origin'
-    });
-    const body = await response.json();
-    document.getElementById('saveToast').textContent = body.message || body.detail || '저장 완료';
+    const fileFormData = new FormData();
+    fileFormData.append('author', document.getElementById('editAuthor').value.trim());
+    fileFormData.append('created', document.getElementById('editCreated').value.trim());
+
+    const [noteResponse, fileResponse] = await Promise.all([
+      fetch('/api/v1/research-notes/{{ note.id }}/update', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: noteFormData,
+        credentials: 'same-origin'
+      }),
+      fetch('/api/v1/research-notes/{{ note.id }}/files/{{ file.id }}/update', {
+        method: 'POST',
+        headers: {'X-CSRFToken': getCsrfToken()},
+        body: fileFormData,
+        credentials: 'same-origin'
+      }),
+    ]);
+
+    const noteBody = await noteResponse.json();
+    const fileBody = await fileResponse.json();
+    if (noteResponse.ok && fileResponse.ok) {
+      document.getElementById('saveToast').textContent = noteBody.message || '저장 완료';
+      return;
+    }
+    document.getElementById('saveToast').textContent = noteBody.detail || fileBody.detail || '저장 중 오류가 발생했습니다.';
   });
 </script>
 {% endblock %}
