@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>연구노트 출력</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    body { margin:0; font-family:Pretendard,Inter,Arial,sans-serif; color:#0f172a; background:#f1f5f9; }
+    .page-break { page-break-after: always; }
+    .sheet { width:210mm; min-height:297mm; background:#fff; margin:12px auto; padding:14mm; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; }
+    .cover { min-height: 269mm; display:flex; flex-direction:column; }
+    .cover-sub { text-align:center; font-size:30px; font-weight:700; margin-top:18mm; }
+    .cover-title { text-align:center; font-size:40px; line-height:1.35; margin:3mm 0 0; }
+    .meta { margin-top:auto; width:100%; border-collapse:collapse; }
+    .meta th,.meta td { border:1px solid #cbd5e1; padding:8px; font-size:14px; }
+    .meta th { background:#f8fafc; width:22%; text-align:left; }
+    .doc { min-height: 269mm; }
+    .doc h3 { margin:0 0 6px; font-size:18px; }
+    .doc-sub { color:#64748b; font-size:12px; margin-bottom:6px; }
+    iframe, img { width:100%; border:1px solid #d1d5db; border-radius:8px; }
+    iframe { min-height:230mm; }
+    img { max-height:240mm; object-fit:contain; }
+    .empty { padding:24px; border:1px dashed #94a3b8; border-radius:10px; text-align:center; color:#64748b; }
+    .sign-grid { margin-top:8px; display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #d1d5db; border-radius:8px; overflow:hidden; }
+    .sign-cell { min-height:42mm; border-right:1px solid #d1d5db; padding:6px; box-sizing:border-box; }
+    .sign-cell:last-child { border-right:none; }
+    .sign-label { font-size:11px; color:#64748b; }
+    .sign-value { margin-top:8px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; min-height:28mm; }
+    .sign-value img { max-width:100%; max-height:24mm; border:none; }
+    @media print {
+      .print-tools { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-tools" style="position:sticky;top:0;background:#fff;padding:10px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;z-index:20">
+    <a href="/api/v1/projects/{{ project.id }}/research-notes/export-pdf" style="border:none;background:#2563eb;color:#fff;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;text-decoration:none">PDF 다운로드(단순 병합)</a>
+  </div>
+
+  <section class="sheet cover page-break">
+    <div style="text-align:center;color:#2563eb;font-size:18px;font-weight:700">Electronic Lab Notebook</div>
+    <div class="cover-sub">연구노트</div>
+    {% if cover_data.show_title %}
+    <h1 class="cover-title">{{ cover_data.title }}</h1>
+    {% endif %}
+
+    <table class="meta">
+      {% if cover_data.show_business_name %}
+      <tr><th>사업명</th><td>{{ cover_data.business_name|default:'-' }}</td></tr>
+      {% endif %}
+      {% if cover_data.show_code %}
+      <tr><th>과제 번호</th><td>{{ cover_data.code|default:'-' }}</td></tr>
+      {% endif %}
+      {% if cover_data.show_org %}
+      <tr><th>담당 기관</th><td>{{ cover_data.organization|default:'-' }}</td></tr>
+      {% endif %}
+      {% if cover_data.show_manager %}
+      <tr><th>작업자</th><td>{{ cover_data.manager|default:'-' }}</td></tr>
+      {% endif %}
+      {% if cover_data.show_period %}
+      <tr><th>기간</th><td>{{ period_text|default:'-' }}</td></tr>
+      {% endif %}
+    </table>
+
+    <div style="margin-top:10mm;text-align:center;color:#475569;font-size:14px">ProjectNote - {{ current_user.team|default:current_user.organization|default:'미지정' }}</div>
+  </section>
+
+  {% if printable_files %}
+    {% for file in printable_files %}
+      <section class="sheet doc {% if not forloop.last %}page-break{% endif %}">
+        <h3>[{{ file.note_title }}] {{ file.name }}</h3>
+        <div class="doc-sub">형식: {{ file.format|upper }}</div>
+        {% if file.format == 'pdf' %}
+          <iframe src="{{ file.content_url }}#toolbar=0"></iframe>
+        {% elif file.format == 'png' or file.format == 'jpg' or file.format == 'jpeg' or file.format == 'webp' or file.format == 'svg' or file.format == 'heic' or file.format == 'heif' %}
+          <img src="{{ file.content_url }}" alt="{{ file.name }}" />
+        {% else %}
+          <div class="empty">해당 형식({{ file.format }})은 미리보기를 지원하지 않습니다. 파일 원본으로 확인해주세요.</div>
+        {% endif %}
+
+        <div class="sign-grid">
+          <div class="sign-cell">
+            <div class="sign-label">작성자 / 작성일</div>
+            <div class="sign-value">{{ file.author|default:'-' }}<br/>{{ file.created|default:'-' }}</div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">작성자 사인</div>
+            <div class="sign-value">
+              {% if file.author_signature_data_url %}
+                <img src="{{ file.author_signature_data_url }}" alt="작성자 사인" />
+              {% else %}
+                사인 없음
+              {% endif %}
+            </div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">점검자 / 점검일자</div>
+            <div class="sign-value">{{ file.manager_name|default:'-' }}<br/>{{ file.reviewer_date|default:'-' }}</div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">점검자 사인</div>
+            <div class="sign-value">
+              {% if file.manager_signature_data_url %}
+                <img src="{{ file.manager_signature_data_url }}" alt="점검자 사인" />
+              {% else %}
+                사인 없음
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+    {% endfor %}
+  {% else %}
+    <section class="sheet doc">
+      <div class="empty">출력할 연구파일이 없습니다.</div>
+    </section>
+  {% endif %}
+
+</body>
+</html>

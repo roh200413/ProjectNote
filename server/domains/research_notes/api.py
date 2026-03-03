@@ -1,4 +1,5 @@
 import mimetypes
+from datetime import datetime
 from pathlib import Path
 
 from django.conf import settings
@@ -98,6 +99,7 @@ def research_note_viewer_page(request, note_id: str):
 
     author_signature = signature_repository.read_signature(author_user.username) if author_user else {"signature_data_url": ""}
     manager_signature = signature_repository.read_signature(manager_user.username) if manager_user else {"signature_data_url": ""}
+    reviewer_date = datetime.now().strftime("%Y.%m.%d / %I:%M %p")
 
     return render(
         request,
@@ -114,6 +116,8 @@ def research_note_viewer_page(request, note_id: str):
                 "manager_name": manager_user.display_name if manager_user else manager_raw,
                 "author_signature_data_url": author_signature.get("signature_data_url", ""),
                 "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
+                "author_date": selected_file.get("created", "-"),
+                "reviewer_date": reviewer_date,
             },
         ),
     )
