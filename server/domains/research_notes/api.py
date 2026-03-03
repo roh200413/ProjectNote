@@ -213,6 +213,8 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
 
 
 @require_GET
+@ensure_csrf_cookie
+@login_required_page
 def research_note_viewer_export_pdf_api(request, note_id: str):
     try:
         note = research_note_repository.get_research_note(note_id)
@@ -246,18 +248,13 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
     author_name = str(selected_file.get("author") or "-")
     created_text = str(selected_file.get("created") or "-")
 
-    author_user = UserAccount.objects.filter(username=author_name).first()
-    if not author_user:
-        author_user = UserAccount.objects.filter(display_name=author_name).first()
-
-    manager_user = UserAccount.objects.filter(username=manager_raw).first()
-    if not manager_user:
-        manager_user = UserAccount.objects.filter(display_name=manager_raw).first()
+    author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
+    manager_user = UserAccount.objects.filter(username=manager_raw).first() or UserAccount.objects.filter(display_name=manager_raw).first()
 
     manager_name = manager_user.display_name if manager_user else manager_raw
     reviewer_date = datetime.now().strftime("%Y.%m.%d / %I:%M %p")
-    author_signature_data_url = (signature_repository.read_signature(author_user.username).get("signature_data_url", "") if author_user else "")
-    manager_signature_data_url = (signature_repository.read_signature(manager_user.username).get("signature_data_url", "") if manager_user else "")
+    author_signature_data_url = signature_repository.read_signature(author_user.username).get("signature_data_url", "") if author_user else ""
+    manager_signature_data_url = signature_repository.read_signature(manager_user.username).get("signature_data_url", "") if manager_user else ""
 
     def _image_reader_from_data_url(data_url: str):
         raw = str(data_url or "")
@@ -269,38 +266,58 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
         except Exception:
             return None
 
-    def _draw_signature_panel(pdf, pw, ph):
-        top = 40
-        left = 24
-        total_width = pw - 48
-        col = total_width / 4
-        box_h = 64
-        labels = ["작성자 / 작성일", "작성자 사인", "점검자 / 점검일자", "점검자 사인"]
-        values = [f"{author_name}\n{created_text}", "", f"{manager_name or '-'}\n{reviewer_date}", ""]
+    def _draw_signature_panel(pdf, left: float, bottom: float, width: float, *, compact: bool = False):
+        col = width / 4
+        box_h = 56 if compact else 64
+
         for idx in range(4):
             x = left + idx * col
-            pdf.rect(x, top, col, box_h)
-            _set_pdf_font(pdf, 9)
-            pdf.drawString(x + 4, top + box_h - 12, labels[idx])
-            if idx in {0, 2}:
-                _set_pdf_font(pdf, 10)
-                for n, line in enumerate(values[idx].split("\n")):
-                    pdf.drawCentredString(x + col / 2, top + 28 - (n * 12), line)
-            else:
-                data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
-                reader = _image_reader_from_data_url(data_url)
-                if reader:
-                    pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
-                else:
-                    _set_pdf_font(pdf, 9)
-                    pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
+            pdf.rect(x, bottom, col, box_h)
+        for idx in (0, 2):
+            x = left + idx * col
+            pdf.line(x, bottom + box_h / 2, x + col, bottom + box_h / 2)
+
+        _set_pdf_font(pdf, 7 if compact else 8)
+        pdf.drawString(left + 4, bottom + box_h - 10, "작성자")
+        pdf.drawString(left + 4, bottom + (box_h / 2) - 10, "작성 일자")
+        _set_pdf_font(pdf, 9 if compact else 10)
+        pdf.drawCentredString(left + col / 2, bottom + (box_h / 2) + 4, author_name)
+        pdf.drawCentredString(left + col / 2, bottom + 8, created_text)
+
+        x2 = left + col
+        _set_pdf_font(pdf, 7 if compact else 8)
+        pdf.drawString(x2 + 4, bottom + box_h - 10, "사인")
+        author_reader = _image_reader_from_data_url(author_signature_data_url)
+        if author_reader:
+            pdf.drawImage(author_reader, x2 + 10, bottom + 6, width=col - 20, height=(box_h - 20), preserveAspectRatio=True, anchor='c')
+        else:
+            _set_pdf_font(pdf, 8 if compact else 9)
+            pdf.drawCentredString(x2 + col / 2, bottom + (box_h / 2) - 2, "사인 없음")
+
+        x3 = left + (col * 2)
+        _set_pdf_font(pdf, 7 if compact else 8)
+        pdf.drawString(x3 + 4, bottom + box_h - 10, "점검자")
+        pdf.drawString(x3 + 4, bottom + (box_h / 2) - 10, "점검 일자")
+        _set_pdf_font(pdf, 9 if compact else 10)
+        pdf.drawCentredString(x3 + col / 2, bottom + (box_h / 2) + 4, manager_name or "-")
+        pdf.drawCentredString(x3 + col / 2, bottom + 8, reviewer_date)
+
+        x4 = left + (col * 3)
+        _set_pdf_font(pdf, 7 if compact else 8)
+        pdf.drawString(x4 + 4, bottom + box_h - 10, "점검자 사인")
+        manager_reader = _image_reader_from_data_url(manager_signature_data_url)
+        if manager_reader:
+            pdf.drawImage(manager_reader, x4 + 10, bottom + 6, width=col - 20, height=(box_h - 20), preserveAspectRatio=True, anchor='c')
+        else:
+            _set_pdf_font(pdf, 8 if compact else 9)
+            pdf.drawCentredString(x4 + col / 2, bottom + (box_h / 2) - 2, "사인 없음")
 
     def _overlay_signature_on_pdf_page(page):
         pw = float(page.mediabox.width)
         ph = float(page.mediabox.height)
         overlay_buffer = BytesIO()
         pdf = canvas.Canvas(overlay_buffer, pagesize=(pw, ph))
-        _draw_signature_panel(pdf, pw, ph)
+        _draw_signature_panel(pdf, left=24, bottom=32, width=pw - 48, compact=True)
         pdf.save()
         overlay_buffer.seek(0)
         overlay = PdfReader(overlay_buffer, strict=False)
@@ -325,20 +342,39 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
         page_buffer = BytesIO()
         pdf = canvas.Canvas(page_buffer, pagesize=A4)
         pw, ph = A4
-        _set_pdf_font(pdf, 14, bold=True)
-        pdf.drawString(40, ph - 50, str(note.get("title") or "연구노트"))
-        _set_pdf_font(pdf, 11)
-        pdf.drawString(40, ph - 68, f"[{selected_file.get('name', '-')}] {fmt.upper() if fmt else '-'}")
+
+        sheet_left = 34
+        sheet_bottom = 42
+        sheet_width = pw - 68
+        sheet_height = ph - 84
+        pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
+
+        header_top = sheet_bottom + sheet_height - 28
+        _set_pdf_font(pdf, 13, bold=True)
+        pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
+        pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
+
+        content_left = sheet_left + 16
+        content_bottom = sheet_bottom + 92
+        content_width = sheet_width - 32
+        content_height = sheet_height - 160
+        pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
 
         image_exts = {"png", "jpg", "jpeg", "webp", "svg", "heic", "heif"}
         if fmt in image_exts:
-            pdf.drawImage(str(source), 40, 130, width=pw - 80, height=ph - 250, preserveAspectRatio=True, anchor='c')
+            try:
+                pdf.drawImage(str(source), content_left + 6, content_bottom + 6, width=content_width - 12, height=content_height - 12, preserveAspectRatio=True, anchor='c')
+            except Exception:
+                _set_pdf_font(pdf, 10)
+                pdf.drawString(content_left + 12, content_bottom + content_height - 24, "이미지를 불러오지 못했습니다. 원본파일을 확인해주세요.")
         else:
-            _set_pdf_font(pdf, 12)
-            pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt or '알수없음'})은 미리보기를 지원하지 않습니다.")
-            pdf.drawString(40, ph - 130, "원본은 연구노트 화면에서 개별 확인해주세요.")
+            _set_pdf_font(pdf, 11)
+            pdf.drawString(content_left + 12, content_bottom + content_height - 24, f"파일명: {selected_file.get('name', '-')}")
+            _set_pdf_font(pdf, 10)
+            pdf.drawString(content_left + 12, content_bottom + content_height - 42, f"형식: {fmt.upper() if fmt else '-'}")
+            pdf.drawString(content_left + 12, content_bottom + content_height - 60, "해당 파일 형식은 미리보기를 지원하지 않습니다.")
 
-        _draw_signature_panel(pdf, pw, ph)
+        _draw_signature_panel(pdf, left=content_left, bottom=sheet_bottom + 24, width=content_width)
         pdf.showPage()
         pdf.save()
         page_buffer.seek(0)
