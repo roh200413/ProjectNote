@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 
 from server.domains.admin import AdminRepository
-from server.domains.admin.models import SuperAdminAccount, UserAccount
+from server.domains.admin.models import SuperAdminAccount, Team, UserAccount
 from server.domains.data_updates import DataUpdateRepository
 from server.domains.projects import ProjectRepository, ProjectService
 from server.domains.projects.models import Project

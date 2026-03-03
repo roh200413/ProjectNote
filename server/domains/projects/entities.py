@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class CreateProjectCommand:
     name: str
     manager: str
+    business_name: str
     organization: str
     company_id: int | None
     code: str
