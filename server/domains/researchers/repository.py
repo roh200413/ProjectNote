@@ -21,7 +21,11 @@ class ResearcherRepository:
                 "id": user.id,
                 "username": user.username,
                 "name": user.display_name,
-                "role": "관리자" if user.role == UserAccount.Role.ADMIN else "연구원",
+                "role": (
+                    "소유자"
+                    if user.role == UserAccount.Role.OWNER
+                    else "관리자" if user.role == UserAccount.Role.ADMIN else "연구원"
+                ),
                 "email": user.email,
                 "organization": user.team.name if user.team else "미지정",
                 "team_id": user.team_id,
@@ -46,7 +50,11 @@ class ResearcherRepository:
                 "id": existing.id,
                 "username": existing.username,
                 "name": existing.display_name,
-                "role": "관리자" if existing.role == UserAccount.Role.ADMIN else "연구원",
+                "role": (
+                    "소유자"
+                    if existing.role == UserAccount.Role.OWNER
+                    else "관리자" if existing.role == UserAccount.Role.ADMIN else "연구원"
+                ),
                 "email": existing.email,
                 "organization": existing.team.name if existing.team else "미지정",
                 "team_id": existing.team_id,
