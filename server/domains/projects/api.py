@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
+from django.db import OperationalError, ProgrammingError
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -57,6 +58,44 @@ def _cover_to_dict(cover: ProjectNoteCover, project: Project, manager_display: s
         "show_period": cover.show_period,
         "cover_image_data_url": cover.cover_image_data_url or "",
     }
+
+
+def _default_cover_data(project: dict, manager_display: str) -> dict:
+    return {
+        "title": project.get("name") or "",
+        "code": project.get("code") or "",
+        "business_name": project.get("business_name") or "",
+        "organization": project.get("organization") or "",
+        "manager": manager_display or project.get("manager") or "",
+        "start_date": project.get("start_date") or "",
+        "end_date": project.get("end_date") or "",
+        "show_business_name": True,
+        "show_title": True,
+        "show_code": True,
+        "show_org": True,
+        "show_manager": True,
+        "show_period": True,
+        "cover_image_data_url": "",
+    }
+
+
+def _load_cover_data(project_obj: Project, project: dict, manager_display: str) -> dict:
+    try:
+        cover, _ = ProjectNoteCover.objects.get_or_create(
+            project=project_obj,
+            defaults={
+                "title": project_obj.name,
+                "code": project_obj.code,
+                "business_name": project_obj.business_name,
+                "organization": project_obj.organization,
+                "manager": manager_display,
+                "start_date": project_obj.start_date,
+                "end_date": project_obj.end_date,
+            },
+        )
+        return _cover_to_dict(cover, project_obj, manager_display)
+    except (OperationalError, ProgrammingError):
+        return _default_cover_data(project, manager_display)
 
 
 @require_GET
@@ -132,19 +171,7 @@ def project_detail_page(request, project_id: str):
     selected_note_files = research_note_repository.list_note_files(selected_note["id"]) if selected_note else []
     manager_options = _manager_options_for_team(profile.get("team_id"))
     manager_display = next((item["display_name"] for item in manager_options if item["username"] == project.get("manager")), project.get("manager", "-"))
-    cover, _ = ProjectNoteCover.objects.get_or_create(
-        project=project_obj,
-        defaults={
-            "title": project_obj.name,
-            "code": project_obj.code,
-            "business_name": project_obj.business_name,
-            "organization": project_obj.organization,
-            "manager": manager_display,
-            "start_date": project_obj.start_date,
-            "end_date": project_obj.end_date,
-        },
-    )
-    cover_data = _cover_to_dict(cover, project_obj, manager_display)
+    cover_data = _load_cover_data(project_obj, project, manager_display)
     return render(
         request,
         "workflow/project_detail.html",
@@ -294,19 +321,7 @@ def project_research_notes_print_page(request, project_id: str):
     manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
     manager_signature = signature_repository.read_signature(manager_user.username) if manager_user else {"signature_data_url": ""}
 
-    cover, _ = ProjectNoteCover.objects.get_or_create(
-        project=project_obj,
-        defaults={
-            "title": project_obj.name,
-            "code": project_obj.code,
-            "business_name": project_obj.business_name,
-            "organization": project_obj.organization,
-            "manager": manager_display,
-            "start_date": project_obj.start_date,
-            "end_date": project_obj.end_date,
-        },
-    )
-    cover_data = _cover_to_dict(cover, project_obj, manager_display)
+    cover_data = _load_cover_data(project_obj, project, manager_display)
 
     def _period_text() -> str:
         if not cover_data.get("show_period"):
@@ -406,19 +421,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
 
     project = project_repository.project_to_dict(project_obj)
     manager_display = project.get("manager", "-")
-    cover, _ = ProjectNoteCover.objects.get_or_create(
-        project=project_obj,
-        defaults={
-            "title": project_obj.name,
-            "code": project_obj.code,
-            "business_name": project_obj.business_name,
-            "organization": project_obj.organization,
-            "manager": manager_display,
-            "start_date": project_obj.start_date,
-            "end_date": project_obj.end_date,
-        },
-    )
-    cover_data = _cover_to_dict(cover, project_obj, manager_display)
+    cover_data = _load_cover_data(project_obj, project, manager_display)
 
     # 1) 표지 PDF(A4)를 먼저 생성
     cover_buffer = BytesIO()
@@ -703,7 +706,10 @@ def project_cover_update_api(request, project_id: str):
     if not project:
         return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
 
-    cover, _ = ProjectNoteCover.objects.get_or_create(project=project)
+    try:
+        cover, _ = ProjectNoteCover.objects.get_or_create(project=project)
+    except (OperationalError, ProgrammingError):
+        return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. python manage.py migrate 를 먼저 실행해주세요."}, status=409)
 
     def _as_bool(key: str, default: bool) -> bool:
         raw = str(request.POST.get(key, "")).strip().lower()
