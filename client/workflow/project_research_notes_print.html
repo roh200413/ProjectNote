@@ -22,6 +22,12 @@
     iframe { min-height:230mm; }
     img { max-height:240mm; object-fit:contain; }
     .empty { padding:24px; border:1px dashed #94a3b8; border-radius:10px; text-align:center; color:#64748b; }
+    .sign-grid { margin-top:8px; display:grid; grid-template-columns:repeat(4,1fr); border:1px solid #d1d5db; border-radius:8px; overflow:hidden; }
+    .sign-cell { min-height:42mm; border-right:1px solid #d1d5db; padding:6px; box-sizing:border-box; }
+    .sign-cell:last-child { border-right:none; }
+    .sign-label { font-size:11px; color:#64748b; }
+    .sign-value { margin-top:8px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; min-height:28mm; }
+    .sign-value img { max-width:100%; max-height:24mm; border:none; }
     @media print {
       .print-tools { display:none; }
     }
@@ -72,6 +78,37 @@
         {% else %}
           <div class="empty">해당 형식({{ file.format }})은 미리보기를 지원하지 않습니다. 파일 원본으로 확인해주세요.</div>
         {% endif %}
+
+        <div class="sign-grid">
+          <div class="sign-cell">
+            <div class="sign-label">작성자 / 작성일</div>
+            <div class="sign-value">{{ file.author|default:'-' }}<br/>{{ file.created|default:'-' }}</div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">작성자 사인</div>
+            <div class="sign-value">
+              {% if file.author_signature_data_url %}
+                <img src="{{ file.author_signature_data_url }}" alt="작성자 사인" />
+              {% else %}
+                사인 없음
+              {% endif %}
+            </div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">점검자 / 점검일자</div>
+            <div class="sign-value">{{ file.manager_name|default:'-' }}<br/>{{ file.reviewer_date|default:'-' }}</div>
+          </div>
+          <div class="sign-cell">
+            <div class="sign-label">점검자 사인</div>
+            <div class="sign-value">
+              {% if file.manager_signature_data_url %}
+                <img src="{{ file.manager_signature_data_url }}" alt="점검자 사인" />
+              {% else %}
+                사인 없음
+              {% endif %}
+            </div>
+          </div>
+        </div>
       </section>
     {% endfor %}
   {% else %}

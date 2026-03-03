@@ -1,3 +1,4 @@
+import base64
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -10,6 +11,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from .models import Project, ProjectMember, ProjectNoteCover
@@ -24,6 +26,7 @@ from server.application.web_support import (
     project_service,
     admin_repository,
     research_note_repository,
+    signature_repository,
     dashboard_counts,
 )
 
@@ -286,6 +289,9 @@ def project_research_notes_print_page(request, project_id: str):
     project_notes = [note for note in all_notes if note["id"] in note_ids]
 
     manager_display = project.get("manager", "-")
+    manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
+    manager_signature = signature_repository.read_signature(manager_user.username) if manager_user else {"signature_data_url": ""}
+
     cover, _ = ProjectNoteCover.objects.get_or_create(
         project=project_obj,
         defaults={
@@ -312,11 +318,20 @@ def project_research_notes_print_page(request, project_id: str):
     printable_files = []
     for note in project_notes:
         for file in research_note_repository.list_note_files(note["id"]):
+            author_name = str(file.get("author") or "-")
+            author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
+            author_signature = signature_repository.read_signature(author_user.username) if author_user else {"signature_data_url": ""}
             printable_files.append(
                 {
                     "note_title": note["title"],
                     "name": file["name"],
                     "format": file["format"],
+                    "created": file.get("created", "-"),
+                    "author": author_name,
+                    "manager_name": manager_user.display_name if manager_user else manager_display,
+                    "reviewer_date": datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
+                    "author_signature_data_url": author_signature.get("signature_data_url", ""),
+                    "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
                     "content_url": f"/frontend/research-notes/{note['id']}/files/{file['id']}/content",
                 }
             )
@@ -425,6 +440,16 @@ def project_research_notes_export_pdf_api(request, project_id: str):
         page_buffer.seek(0)
         writer.append(PdfReader(page_buffer))
 
+    def _image_reader_from_data_url(data_url: str):
+        raw = str(data_url or "")
+        if not raw.startswith("data:image") or "," not in raw:
+            return None
+        try:
+            encoded = raw.split(",", 1)[1]
+            return ImageReader(BytesIO(base64.b64decode(encoded)))
+        except Exception:
+            return None
+
     # 2) PDF 단순 병합 (표지 + 각 연구파일을 순서대로)
     writer = PdfWriter()
     writer.append(PdfReader(cover_buffer))
@@ -444,11 +469,44 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             file_title = f"[{note['title']}] {file.get('name', '-') }"
             source = _find_source_file(note["id"], str(file.get("name", "")))
 
+            author_name = str(file.get("author") or "-")
+            author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
+            author_signature_data_url = signature_repository.read_signature(author_user.username).get("signature_data_url", "") if author_user else ""
+            manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
+            manager_signature_data_url = signature_repository.read_signature(manager_user.username).get("signature_data_url", "") if manager_user else ""
+
+            def _draw_signature_panel(pdf, pw, ph):
+                top = 70
+                left = 40
+                total_width = pw - 80
+                col = total_width / 4
+                box_h = 64
+                labels = ["작성자", "작성자 사인", "점검자", "점검자 사인"]
+                values = [author_name, "", manager_display, ""]
+                for idx in range(4):
+                    x = left + idx * col
+                    pdf.rect(x, top, col, box_h)
+                    pdf.setFont("Helvetica", 9)
+                    pdf.drawString(x + 4, top + box_h - 12, labels[idx])
+                    if idx in {0, 2}:
+                        pdf.setFont("Helvetica", 10)
+                        pdf.drawCentredString(x + col / 2, top + 20, values[idx])
+                    else:
+                        data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
+                        reader = _image_reader_from_data_url(data_url)
+                        if reader:
+                            pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
+                        else:
+                            pdf.setFont("Helvetica", 9)
+                            pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
+
             if fmt == "pdf" and source:
                 try:
                     with source.open("rb") as pdf_file:
                         writer.append(PdfReader(pdf_file))
                         merged_files += 1
+                    _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_signature_panel)
+                    merged_files += 1
                     continue
                 except Exception:
                     pass
@@ -456,8 +514,9 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             if fmt in image_exts and source:
                 try:
                     def _draw_image(pdf, pw, ph, source_path=str(source)):
-                        left, bottom, width, height = 40, 80, pw - 80, ph - 170
+                        left, bottom, width, height = 40, 150, pw - 80, ph - 260
                         pdf.drawImage(source_path, left, bottom, width=width, height=height, preserveAspectRatio=True, anchor='c')
+                        _draw_signature_panel(pdf, pw, ph)
                     _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_image)
                     merged_files += 1
                     continue
@@ -468,6 +527,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                 pdf.setFont("Helvetica", 12)
                 pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt_text or '알수없음'})은 PDF 병합 미지원 형식입니다.")
                 pdf.drawString(40, ph - 130, "원본은 프로젝트 연구노트 화면에서 개별 확인해주세요.")
+                _draw_signature_panel(pdf, pw, ph)
 
             _append_single_page_pdf(file_title, f"형식: {fmt.upper() if fmt else '-'}", _draw_placeholder)
             merged_files += 1
