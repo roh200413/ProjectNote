@@ -15,6 +15,8 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 from .models import Project, ProjectMember, ProjectNoteCover
 from server.domains.admin.models import UserAccount
@@ -97,6 +99,31 @@ def _load_cover_data(project_obj: Project, project: dict, manager_display: str) 
     except (OperationalError, ProgrammingError):
         return _default_cover_data(project, manager_display)
 
+
+
+
+def _setup_korean_font() -> str | None:
+    for font_name in ("HYGothic-Medium", "HYSMyeongJo-Medium"):
+        try:
+            pdfmetrics.getFont(font_name)
+            return font_name
+        except KeyError:
+            try:
+                pdfmetrics.registerFont(UnicodeCIDFont(font_name))
+                return font_name
+            except Exception:
+                continue
+    return None
+
+
+KOREAN_PDF_FONT = _setup_korean_font()
+
+
+def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
+    if KOREAN_PDF_FONT:
+        pdf.setFont(KOREAN_PDF_FONT, size)
+        return
+    pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
 
 def _decode_data_url(data_url: str):
     raw = str(data_url or "")
@@ -420,7 +447,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             pdf.showPage()
             pdf.save()
             page_buffer.seek(0)
-            writer.append(PdfReader(page_buffer))
+            writer.append(PdfReader(page_buffer, strict=False))
 
         if not writer.pages:
             return JsonResponse({"detail": "유효한 페이지 이미지가 없습니다."}, status=400)
@@ -446,7 +473,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     cover_pdf_reader = None
     if cover_mime == "application/pdf" and cover_payload:
         try:
-            cover_pdf_reader = PdfReader(BytesIO(cover_payload))
+            cover_pdf_reader = PdfReader(BytesIO(cover_payload), strict=False)
         except Exception:
             cover_pdf_reader = None
 
@@ -460,12 +487,12 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             drew_cover_image = False
 
     if not drew_cover_image:
-        c.setFont("Helvetica-Bold", 16)
+        _set_pdf_font(c, 16, bold=True)
         c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
-        c.setFont("Helvetica-Bold", 26)
+        _set_pdf_font(c, 26, bold=True)
         c.drawCentredString(w / 2, h - 130, "연구노트")
         if cover_data.get("show_title"):
-            c.setFont("Helvetica-Bold", 22)
+            _set_pdf_font(c, 22, bold=True)
             c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
 
         lines = []
@@ -484,14 +511,14 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             lines.append(("기간", period))
 
         y = h - 240
-        c.setFont("Helvetica", 12)
+        _set_pdf_font(c, 12)
         for label, value in lines:
             c.drawString(70, y, f"{label}:")
             c.drawString(150, y, value)
             y -= 24
 
         footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
-        c.setFont("Helvetica", 11)
+        _set_pdf_font(c, 11)
         c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
 
     c.showPage()
@@ -510,15 +537,15 @@ def project_research_notes_export_pdf_api(request, project_id: str):
         page_buffer = BytesIO()
         pdf = canvas.Canvas(page_buffer, pagesize=A4)
         pw, ph = A4
-        pdf.setFont("Helvetica-Bold", 14)
+        _set_pdf_font(pdf, 14, bold=True)
         pdf.drawString(40, ph - 50, title)
-        pdf.setFont("Helvetica", 11)
+        _set_pdf_font(pdf, 11)
         pdf.drawString(40, ph - 68, subtitle)
         content_builder(pdf, pw, ph)
         pdf.showPage()
         pdf.save()
         page_buffer.seek(0)
-        writer.append(PdfReader(page_buffer))
+        writer.append(PdfReader(page_buffer, strict=False))
 
     def _image_reader_from_data_url(data_url: str):
         raw = str(data_url or "")
@@ -535,7 +562,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     if cover_pdf_reader:
         writer.append(cover_pdf_reader)
     else:
-        writer.append(PdfReader(cover_buffer))
+        writer.append(PdfReader(cover_buffer, strict=False))
 
     note_ids = project_repository.project_note_ids(project_id)
     all_notes = research_note_repository.list_research_notes()
@@ -584,10 +611,10 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                 for idx in range(4):
                     x = left + idx * col
                     pdf.rect(x, top, col, box_h)
-                    pdf.setFont("Helvetica", 9)
+                    _set_pdf_font(pdf, 9)
                     pdf.drawString(x + 4, top + box_h - 12, labels[idx])
                     if idx in {0, 2}:
-                        pdf.setFont("Helvetica", 10)
+                        _set_pdf_font(pdf, 10)
                         pdf.drawCentredString(x + col / 2, top + 20, values[idx])
                     else:
                         data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
@@ -595,13 +622,19 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                         if reader:
                             pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
                         else:
-                            pdf.setFont("Helvetica", 9)
+                            _set_pdf_font(pdf, 9)
                             pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
 
             if fmt == "pdf" and source:
                 try:
                     with source.open("rb") as pdf_file:
-                        writer.append(PdfReader(pdf_file))
+                        reader = PdfReader(pdf_file, strict=False)
+                        if getattr(reader, "is_encrypted", False):
+                            try:
+                                reader.decrypt("")
+                            except Exception:
+                                pass
+                        writer.append(reader)
                         merged_files += 1
                     _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_signature_panel)
                     merged_files += 1
@@ -622,7 +655,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                     pass
 
             def _draw_placeholder(pdf, pw, ph, fmt_text=fmt):
-                pdf.setFont("Helvetica", 12)
+                _set_pdf_font(pdf, 12)
                 pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt_text or '알수없음'})은 PDF 병합 미지원 형식입니다.")
                 pdf.drawString(40, ph - 130, "원본은 프로젝트 연구노트 화면에서 개별 확인해주세요.")
                 _draw_signature_panel(pdf, pw, ph)
@@ -749,12 +782,12 @@ def project_cover_print_api(request, project_id: str):
             drew_image = False
 
     if not drew_image:
-        c.setFont("Helvetica-Bold", 16)
+        _set_pdf_font(c, 16, bold=True)
         c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
-        c.setFont("Helvetica-Bold", 26)
+        _set_pdf_font(c, 26, bold=True)
         c.drawCentredString(w / 2, h - 130, "연구노트")
         if cover_data.get("show_title"):
-            c.setFont("Helvetica-Bold", 22)
+            _set_pdf_font(c, 22, bold=True)
             c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
 
     c.showPage()
