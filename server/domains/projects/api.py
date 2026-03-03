@@ -533,7 +533,64 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
         return next((candidate for candidate in candidates if candidate.exists() and candidate.is_file()), None)
 
-    def _append_single_page_pdf(title: str, subtitle: str, content_builder):
+    def _image_reader_from_data_url(data_url: str):
+        raw = str(data_url or "")
+        if not raw.startswith("data:image") or "," not in raw:
+            return None
+        try:
+            encoded = raw.split(",", 1)[1]
+            return ImageReader(BytesIO(base64.b64decode(encoded)))
+        except Exception:
+            return None
+
+    def _draw_signature_panel(pdf, pw, ph, *, author_name: str, created_text: str, reviewer_name: str, reviewer_date: str, author_signature_data_url: str, manager_signature_data_url: str):
+        top = 40
+        left = 24
+        total_width = pw - 48
+        col = total_width / 4
+        box_h = 64
+        labels = ["작성자 / 작성일", "작성자 사인", "점검자 / 점검일자", "점검자 사인"]
+        values = [f"{author_name}\n{created_text}", "", f"{reviewer_name}\n{reviewer_date}", ""]
+        for idx in range(4):
+            x = left + idx * col
+            pdf.rect(x, top, col, box_h)
+            _set_pdf_font(pdf, 9)
+            pdf.drawString(x + 4, top + box_h - 12, labels[idx])
+            if idx in {0, 2}:
+                _set_pdf_font(pdf, 10)
+                for n, line in enumerate(values[idx].split("\n")):
+                    pdf.drawCentredString(x + col / 2, top + 28 - (n * 12), line)
+            else:
+                data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
+                reader = _image_reader_from_data_url(data_url)
+                if reader:
+                    pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
+                else:
+                    _set_pdf_font(pdf, 9)
+                    pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
+
+    def _overlay_signature_on_pdf_page(page, *, author_name: str, created_text: str, reviewer_name: str, reviewer_date: str, author_signature_data_url: str, manager_signature_data_url: str):
+        pw = float(page.mediabox.width)
+        ph = float(page.mediabox.height)
+        page_buffer = BytesIO()
+        pdf = canvas.Canvas(page_buffer, pagesize=(pw, ph))
+        _draw_signature_panel(
+            pdf,
+            pw,
+            ph,
+            author_name=author_name,
+            created_text=created_text,
+            reviewer_name=reviewer_name,
+            reviewer_date=reviewer_date,
+            author_signature_data_url=author_signature_data_url,
+            manager_signature_data_url=manager_signature_data_url,
+        )
+        pdf.save()
+        page_buffer.seek(0)
+        overlay_reader = PdfReader(page_buffer, strict=False)
+        page.merge_page(overlay_reader.pages[0])
+
+    def _build_single_page_pdf(title: str, subtitle: str, content_builder):
         page_buffer = BytesIO()
         pdf = canvas.Canvas(page_buffer, pagesize=A4)
         pw, ph = A4
@@ -545,17 +602,7 @@ def project_research_notes_export_pdf_api(request, project_id: str):
         pdf.showPage()
         pdf.save()
         page_buffer.seek(0)
-        writer.append(PdfReader(page_buffer, strict=False))
-
-    def _image_reader_from_data_url(data_url: str):
-        raw = str(data_url or "")
-        if not raw.startswith("data:image") or "," not in raw:
-            return None
-        try:
-            encoded = raw.split(",", 1)[1]
-            return ImageReader(BytesIO(base64.b64decode(encoded)))
-        except Exception:
-            return None
+        return PdfReader(page_buffer, strict=False)
 
     # 2) PDF 단순 병합 (표지 + 각 연구파일을 순서대로)
     writer = PdfWriter()
@@ -595,35 +642,12 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             source = _find_source_file(note["id"], str(file.get("name", "")))
 
             author_name = str(file.get("author") or "-")
+            created_text = str(file.get("created") or "-")
+            reviewer_date = datetime.now().strftime("%Y.%m.%d / %I:%M %p")
             author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
             author_signature_data_url = signature_repository.read_signature(author_user.username).get("signature_data_url", "") if author_user else ""
             manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
             manager_signature_data_url = signature_repository.read_signature(manager_user.username).get("signature_data_url", "") if manager_user else ""
-
-            def _draw_signature_panel(pdf, pw, ph):
-                top = 70
-                left = 40
-                total_width = pw - 80
-                col = total_width / 4
-                box_h = 64
-                labels = ["작성자", "작성자 사인", "점검자", "점검자 사인"]
-                values = [author_name, "", manager_display, ""]
-                for idx in range(4):
-                    x = left + idx * col
-                    pdf.rect(x, top, col, box_h)
-                    _set_pdf_font(pdf, 9)
-                    pdf.drawString(x + 4, top + box_h - 12, labels[idx])
-                    if idx in {0, 2}:
-                        _set_pdf_font(pdf, 10)
-                        pdf.drawCentredString(x + col / 2, top + 20, values[idx])
-                    else:
-                        data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
-                        reader = _image_reader_from_data_url(data_url)
-                        if reader:
-                            pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
-                        else:
-                            _set_pdf_font(pdf, 9)
-                            pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
 
             if fmt == "pdf" and source:
                 try:
@@ -634,9 +658,19 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                                 reader.decrypt("")
                             except Exception:
                                 pass
-                        writer.append(reader)
-                        merged_files += 1
-                    _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_signature_panel)
+                        page_count = len(reader.pages)
+                        for idx, page in enumerate(reader.pages):
+                            if idx == page_count - 1:
+                                _overlay_signature_on_pdf_page(
+                                    page,
+                                    author_name=author_name,
+                                    created_text=created_text,
+                                    reviewer_name=manager_display,
+                                    reviewer_date=reviewer_date,
+                                    author_signature_data_url=author_signature_data_url,
+                                    manager_signature_data_url=manager_signature_data_url,
+                                )
+                            writer.add_page(page)
                     merged_files += 1
                     continue
                 except Exception:
@@ -645,10 +679,20 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             if fmt in image_exts and source:
                 try:
                     def _draw_image(pdf, pw, ph, source_path=str(source)):
-                        left, bottom, width, height = 40, 150, pw - 80, ph - 260
+                        left, bottom, width, height = 40, 130, pw - 80, ph - 250
                         pdf.drawImage(source_path, left, bottom, width=width, height=height, preserveAspectRatio=True, anchor='c')
-                        _draw_signature_panel(pdf, pw, ph)
-                    _append_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_image)
+                        _draw_signature_panel(
+                            pdf,
+                            pw,
+                            ph,
+                            author_name=author_name,
+                            created_text=created_text,
+                            reviewer_name=manager_display,
+                            reviewer_date=reviewer_date,
+                            author_signature_data_url=author_signature_data_url,
+                            manager_signature_data_url=manager_signature_data_url,
+                        )
+                    writer.append(_build_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_image))
                     merged_files += 1
                     continue
                 except Exception:
@@ -658,9 +702,19 @@ def project_research_notes_export_pdf_api(request, project_id: str):
                 _set_pdf_font(pdf, 12)
                 pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt_text or '알수없음'})은 PDF 병합 미지원 형식입니다.")
                 pdf.drawString(40, ph - 130, "원본은 프로젝트 연구노트 화면에서 개별 확인해주세요.")
-                _draw_signature_panel(pdf, pw, ph)
+                _draw_signature_panel(
+                    pdf,
+                    pw,
+                    ph,
+                    author_name=author_name,
+                    created_text=created_text,
+                    reviewer_name=manager_display,
+                    reviewer_date=reviewer_date,
+                    author_signature_data_url=author_signature_data_url,
+                    manager_signature_data_url=manager_signature_data_url,
+                )
 
-            _append_single_page_pdf(file_title, f"형식: {fmt.upper() if fmt else '-'}", _draw_placeholder)
+            writer.append(_build_single_page_pdf(file_title, f"형식: {fmt.upper() if fmt else '-'}", _draw_placeholder))
             merged_files += 1
 
     output = BytesIO()
