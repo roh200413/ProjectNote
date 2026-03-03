@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/v1/research-notes", api.research_notes_api),
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
+    path("api/v1/research-notes/<str:note_id>/viewer-export-pdf", research_notes_api.research_note_viewer_export_pdf_api),
     path("api/v1/research-notes/<str:note_id>/files/<str:file_id>/update", research_notes_api.research_note_file_update_api),
 
     path("admin/login", auth_api.admin_login_page),

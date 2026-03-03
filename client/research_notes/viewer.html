@@ -5,6 +5,7 @@
 <div style="display:flex;gap:8px">
   <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">목록</a>
   <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">원본파일 다운로드</a>
+  <a class="pn-btn" style="text-decoration:none" href="/api/v1/research-notes/{{ note.id }}/viewer-export-pdf?file={{ selected_file.id }}" target="_blank">현재 보기 PDF 저장</a>
 </div>
 {% endblock %}
 {% block content %}
