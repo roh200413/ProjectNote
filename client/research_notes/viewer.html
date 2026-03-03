@@ -5,11 +5,11 @@
 <div style="display:flex;gap:8px">
   <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/research-notes/{{ note.id }}">목록</a>
   <a class="pn-btn" style="text-decoration:none" href="{{ selected_file_url }}?download=1">원본파일 다운로드</a>
-  <a class="pn-btn" style="text-decoration:none" href="/api/v1/research-notes/{{ note.id }}/viewer-export-pdf?file={{ selected_file.id }}" target="_blank">현재 보기 PDF 저장</a>
+  <button type="button" class="pn-btn" id="saveViewerPdfBtn">현재 보기 PDF 저장</button>
 </div>
 {% endblock %}
 {% block content %}
-<div class="pn-grid" style="grid-template-columns:1fr 360px;align-items:start">
+<div class="pn-grid" id="viewerCaptureRoot" style="grid-template-columns:1fr 360px;align-items:start">
   <section class="pn-card" style="padding:0;overflow:hidden">
     <div style="padding:12px 14px;border-bottom:1px solid var(--line)"><strong>연구노트</strong></div>
     <div style="background:#eef2f8;min-height:600px;padding:18px">
@@ -146,5 +146,57 @@
     }
     document.getElementById('saveToast').textContent = noteBody.detail || fileBody.detail || '저장 중 오류가 발생했습니다.';
   });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+  async function saveViewerAsPdf() {
+    const button = document.getElementById('saveViewerPdfBtn');
+    const root = document.getElementById('viewerCaptureRoot');
+    if (!button || !root || !window.html2canvas || !window.jspdf) return;
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'PDF 생성 중...';
+
+    try {
+      const canvas = await window.html2canvas(root, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#e9edf3',
+      });
+
+      const imageData = canvas.toDataURL('image/png');
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+
+      let renderedHeight = imgHeight;
+      let positionY = 0;
+      pdf.addImage(imageData, 'PNG', 0, positionY, imgWidth, imgHeight);
+      renderedHeight -= pageHeight;
+
+      while (renderedHeight > 0) {
+        positionY = renderedHeight - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imageData, 'PNG', 0, positionY, imgWidth, imgHeight);
+        renderedHeight -= pageHeight;
+      }
+
+      pdf.save(`research_note_{{ note.id }}_{{ selected_file.id }}.pdf`);
+    } catch (_err) {
+      alert('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
+  document.getElementById('saveViewerPdfBtn')?.addEventListener('click', saveViewerAsPdf);
 </script>
 {% endblock %}
