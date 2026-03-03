@@ -50,3 +50,4 @@ class ProjectNoteCover(TimestampedModel):
     show_org = models.BooleanField(default=True)
     show_manager = models.BooleanField(default=True)
     show_period = models.BooleanField(default=True)
+    cover_image_data_url = models.TextField(blank=True, default="")

@@ -1,4 +1,5 @@
 import base64
+import json
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
@@ -54,6 +55,7 @@ def _cover_to_dict(cover: ProjectNoteCover, project: Project, manager_display: s
         "show_org": cover.show_org,
         "show_manager": cover.show_manager,
         "show_period": cover.show_period,
+        "cover_image_data_url": cover.cover_image_data_url or "",
     }
 
 
@@ -351,7 +353,7 @@ def project_research_notes_print_page(request, project_id: str):
     )
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 def project_research_notes_export_pdf_api(request, project_id: str):
     profile = effective_user_profile(request) or {}
     if not project_repository.can_view_project(project_id, profile):
@@ -360,6 +362,47 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     project_obj = Project.objects.filter(id=project_id).first()
     if not project_obj:
         return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            return JsonResponse({"detail": "잘못된 요청 형식입니다."}, status=400)
+
+        page_images = payload.get("page_images", [])
+        if not isinstance(page_images, list) or not page_images:
+            return JsonResponse({"detail": "내보낼 페이지 이미지가 없습니다."}, status=400)
+
+        writer = PdfWriter()
+
+        for image_data in page_images:
+            raw = str(image_data or "")
+            if not raw.startswith("data:image") or "," not in raw:
+                continue
+            try:
+                encoded = raw.split(",", 1)[1]
+                reader = ImageReader(BytesIO(base64.b64decode(encoded)))
+            except Exception:
+                continue
+
+            page_buffer = BytesIO()
+            pdf = canvas.Canvas(page_buffer, pagesize=A4)
+            pw, ph = A4
+            # 화면 그대로 A4로 맞춰 삽입
+            pdf.drawImage(reader, 0, 0, width=pw, height=ph, preserveAspectRatio=False)
+            pdf.showPage()
+            pdf.save()
+            page_buffer.seek(0)
+            writer.append(PdfReader(page_buffer))
+
+        if not writer.pages:
+            return JsonResponse({"detail": "유효한 페이지 이미지가 없습니다."}, status=400)
+
+        output = BytesIO()
+        writer.write(output)
+        output.seek(0)
+        filename = f"project_{project_id}_research_notes_viewer_snapshot.pdf"
+        return FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
 
     project = project_repository.project_to_dict(project_obj)
     manager_display = project.get("manager", "-")
@@ -381,39 +424,53 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     cover_buffer = BytesIO()
     c = canvas.Canvas(cover_buffer, pagesize=A4)
     w, h = A4
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
-    c.setFont("Helvetica-Bold", 26)
-    c.drawCentredString(w / 2, h - 130, "연구노트")
-    if cover_data.get("show_title"):
-        c.setFont("Helvetica-Bold", 22)
-        c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
 
-    lines = []
-    if cover_data.get("show_business_name"):
-        lines.append(("사업명", str(cover_data.get("business_name") or "-")))
-    if cover_data.get("show_code"):
-        lines.append(("과제 번호", str(cover_data.get("code") or "-")))
-    if cover_data.get("show_org"):
-        lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
-    if cover_data.get("show_manager"):
-        lines.append(("작업자", str(cover_data.get("manager") or "-")))
-    if cover_data.get("show_period"):
-        start_text = str(cover_data.get("start_date") or "").strip()
-        end_text = str(cover_data.get("end_date") or "").strip()
-        period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
-        lines.append(("기간", period))
+    cover_image_data_url = str(cover_data.get("cover_image_data_url") or "")
+    drew_cover_image = False
+    if cover_image_data_url.startswith("data:image") and "," in cover_image_data_url:
+        try:
+            encoded = cover_image_data_url.split(",", 1)[1]
+            img_reader = ImageReader(BytesIO(base64.b64decode(encoded)))
+            c.drawImage(img_reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
+            drew_cover_image = True
+        except Exception:
+            drew_cover_image = False
 
-    y = h - 240
-    c.setFont("Helvetica", 12)
-    for label, value in lines:
-        c.drawString(70, y, f"{label}:")
-        c.drawString(150, y, value)
-        y -= 24
+    if not drew_cover_image:
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
+        c.setFont("Helvetica-Bold", 26)
+        c.drawCentredString(w / 2, h - 130, "연구노트")
+        if cover_data.get("show_title"):
+            c.setFont("Helvetica-Bold", 22)
+            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
 
-    footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
-    c.setFont("Helvetica", 11)
-    c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
+        lines = []
+        if cover_data.get("show_business_name"):
+            lines.append(("사업명", str(cover_data.get("business_name") or "-")))
+        if cover_data.get("show_code"):
+            lines.append(("과제 번호", str(cover_data.get("code") or "-")))
+        if cover_data.get("show_org"):
+            lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
+        if cover_data.get("show_manager"):
+            lines.append(("작업자", str(cover_data.get("manager") or "-")))
+        if cover_data.get("show_period"):
+            start_text = str(cover_data.get("start_date") or "").strip()
+            end_text = str(cover_data.get("end_date") or "").strip()
+            period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
+            lines.append(("기간", period))
+
+        y = h - 240
+        c.setFont("Helvetica", 12)
+        for label, value in lines:
+            c.drawString(70, y, f"{label}:")
+            c.drawString(150, y, value)
+            y -= 24
+
+        footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
+        c.setFont("Helvetica", 11)
+        c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
+
     c.showPage()
     c.save()
     cover_buffer.seek(0)
@@ -678,6 +735,7 @@ def project_cover_update_api(request, project_id: str):
     cover.show_org = _as_bool("show_org", True)
     cover.show_manager = _as_bool("show_manager", True)
     cover.show_period = _as_bool("show_period", True)
+    cover.cover_image_data_url = str(request.POST.get("cover_image_data_url", cover.cover_image_data_url or "")).strip()
     cover.save()
     return JsonResponse({"message": "표지 설정이 저장되었습니다."}, status=200)
 

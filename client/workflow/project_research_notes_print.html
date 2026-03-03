@@ -35,10 +35,13 @@
 </head>
 <body>
   <div class="print-tools" style="position:sticky;top:0;background:#fff;padding:10px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;z-index:20">
-    <a href="/api/v1/projects/{{ project.id }}/research-notes/export-pdf" style="border:none;background:#2563eb;color:#fff;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;text-decoration:none">PDF 다운로드(단순 병합)</a>
+    <button id="exportSnapshotPdfBtn" type="button" style="border:none;background:#2563eb;color:#fff;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer">PDF 다운로드(화면 그대로 취합)</button>
   </div>
 
-  <section class="sheet cover page-break">
+  <section class="sheet cover page-break export-page">
+    {% if cover_data.cover_image_data_url %}
+      <img src="{{ cover_data.cover_image_data_url }}" alt="표지 이미지" style="width:100%;height:100%;object-fit:contain;border:none" />
+    {% else %}
     <div style="text-align:center;color:#2563eb;font-size:18px;font-weight:700">Electronic Lab Notebook</div>
     <div class="cover-sub">연구노트</div>
     {% if cover_data.show_title %}
@@ -64,11 +67,12 @@
     </table>
 
     <div style="margin-top:10mm;text-align:center;color:#475569;font-size:14px">ProjectNote - {{ current_user.team|default:current_user.organization|default:'미지정' }}</div>
+    {% endif %}
   </section>
 
   {% if printable_files %}
     {% for file in printable_files %}
-      <section class="sheet doc {% if not forloop.last %}page-break{% endif %}">
+      <section class="sheet doc export-page {% if not forloop.last %}page-break{% endif %}">
         <h3>[{{ file.note_title }}] {{ file.name }}</h3>
         <div class="doc-sub">형식: {{ file.format|upper }}</div>
         {% if file.format == 'pdf' %}
@@ -112,10 +116,66 @@
       </section>
     {% endfor %}
   {% else %}
-    <section class="sheet doc">
+    <section class="sheet doc export-page">
       <div class="empty">출력할 연구파일이 없습니다.</div>
     </section>
   {% endif %}
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    function getCsrfToken() {
+      const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
+      return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+    }
+
+    async function captureExportPagesAsImages() {
+      const pages = Array.from(document.querySelectorAll('.export-page'));
+      const images = [];
+      for (const page of pages) {
+        const canvas = await window.html2canvas(page, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+        images.push(canvas.toDataURL('image/png'));
+      }
+      return images;
+    }
+
+    document.getElementById('exportSnapshotPdfBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('exportSnapshotPdfBtn');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'PDF 생성 중...';
+      try {
+        const pageImages = await captureExportPagesAsImages();
+        const response = await fetch('/api/v1/projects/{{ project.id }}/research-notes/export-pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ page_images: pageImages }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          alert(body.detail || 'PDF 생성 실패');
+          return;
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'research_notes_snapshot.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (_err) {
+        alert('PDF 생성 중 오류가 발생했습니다.');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  </script>
 
 </body>
 </html>
