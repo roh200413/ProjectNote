@@ -113,7 +113,12 @@
         <input id="coverStartDateInput" type="date" class="pn-input" value="{{ cover_data.start_date|default:project.start_date|default:'' }}" />
         <label class="pn-label">종료일</label>
         <input id="coverEndDateInput" type="date" class="pn-input" value="{{ cover_data.end_date|default:project.end_date|default:'' }}" />
-        <button id="saveCoverBtn" type="button" class="pn-btn" style="margin-top:8px">저장</button>
+        <label class="pn-label">표지 원본 업로드 (이미지/PDF)</label>
+        <input id="coverAssetFileInput" type="file" class="pn-input" accept="image/*,application/pdf" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="saveCoverBtn" type="button" class="pn-btn">저장</button>
+          <a class="pn-btn ghost" style="text-decoration:none" href="/api/v1/projects/{{ project.id }}/cover/print" target="_blank">표지 출력</a>
+        </div>
         <div id="coverSaveToast" class="pn-sub"></div>
       </div>
 
@@ -254,6 +259,15 @@
   bindCoverVisibility('showManager', 'coverManagerRow');
   bindCoverVisibility('showPeriod', 'coverPeriodRow');
 
+  async function fileToDataUrl(file) {
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function captureCoverImageDataUrl() {
     const cover = document.getElementById('coverA4Preview');
     if (!cover || typeof window.html2canvas !== 'function') return '';
@@ -280,7 +294,14 @@
     formData.append('show_org', document.getElementById('showOrg')?.checked ? '1' : '0');
     formData.append('show_manager', document.getElementById('showManager')?.checked ? '1' : '0');
     formData.append('show_period', document.getElementById('showPeriod')?.checked ? '1' : '0');
-    const coverImageDataUrl = await captureCoverImageDataUrl();
+    const assetFile = document.getElementById('coverAssetFileInput')?.files?.[0];
+    let coverImageDataUrl = "";
+    if (assetFile) {
+      coverImageDataUrl = await fileToDataUrl(assetFile);
+    }
+    if (!coverImageDataUrl) {
+      coverImageDataUrl = await captureCoverImageDataUrl();
+    }
     if (coverImageDataUrl) formData.append('cover_image_data_url', coverImageDataUrl);
 
     const response = await fetch('/api/v1/projects/{{ project.id }}/cover', {

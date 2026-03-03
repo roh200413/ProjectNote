@@ -98,6 +98,18 @@ def _load_cover_data(project_obj: Project, project: dict, manager_display: str) 
         return _default_cover_data(project, manager_display)
 
 
+def _decode_data_url(data_url: str):
+    raw = str(data_url or "")
+    if not raw.startswith("data:") or "," not in raw:
+        return "", b""
+    header, encoded = raw.split(",", 1)
+    mime = header[5:].split(";", 1)[0].lower()
+    try:
+        return mime, base64.b64decode(encoded)
+    except Exception:
+        return "", b""
+
+
 @require_GET
 def projects(request):
     org_id = request.GET.get("org_id")
@@ -429,11 +441,19 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     w, h = A4
 
     cover_image_data_url = str(cover_data.get("cover_image_data_url") or "")
-    drew_cover_image = False
-    if cover_image_data_url.startswith("data:image") and "," in cover_image_data_url:
+    cover_mime, cover_payload = _decode_data_url(cover_image_data_url)
+
+    cover_pdf_reader = None
+    if cover_mime == "application/pdf" and cover_payload:
         try:
-            encoded = cover_image_data_url.split(",", 1)[1]
-            img_reader = ImageReader(BytesIO(base64.b64decode(encoded)))
+            cover_pdf_reader = PdfReader(BytesIO(cover_payload))
+        except Exception:
+            cover_pdf_reader = None
+
+    drew_cover_image = False
+    if cover_mime.startswith("image/") and cover_payload:
+        try:
+            img_reader = ImageReader(BytesIO(cover_payload))
             c.drawImage(img_reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
             drew_cover_image = True
         except Exception:
@@ -512,7 +532,10 @@ def project_research_notes_export_pdf_api(request, project_id: str):
 
     # 2) PDF 단순 병합 (표지 + 각 연구파일을 순서대로)
     writer = PdfWriter()
-    writer.append(PdfReader(cover_buffer))
+    if cover_pdf_reader:
+        writer.append(cover_pdf_reader)
+    else:
+        writer.append(PdfReader(cover_buffer))
 
     note_ids = project_repository.project_note_ids(project_id)
     all_notes = research_note_repository.list_research_notes()
@@ -675,6 +698,54 @@ def project_upload_research_note_api(request, project_id: str):
     ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
 
     return JsonResponse({"message": "연구파일이 등록되었습니다.", "note_id": str(note.id)}, status=201)
+
+
+@require_GET
+def project_cover_print_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    project_obj = Project.objects.filter(id=project_id).first()
+    if not project_obj:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    project = project_repository.project_to_dict(project_obj)
+    manager_display = project.get("manager", "-")
+    cover_data = _load_cover_data(project_obj, project, manager_display)
+    data_url = str(cover_data.get("cover_image_data_url") or "")
+    mime, payload = _decode_data_url(data_url)
+
+    if mime == "application/pdf" and payload:
+        return FileResponse(BytesIO(payload), as_attachment=True, filename=f"project_{project_id}_cover.pdf", content_type="application/pdf")
+
+    # image/unknown fallback: generate A4 PDF using saved image when present, else text cover
+    cover_buffer = BytesIO()
+    c = canvas.Canvas(cover_buffer, pagesize=A4)
+    w, h = A4
+
+    drew_image = False
+    if mime.startswith("image/") and payload:
+        try:
+            reader = ImageReader(BytesIO(payload))
+            c.drawImage(reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
+            drew_image = True
+        except Exception:
+            drew_image = False
+
+    if not drew_image:
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
+        c.setFont("Helvetica-Bold", 26)
+        c.drawCentredString(w / 2, h - 130, "연구노트")
+        if cover_data.get("show_title"):
+            c.setFont("Helvetica-Bold", 22)
+            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
+
+    c.showPage()
+    c.save()
+    cover_buffer.seek(0)
+    return FileResponse(cover_buffer, as_attachment=True, filename=f"project_{project_id}_cover.pdf", content_type="application/pdf")
 
 
 @require_http_methods(["POST"])
