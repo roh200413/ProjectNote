@@ -447,7 +447,7 @@ def test_research_notes_api_and_front_pages() -> None:
 
     detail_page = client.get(f"/frontend/research-notes/{note_id}")
     assert detail_page.status_code == 200
-    assert "연구노트 다운로드" in detail_page.content.decode()
+    assert "파일 보기" in detail_page.content.decode()
 
 
 def test_workflow_pages_exist() -> None:
