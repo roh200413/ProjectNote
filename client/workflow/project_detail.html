@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}프로젝트 상세{% endblock %}
-{% block page_title %}연구노트 상세{% endblock %}
+{% block page_title %}프로젝트 상세{% endblock %}
 {% block content %}
 <section id="projectInfoSection" class="pn-card" style="margin-bottom:12px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
@@ -13,6 +13,7 @@
   <div class="pn-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
     <div><div class="pn-sub">책임자</div><strong>{{ manager_display }}</strong></div>
     <div><div class="pn-sub">상태</div><strong>{{ project.status }}</strong></div>
+    <div><div class="pn-sub">사업명</div><strong>{{ project.business_name|default:'-' }}</strong></div>
     <div><div class="pn-sub">기관</div><strong>{{ project.organization }}</strong></div>
     <div><div class="pn-sub">과제 번호</div><strong>{{ project.code|default:'-' }}</strong></div>
     <div><div class="pn-sub">시작일</div><strong>{{ project.start_date|default:'-' }}</strong></div>
@@ -43,6 +44,10 @@
       </div>
     </div>
     <div class="pn-row">
+      <div>
+        <label class="pn-label">사업명</label>
+        <input class="pn-input" name="business_name" value="{{ project.business_name }}" />
+      </div>
       <div>
         <label class="pn-label">발행 기관</label>
         <input class="pn-input" name="organization" value="{{ project.organization }}" />
@@ -83,55 +88,79 @@
 
 
 <section id="projectCoverSection" class="pn-card" style="margin-bottom:12px">
-  <h3 style="margin:0 0 10px">표지 편집 (A4 세로)</h3>
-  <div class="pn-sub" style="margin-bottom:10px">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
+  <details>
+    <summary style="cursor:pointer;font-weight:600">표지 편집 (A4 세로)</summary>
+    <div class="pn-sub" style="margin:10px 0">프로젝트 상세 하단에서 국책과제 제출용 표지를 편집할 수 있습니다.</div>
 
-  <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
-    <div style="display:grid;gap:8px">
-      <label class="pn-label">표지 제목</label>
-      <input id="coverTitleInput" class="pn-input" value="{{ project.name }}" />
-      <label class="pn-label">과제 번호</label>
-      <input id="coverCodeInput" class="pn-input" value="{{ project.code|default:'-' }}" />
-      <label class="pn-label">기관명</label>
-      <input id="coverOrgInput" class="pn-input" value="{{ project.organization|default:'-' }}" />
-      <label class="pn-label">책임자</label>
-      <input id="coverManagerInput" class="pn-input" value="{{ manager_display|default:project.manager }}" />
-      <label class="pn-label">제출일</label>
-      <input id="coverDateInput" type="date" class="pn-input" value="" />
-    </div>
-
-    <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
-      <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
-        <div>
-          <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">국책과제 프로젝트 연구노트 표지</div>
-          <h1 id="coverTitleText" style="margin:22mm 0 0;text-align:center;font-size:34px;line-height:1.35">{{ project.name }}</h1>
+    <div class="pn-grid" style="grid-template-columns:340px 1fr;gap:12px;align-items:start">
+      <div style="display:grid;gap:8px">
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showBusinessName" checked /> 사업명</label>
+        <input id="coverBusinessInput" class="pn-input" value="{{ cover_data.business_name|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showTitle" checked /> 표지 제목</label>
+        <label class="pn-label">표지 제목</label>
+        <input id="coverTitleInput" class="pn-input" value="{{ cover_data.title|default:project.name }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showCode" checked /> 과제 번호</label>
+        <label class="pn-label">과제 번호</label>
+        <input id="coverCodeInput" class="pn-input" value="{{ cover_data.code|default:project.code|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showOrg" checked /> 기관명</label>
+        <label class="pn-label">기관명</label>
+        <input id="coverOrgInput" class="pn-input" value="{{ cover_data.organization|default:project.organization|default:'-' }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showManager" checked /> 책임자</label>
+        <label class="pn-label">책임자</label>
+        <input id="coverManagerInput" class="pn-input" value="{{ cover_data.manager|default:manager_display|default:project.manager }}" />
+        <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="showPeriod" checked /> 기간</label>
+        <label class="pn-label">시작일</label>
+        <input id="coverStartDateInput" type="date" class="pn-input" value="{{ cover_data.start_date|default:project.start_date|default:'' }}" />
+        <label class="pn-label">종료일</label>
+        <input id="coverEndDateInput" type="date" class="pn-input" value="{{ cover_data.end_date|default:project.end_date|default:'' }}" />
+        <label class="pn-label">표지 원본 업로드 (이미지/PDF)</label>
+        <input id="coverAssetFileInput" type="file" class="pn-input" accept="image/*,application/pdf" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="saveCoverBtn" type="button" class="pn-btn">저장</button>
+          <a class="pn-btn ghost" style="text-decoration:none" href="/api/v1/projects/{{ project.id }}/cover/print" target="_blank">표지 출력</a>
         </div>
+        <div id="coverSaveToast" class="pn-sub"></div>
+      </div>
 
-        <table style="width:100%;border-collapse:collapse;font-size:16px">
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
-            <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ project.code|default:'-' }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
-            <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ project.organization|default:'-' }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
-            <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ manager_display|default:project.manager }}</td>
-          </tr>
-          <tr>
-            <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">제출일</th>
-            <td id="coverDateText" style="border:1px solid #cbd5e1;padding:10px">-</td>
-          </tr>
-        </table>
+      <div style="overflow:auto;background:#eef2f8;padding:12px;border-radius:10px;border:1px solid #dde5f2">
+        <div id="coverA4Preview" style="width:210mm;min-height:297mm;background:#fff;margin:0 auto;padding:18mm 16mm;box-sizing:border-box;box-shadow:0 4px 20px rgba(15,23,42,.08);display:flex;flex-direction:column;justify-content:space-between;gap:12px">
+          <div>
+            <div style="text-align:center;font-size:13px;color:#64748b;letter-spacing:.08em">Electronic Lab Notebook</div>
+            <div style="margin-top:12mm;text-align:center;font-size:30px;font-weight:700">연구노트</div>
+            <h1 id="coverTitleText" style="margin:3mm 0 0;text-align:center;font-size:40px;line-height:1.35">{{ cover_data.title|default:project.name }}</h1>
+          </div>
 
-        <div style="text-align:center;color:#475569;font-size:14px">ProjectNote</div>
+          <table style="width:100%;border-collapse:collapse;font-size:16px">
+            <tr id="coverCodeRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;width:140px;background:#f8fafc">과제 번호</th>
+              <td id="coverCodeText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.code|default:project.code|default:'-' }}</td>
+            </tr>
+            <tr id="coverBusinessRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">사업명</th>
+              <td id="coverBusinessText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.business_name|default:project.business_name|default:'-' }}</td>
+            </tr>
+            <tr id="coverOrgRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기관명</th>
+              <td id="coverOrgText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.organization|default:project.organization|default:'-' }}</td>
+            </tr>
+            <tr id="coverManagerRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">책임자</th>
+              <td id="coverManagerText" style="border:1px solid #cbd5e1;padding:10px">{{ cover_data.manager|default:manager_display|default:project.manager }}</td>
+            </tr>
+            <tr id="coverPeriodRow">
+              <th style="text-align:left;border:1px solid #cbd5e1;padding:10px;background:#f8fafc">기간</th>
+              <td id="coverPeriodText" style="border:1px solid #cbd5e1;padding:10px">-</td>
+            </tr>
+          </table>
+
+          <div style="text-align:center;color:#475569;font-size:14px">ProjectNote - {{ current_user.team|default:current_user.organization|default:'미지정' }}</div>
+        </div>
       </div>
     </div>
-  </div>
+  </details>
 </section>
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
   function toggleProjectEdit(show) {
     document.getElementById('projectInfoSection').style.display = show ? 'none' : 'block';
@@ -153,10 +182,12 @@
     }
   });
   const coverTitleInput = document.getElementById('coverTitleInput');
+  const coverBusinessInput = document.getElementById('coverBusinessInput');
   const coverCodeInput = document.getElementById('coverCodeInput');
   const coverOrgInput = document.getElementById('coverOrgInput');
   const coverManagerInput = document.getElementById('coverManagerInput');
-  const coverDateInput = document.getElementById('coverDateInput');
+  const coverStartDateInput = document.getElementById('coverStartDateInput');
+  const coverEndDateInput = document.getElementById('coverEndDateInput');
 
   function bindCoverField(input, targetId, fallback='-') {
     const target = document.getElementById(targetId);
@@ -169,19 +200,119 @@
     update();
   }
 
+  bindCoverField(coverBusinessInput, 'coverBusinessText', '-');
   bindCoverField(coverTitleInput, 'coverTitleText', '{{ project.name|escapejs }}');
   bindCoverField(coverCodeInput, 'coverCodeText', '-');
   bindCoverField(coverOrgInput, 'coverOrgText', '-');
   bindCoverField(coverManagerInput, 'coverManagerText', '-');
 
-  if (coverDateInput) {
-    const dateTarget = document.getElementById('coverDateText');
-    const updateDate = () => {
-      dateTarget.textContent = coverDateInput.value || '-';
+  const coverPeriodText = document.getElementById('coverPeriodText');
+  const updatePeriod = () => {
+    const start = (coverStartDateInput?.value || '').trim();
+    const end = (coverEndDateInput?.value || '').trim();
+    if (start && end) {
+      coverPeriodText.textContent = `${start} ~ ${end}`;
+      return;
+    }
+    coverPeriodText.textContent = start || end || '-';
+  };
+  coverStartDateInput?.addEventListener('change', updatePeriod);
+  coverEndDateInput?.addEventListener('change', updatePeriod);
+  updatePeriod();
+
+  function bindCoverVisibility(checkId, targetId) {
+    const check = document.getElementById(checkId);
+    const target = document.getElementById(targetId);
+    if (!check || !target) return;
+    const update = () => {
+      target.style.display = check.checked ? '' : 'none';
     };
-    coverDateInput.addEventListener('change', updateDate);
-    updateDate();
+    check.addEventListener('change', update);
+    update();
   }
+
+  const visibilityDefaults = {
+    showBusinessName: {{ cover_data.show_business_name|yesno:"true,false" }},
+    showTitle: {{ cover_data.show_title|yesno:"true,false" }},
+    showCode: {{ cover_data.show_code|yesno:"true,false" }},
+    showOrg: {{ cover_data.show_org|yesno:"true,false" }},
+    showManager: {{ cover_data.show_manager|yesno:"true,false" }},
+    showPeriod: {{ cover_data.show_period|yesno:"true,false" }}
+  };
+
+  function setCheckbox(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!value;
+  }
+
+  setCheckbox('showBusinessName', visibilityDefaults.showBusinessName);
+  setCheckbox('showTitle', visibilityDefaults.showTitle);
+  setCheckbox('showCode', visibilityDefaults.showCode);
+  setCheckbox('showOrg', visibilityDefaults.showOrg);
+  setCheckbox('showManager', visibilityDefaults.showManager);
+  setCheckbox('showPeriod', visibilityDefaults.showPeriod);
+
+  bindCoverVisibility('showBusinessName', 'coverBusinessRow');
+  bindCoverVisibility('showTitle', 'coverTitleText');
+  bindCoverVisibility('showCode', 'coverCodeRow');
+  bindCoverVisibility('showOrg', 'coverOrgRow');
+  bindCoverVisibility('showManager', 'coverManagerRow');
+  bindCoverVisibility('showPeriod', 'coverPeriodRow');
+
+  async function fileToDataUrl(file) {
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function captureCoverImageDataUrl() {
+    const cover = document.getElementById('coverA4Preview');
+    if (!cover || typeof window.html2canvas !== 'function') return '';
+    try {
+      const canvas = await window.html2canvas(cover, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+      return canvas.toDataURL('image/png');
+    } catch (_err) {
+      return '';
+    }
+  }
+
+  document.getElementById('saveCoverBtn')?.addEventListener('click', async () => {
+    const formData = new FormData();
+    formData.append('title', coverTitleInput?.value || '');
+    formData.append('code', coverCodeInput?.value || '');
+    formData.append('business_name', coverBusinessInput?.value || '');
+    formData.append('organization', coverOrgInput?.value || '');
+    formData.append('manager', coverManagerInput?.value || '');
+    formData.append('start_date', coverStartDateInput?.value || '');
+    formData.append('end_date', coverEndDateInput?.value || '');
+    formData.append('show_business_name', document.getElementById('showBusinessName')?.checked ? '1' : '0');
+    formData.append('show_title', document.getElementById('showTitle')?.checked ? '1' : '0');
+    formData.append('show_code', document.getElementById('showCode')?.checked ? '1' : '0');
+    formData.append('show_org', document.getElementById('showOrg')?.checked ? '1' : '0');
+    formData.append('show_manager', document.getElementById('showManager')?.checked ? '1' : '0');
+    formData.append('show_period', document.getElementById('showPeriod')?.checked ? '1' : '0');
+    const assetFile = document.getElementById('coverAssetFileInput')?.files?.[0];
+    let coverImageDataUrl = "";
+    if (assetFile) {
+      coverImageDataUrl = await fileToDataUrl(assetFile);
+    }
+    if (!coverImageDataUrl) {
+      coverImageDataUrl = await captureCoverImageDataUrl();
+    }
+    if (coverImageDataUrl) formData.append('cover_image_data_url', coverImageDataUrl);
+
+    const response = await fetch('/api/v1/projects/{{ project.id }}/cover', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json().catch(() => ({}));
+    document.getElementById('coverSaveToast').textContent = response.ok ? (body.message || '저장되었습니다.') : (body.detail || '저장 실패');
+  });
 
 </script>
 {% endblock %}
