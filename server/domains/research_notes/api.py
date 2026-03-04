@@ -143,6 +143,40 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
+def research_note_cover_page(request, note_id: str):
+    try:
+        note = research_note_repository.get_research_note(note_id)
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
+    project = note_obj.project if note_obj else None
+
+    manager_raw = project.manager if project else ""
+    manager_user = UserAccount.objects.filter(username=manager_raw).first()
+    if not manager_user:
+        manager_user = UserAccount.objects.filter(display_name=manager_raw).first()
+
+    manager_name = manager_user.display_name if manager_user else (manager_raw or "-")
+
+    context_data = {
+        "note": note,
+        "project": {
+            "id": str(project.id) if project else "",
+            "name": project.name if project else "-",
+            "code": note.get("project_code") or (project.code if project else "-"),
+            "organization": project.organization if project else "-",
+            "manager": manager_name,
+            "business_name": getattr(project, "business_name", "") if project else "",
+        },
+        "period": note.get("period") or "-",
+    }
+    return render(request, "research_notes/cover.html", page_context(request, context_data))
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
 def research_note_viewer_page(request, note_id: str):
     try:
         context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
