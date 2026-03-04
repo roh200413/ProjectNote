@@ -96,53 +96,12 @@ def research_note_detail_page(request, note_id: str):
     )
 
 
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def research_note_cover_page(request, note_id: str):
-    note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
-    if not note_obj:
-        raise Http404("Research note not found")
-
+def _build_research_note_viewer_context(note_id: str, requested_file: str | None = None) -> dict:
     note = research_note_repository.get_research_note(note_id)
-    project = note_obj.project
-    period_text = note.get("period", "-")
-    if project and (project.start_date or project.end_date):
-        start = project.start_date.isoformat() if project.start_date else "-"
-        end = project.end_date.isoformat() if project.end_date else "-"
-        period_text = f"{start} ~ {end}"
-
-    return render(
-        request,
-        "research_notes/cover.html",
-        page_context(
-            request,
-            {
-                "note": note,
-                "project_code": project.code if project and project.code else note.get("project_code") or "-",
-                "project_name": project.name if project and project.name else "-",
-                "sub_project_name": note.get("title") or "-",
-                "period": period_text,
-                "worker": note.get("owner") or "-",
-            },
-        ),
-    )
-
-
-@require_GET
-@ensure_csrf_cookie
-@login_required_page
-def research_note_viewer_page(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
     files = research_note_repository.list_note_files(note_id)
     if not files:
         raise Http404("Research note file not found")
 
-    requested_file = request.GET.get("file")
     selected_file = files[0]
     if requested_file:
         matched = next((item for item in files if item["id"] == requested_file), None)
@@ -166,26 +125,43 @@ def research_note_viewer_page(request, note_id: str):
     manager_signature = signature_repository.read_signature(manager_user.username) if manager_user else {"signature_data_url": ""}
     reviewer_date = datetime.now().strftime("%Y.%m.%d / %I:%M %p")
 
-    return render(
-        request,
-        "research_notes/viewer.html",
-        page_context(
-            request,
-            {
-                "note": note,
-                "files": files,
-                "file": selected_file,
-                "selected_file": selected_file,
-                "selected_file_url": selected_file_url,
-                "folders": research_note_repository.list_note_folders(note_id),
-                "manager_name": manager_user.display_name if manager_user else manager_raw,
-                "author_signature_data_url": author_signature.get("signature_data_url", ""),
-                "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-                "author_date": selected_file.get("created", "-"),
-                "reviewer_date": reviewer_date,
-            },
-        ),
-    )
+    return {
+        "note": note,
+        "files": files,
+        "file": selected_file,
+        "selected_file": selected_file,
+        "selected_file_url": selected_file_url,
+        "folders": research_note_repository.list_note_folders(note_id),
+        "manager_name": manager_user.display_name if manager_user else manager_raw,
+        "author_signature_data_url": author_signature.get("signature_data_url", ""),
+        "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
+        "author_date": selected_file.get("created", "-"),
+        "reviewer_date": reviewer_date,
+    }
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def research_note_viewer_page(request, note_id: str):
+    try:
+        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    return render(request, "research_notes/viewer.html", page_context(request, context_data))
+
+
+@require_GET
+@ensure_csrf_cookie
+@login_required_page
+def research_note_printable_page(request, note_id: str):
+    try:
+        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    return render(request, "research_notes/printable.html", page_context(request, context_data))
 
 
 @require_GET
