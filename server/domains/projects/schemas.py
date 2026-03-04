@@ -9,6 +9,7 @@ class InvitedMemberPayload(BaseModel):
 class CreateProjectPayload(BaseModel):
     name: str = "새 프로젝트"
     manager: str = "미지정"
+    business_name: str = ""
     organization: str = "미지정"
     company_id: int | None = None
     code: str = ""
