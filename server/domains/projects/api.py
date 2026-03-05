@@ -817,6 +817,11 @@ def project_add_researcher_api(request, project_id: str):
         return JsonResponse({"message": "이미 등록된 연구원입니다."}, status=200)
     return JsonResponse({"message": "연구자가 추가되었습니다."}, status=200)
 
+@require_http_methods(["POST"])
+def project_remove_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
 
 @require_http_methods(["POST"])
 def project_remove_researcher_api(request, project_id: str):
