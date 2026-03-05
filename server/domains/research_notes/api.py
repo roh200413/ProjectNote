@@ -45,6 +45,38 @@ def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
     pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
 
 
+def _research_note_pdf_cache_path(note_id: str, file_id: str) -> Path:
+    return Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / "_pdf_cache" / str(note_id) / f"{file_id}.pdf"
+
+
+def _read_research_note_pdf_cache(note_id: str, file_id: str) -> bytes | None:
+    cache_path = _research_note_pdf_cache_path(note_id, file_id)
+    if cache_path.exists() and cache_path.is_file():
+        try:
+            return cache_path.read_bytes()
+        except Exception:
+            return None
+    return None
+
+
+def _write_research_note_pdf_cache(note_id: str, file_id: str, pdf_bytes: bytes) -> None:
+    cache_path = _research_note_pdf_cache_path(note_id, file_id)
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(pdf_bytes)
+    except Exception:
+        return
+
+
+def _invalidate_research_note_pdf_cache(note_id: str, file_id: str) -> None:
+    cache_path = _research_note_pdf_cache_path(note_id, file_id)
+    try:
+        if cache_path.exists():
+            cache_path.unlink()
+    except Exception:
+        return
+
+
 @require_GET
 def research_notes_api(_request):
     return JsonResponse(research_note_repository.list_research_notes(), safe=False)
@@ -226,11 +258,6 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_note_viewer_export_pdf_api(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
     files = research_note_repository.list_note_files(note_id)
     if not files:
         raise Http404("Research note file not found")
@@ -241,6 +268,32 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
         matched = next((item for item in files if item["id"] == requested_file), None)
         if matched:
             selected_file = matched
+
+    file_id = str(selected_file["id"])
+    pdf_bytes = _read_research_note_pdf_cache(note_id, file_id)
+
+    if pdf_bytes is None:
+        try:
+            pdf_bytes = build_research_note_file_pdf(note_id, file_id)
+        except ResearchNote.DoesNotExist as exc:
+            raise Http404("Research note not found") from exc
+        _write_research_note_pdf_cache(note_id, file_id, pdf_bytes)
+
+    filename = f"research_note_{note_id}_{Path(str(selected_file.get('name') or 'research_note')).stem}.pdf"
+    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=filename, content_type="application/pdf")
+
+
+def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
+    try:
+        note = research_note_repository.get_research_note(note_id)
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    files = research_note_repository.list_note_files(note_id)
+    if not files:
+        raise Http404("Research note file not found")
+
+    selected_file = next((item for item in files if item["id"] == file_id), files[0])
 
     safe_name = Path(selected_file["name"]).name
     candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
@@ -392,9 +445,7 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
 
     output = BytesIO()
     writer.write(output)
-    output.seek(0)
-    filename = f"research_note_{note_id}_{Path(safe_name).stem}.pdf"
-    return FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
+    return output.getvalue()
 
 
 @require_http_methods(["POST"])
@@ -408,4 +459,5 @@ def research_note_file_update_api(request, note_id: str, file_id: str):
         )
     except Exception as exc:
         raise Http404("Research note file not found") from exc
+    _invalidate_research_note_pdf_cache(note_id, file_id)
     return JsonResponse({"message": "파일 정보가 업데이트되었습니다.", "file": updated})

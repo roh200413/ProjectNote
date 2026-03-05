@@ -21,6 +21,11 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from .models import Project, ProjectMember, ProjectNoteCover
 from server.domains.admin.models import UserAccount
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.research_notes.api import (
+    build_research_note_file_pdf,
+    _read_research_note_pdf_cache,
+    _write_research_note_pdf_cache,
+)
 from server.application.web_support import (
     json_uuid_validation_error,
     login_required_page,
@@ -135,6 +140,108 @@ def _decode_data_url(data_url: str):
         return mime, base64.b64decode(encoded)
     except Exception:
         return "", b""
+
+
+def _project_cover_pdf_cache_path(project_id: str) -> Path:
+    return Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / "_pdf_cache" / "project_covers" / f"{project_id}.pdf"
+
+
+def _read_project_cover_pdf_cache(project_id: str) -> bytes | None:
+    cache_path = _project_cover_pdf_cache_path(project_id)
+    if cache_path.exists() and cache_path.is_file():
+        try:
+            return cache_path.read_bytes()
+        except Exception:
+            return None
+    return None
+
+
+def _write_project_cover_pdf_cache(project_id: str, pdf_bytes: bytes) -> None:
+    cache_path = _project_cover_pdf_cache_path(project_id)
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(pdf_bytes)
+    except Exception:
+        return
+
+
+def _invalidate_project_cover_pdf_cache(project_id: str) -> None:
+    cache_path = _project_cover_pdf_cache_path(project_id)
+    try:
+        if cache_path.exists():
+            cache_path.unlink()
+    except Exception:
+        return
+
+
+def _build_project_cover_pdf_bytes(profile: dict, project_id: str, cover_data: dict) -> bytes:
+    cover_image_data_url = str(cover_data.get("cover_image_data_url") or "")
+    cover_mime, cover_payload = _decode_data_url(cover_image_data_url)
+
+    if cover_mime == "application/pdf" and cover_payload:
+        return cover_payload
+
+    cover_buffer = BytesIO()
+    c = canvas.Canvas(cover_buffer, pagesize=A4)
+    w, h = A4
+
+    drew_cover_image = False
+    if cover_mime.startswith("image/") and cover_payload:
+        try:
+            img_reader = ImageReader(BytesIO(cover_payload))
+            c.drawImage(img_reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
+            drew_cover_image = True
+        except Exception:
+            drew_cover_image = False
+
+    if not drew_cover_image:
+        _set_pdf_font(c, 16, bold=True)
+        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
+        _set_pdf_font(c, 26, bold=True)
+        c.drawCentredString(w / 2, h - 130, "연구노트")
+        if cover_data.get("show_title"):
+            _set_pdf_font(c, 22, bold=True)
+            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
+
+        lines = []
+        if cover_data.get("show_business_name"):
+            lines.append(("사업명", str(cover_data.get("business_name") or "-")))
+        if cover_data.get("show_code"):
+            lines.append(("과제 번호", str(cover_data.get("code") or "-")))
+        if cover_data.get("show_org"):
+            lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
+        if cover_data.get("show_manager"):
+            lines.append(("작업자", str(cover_data.get("manager") or "-")))
+        if cover_data.get("show_period"):
+            start_text = str(cover_data.get("start_date") or "").strip()
+            end_text = str(cover_data.get("end_date") or "").strip()
+            period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
+            lines.append(("기간", period))
+
+        y = h - 240
+        _set_pdf_font(c, 12)
+        for label, value in lines:
+            c.drawString(70, y, f"{label}:")
+            c.drawString(150, y, value)
+            y -= 24
+
+        footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
+        _set_pdf_font(c, 11)
+        c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
+
+    c.showPage()
+    c.save()
+    cover_buffer.seek(0)
+    return cover_buffer.getvalue()
+
+
+def _get_or_build_project_cover_pdf_bytes(profile: dict, project_id: str, cover_data: dict) -> bytes:
+    cached = _read_project_cover_pdf_cache(project_id)
+    if cached is not None:
+        return cached
+    pdf_bytes = _build_project_cover_pdf_bytes(profile, project_id, cover_data)
+    _write_project_cover_pdf_cache(project_id, pdf_bytes)
+    return pdf_bytes
 
 
 @require_GET
@@ -462,154 +569,12 @@ def project_research_notes_export_pdf_api(request, project_id: str):
     manager_display = project.get("manager", "-")
     cover_data = _load_cover_data(project_obj, project, manager_display)
 
-    # 1) 표지 PDF(A4)를 먼저 생성
-    cover_buffer = BytesIO()
-    c = canvas.Canvas(cover_buffer, pagesize=A4)
-    w, h = A4
-
-    cover_image_data_url = str(cover_data.get("cover_image_data_url") or "")
-    cover_mime, cover_payload = _decode_data_url(cover_image_data_url)
-
-    cover_pdf_reader = None
-    if cover_mime == "application/pdf" and cover_payload:
-        try:
-            cover_pdf_reader = PdfReader(BytesIO(cover_payload), strict=False)
-        except Exception:
-            cover_pdf_reader = None
-
-    drew_cover_image = False
-    if cover_mime.startswith("image/") and cover_payload:
-        try:
-            img_reader = ImageReader(BytesIO(cover_payload))
-            c.drawImage(img_reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
-            drew_cover_image = True
-        except Exception:
-            drew_cover_image = False
-
-    if not drew_cover_image:
-        _set_pdf_font(c, 16, bold=True)
-        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
-        _set_pdf_font(c, 26, bold=True)
-        c.drawCentredString(w / 2, h - 130, "연구노트")
-        if cover_data.get("show_title"):
-            _set_pdf_font(c, 22, bold=True)
-            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
-
-        lines = []
-        if cover_data.get("show_business_name"):
-            lines.append(("사업명", str(cover_data.get("business_name") or "-")))
-        if cover_data.get("show_code"):
-            lines.append(("과제 번호", str(cover_data.get("code") or "-")))
-        if cover_data.get("show_org"):
-            lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
-        if cover_data.get("show_manager"):
-            lines.append(("작업자", str(cover_data.get("manager") or "-")))
-        if cover_data.get("show_period"):
-            start_text = str(cover_data.get("start_date") or "").strip()
-            end_text = str(cover_data.get("end_date") or "").strip()
-            period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
-            lines.append(("기간", period))
-
-        y = h - 240
-        _set_pdf_font(c, 12)
-        for label, value in lines:
-            c.drawString(70, y, f"{label}:")
-            c.drawString(150, y, value)
-            y -= 24
-
-        footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
-        _set_pdf_font(c, 11)
-        c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
-
-    c.showPage()
-    c.save()
-    cover_buffer.seek(0)
-
-    def _find_source_file(note_id: str, file_name: str):
-        safe_name = Path(file_name).name
-        candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
-        if not candidates:
-            storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-            candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
-        return next((candidate for candidate in candidates if candidate.exists() and candidate.is_file()), None)
-
-    def _image_reader_from_data_url(data_url: str):
-        raw = str(data_url or "")
-        if not raw.startswith("data:image") or "," not in raw:
-            return None
-        try:
-            encoded = raw.split(",", 1)[1]
-            return ImageReader(BytesIO(base64.b64decode(encoded)))
-        except Exception:
-            return None
-
-    def _draw_signature_panel(pdf, pw, ph, *, author_name: str, created_text: str, reviewer_name: str, reviewer_date: str, author_signature_data_url: str, manager_signature_data_url: str):
-        top = 40
-        left = 24
-        total_width = pw - 48
-        col = total_width / 4
-        box_h = 64
-        labels = ["작성자 / 작성일", "작성자 사인", "점검자 / 점검일자", "점검자 사인"]
-        values = [f"{author_name}\n{created_text}", "", f"{reviewer_name}\n{reviewer_date}", ""]
-        for idx in range(4):
-            x = left + idx * col
-            pdf.rect(x, top, col, box_h)
-            _set_pdf_font(pdf, 9)
-            pdf.drawString(x + 4, top + box_h - 12, labels[idx])
-            if idx in {0, 2}:
-                _set_pdf_font(pdf, 10)
-                for n, line in enumerate(values[idx].split("\n")):
-                    pdf.drawCentredString(x + col / 2, top + 28 - (n * 12), line)
-            else:
-                data_url = author_signature_data_url if idx == 1 else manager_signature_data_url
-                reader = _image_reader_from_data_url(data_url)
-                if reader:
-                    pdf.drawImage(reader, x + 8, top + 6, width=col - 16, height=32, preserveAspectRatio=True, anchor='c')
-                else:
-                    _set_pdf_font(pdf, 9)
-                    pdf.drawCentredString(x + col / 2, top + 20, "사인 없음")
-
-    def _overlay_signature_on_pdf_page(page, *, author_name: str, created_text: str, reviewer_name: str, reviewer_date: str, author_signature_data_url: str, manager_signature_data_url: str):
-        pw = float(page.mediabox.width)
-        ph = float(page.mediabox.height)
-        page_buffer = BytesIO()
-        pdf = canvas.Canvas(page_buffer, pagesize=(pw, ph))
-        _draw_signature_panel(
-            pdf,
-            pw,
-            ph,
-            author_name=author_name,
-            created_text=created_text,
-            reviewer_name=reviewer_name,
-            reviewer_date=reviewer_date,
-            author_signature_data_url=author_signature_data_url,
-            manager_signature_data_url=manager_signature_data_url,
-        )
-        pdf.save()
-        page_buffer.seek(0)
-        overlay_reader = PdfReader(page_buffer, strict=False)
-        page.merge_page(overlay_reader.pages[0])
-
-    def _build_single_page_pdf(title: str, subtitle: str, content_builder):
-        page_buffer = BytesIO()
-        pdf = canvas.Canvas(page_buffer, pagesize=A4)
-        pw, ph = A4
-        _set_pdf_font(pdf, 14, bold=True)
-        pdf.drawString(40, ph - 50, title)
-        _set_pdf_font(pdf, 11)
-        pdf.drawString(40, ph - 68, subtitle)
-        content_builder(pdf, pw, ph)
-        pdf.showPage()
-        pdf.save()
-        page_buffer.seek(0)
-        return PdfReader(page_buffer, strict=False)
+    # 1) 표지 PDF는 저장된 결과를 우선 사용
+    cover_pdf_bytes = _get_or_build_project_cover_pdf_bytes(profile, project_id, cover_data)
 
     # 2) PDF 단순 병합 (표지 + 각 연구파일을 순서대로)
     writer = PdfWriter()
-    if cover_pdf_reader:
-        writer.append(cover_pdf_reader)
-    else:
-        writer.append(PdfReader(cover_buffer, strict=False))
+    writer.append(PdfReader(BytesIO(cover_pdf_bytes), strict=False))
 
     note_ids = project_repository.project_note_ids(project_id)
     all_notes = research_note_repository.list_research_notes()
@@ -628,7 +593,6 @@ def project_research_notes_export_pdf_api(request, project_id: str):
 
     merged_files = 0
     total_files = 0
-    image_exts = {"png", "jpg", "jpeg", "webp"}
 
     for note in project_notes:
         for file in research_note_repository.list_note_files(note["id"]):
@@ -636,86 +600,17 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             note_id = str(note["id"])
             if selected_pairs and (note_id, file_id) not in selected_pairs:
                 continue
+
             total_files += 1
-            fmt = str(file.get("format", "")).lower()
-            file_title = f"[{note['title']}] {file.get('name', '-') }"
-            source = _find_source_file(note["id"], str(file.get("name", "")))
-
-            author_name = str(file.get("author") or "-")
-            created_text = str(file.get("created") or "-")
-            reviewer_date = datetime.now().strftime("%Y.%m.%d / %I:%M %p")
-            author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
-            author_signature_data_url = signature_repository.read_signature(author_user.username).get("signature_data_url", "") if author_user else ""
-            manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
-            manager_signature_data_url = signature_repository.read_signature(manager_user.username).get("signature_data_url", "") if manager_user else ""
-
-            if fmt == "pdf" and source:
-                try:
-                    with source.open("rb") as pdf_file:
-                        reader = PdfReader(pdf_file, strict=False)
-                        if getattr(reader, "is_encrypted", False):
-                            try:
-                                reader.decrypt("")
-                            except Exception:
-                                pass
-                        page_count = len(reader.pages)
-                        for idx, page in enumerate(reader.pages):
-                            if idx == page_count - 1:
-                                _overlay_signature_on_pdf_page(
-                                    page,
-                                    author_name=author_name,
-                                    created_text=created_text,
-                                    reviewer_name=manager_display,
-                                    reviewer_date=reviewer_date,
-                                    author_signature_data_url=author_signature_data_url,
-                                    manager_signature_data_url=manager_signature_data_url,
-                                )
-                            writer.add_page(page)
-                    merged_files += 1
-                    continue
-                except Exception:
-                    pass
-
-            if fmt in image_exts and source:
-                try:
-                    def _draw_image(pdf, pw, ph, source_path=str(source)):
-                        left, bottom, width, height = 40, 130, pw - 80, ph - 250
-                        pdf.drawImage(source_path, left, bottom, width=width, height=height, preserveAspectRatio=True, anchor='c')
-                        _draw_signature_panel(
-                            pdf,
-                            pw,
-                            ph,
-                            author_name=author_name,
-                            created_text=created_text,
-                            reviewer_name=manager_display,
-                            reviewer_date=reviewer_date,
-                            author_signature_data_url=author_signature_data_url,
-                            manager_signature_data_url=manager_signature_data_url,
-                        )
-                    writer.append(_build_single_page_pdf(file_title, f"형식: {fmt.upper()}", _draw_image))
-                    merged_files += 1
-                    continue
-                except Exception:
-                    pass
-
-            def _draw_placeholder(pdf, pw, ph, fmt_text=fmt):
-                _set_pdf_font(pdf, 12)
-                pdf.drawString(40, ph - 110, f"해당 파일 형식({fmt_text or '알수없음'})은 PDF 병합 미지원 형식입니다.")
-                pdf.drawString(40, ph - 130, "원본은 프로젝트 연구노트 화면에서 개별 확인해주세요.")
-                _draw_signature_panel(
-                    pdf,
-                    pw,
-                    ph,
-                    author_name=author_name,
-                    created_text=created_text,
-                    reviewer_name=manager_display,
-                    reviewer_date=reviewer_date,
-                    author_signature_data_url=author_signature_data_url,
-                    manager_signature_data_url=manager_signature_data_url,
-                )
-
-            writer.append(_build_single_page_pdf(file_title, f"형식: {fmt.upper() if fmt else '-'}", _draw_placeholder))
-            merged_files += 1
+            try:
+                file_pdf_bytes = _read_research_note_pdf_cache(note_id, file_id)
+                if file_pdf_bytes is None:
+                    file_pdf_bytes = build_research_note_file_pdf(note_id, file_id)
+                    _write_research_note_pdf_cache(note_id, file_id, file_pdf_bytes)
+                writer.append(PdfReader(BytesIO(file_pdf_bytes), strict=False))
+                merged_files += 1
+            except Exception:
+                continue
 
     output = BytesIO()
     writer.write(output)
@@ -815,39 +710,9 @@ def project_cover_print_api(request, project_id: str):
     project = project_repository.project_to_dict(project_obj)
     manager_display = project.get("manager", "-")
     cover_data = _load_cover_data(project_obj, project, manager_display)
-    data_url = str(cover_data.get("cover_image_data_url") or "")
-    mime, payload = _decode_data_url(data_url)
 
-    if mime == "application/pdf" and payload:
-        return FileResponse(BytesIO(payload), as_attachment=True, filename=f"project_{project_id}_cover.pdf", content_type="application/pdf")
-
-    # image/unknown fallback: generate A4 PDF using saved image when present, else text cover
-    cover_buffer = BytesIO()
-    c = canvas.Canvas(cover_buffer, pagesize=A4)
-    w, h = A4
-
-    drew_image = False
-    if mime.startswith("image/") and payload:
-        try:
-            reader = ImageReader(BytesIO(payload))
-            c.drawImage(reader, 0, 0, width=w, height=h, preserveAspectRatio=False)
-            drew_image = True
-        except Exception:
-            drew_image = False
-
-    if not drew_image:
-        _set_pdf_font(c, 16, bold=True)
-        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
-        _set_pdf_font(c, 26, bold=True)
-        c.drawCentredString(w / 2, h - 130, "연구노트")
-        if cover_data.get("show_title"):
-            _set_pdf_font(c, 22, bold=True)
-            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
-
-    c.showPage()
-    c.save()
-    cover_buffer.seek(0)
-    return FileResponse(cover_buffer, as_attachment=True, filename=f"project_{project_id}_cover.pdf", content_type="application/pdf")
+    pdf_bytes = _get_or_build_project_cover_pdf_bytes(profile, project_id, cover_data)
+    return FileResponse(BytesIO(pdf_bytes), as_attachment=True, filename=f"project_{project_id}_cover.pdf", content_type="application/pdf")
 
 
 @require_http_methods(["POST"])
@@ -916,6 +781,7 @@ def project_cover_update_api(request, project_id: str):
     cover.show_period = _as_bool("show_period", True)
     cover.cover_image_data_url = str(request.POST.get("cover_image_data_url", cover.cover_image_data_url or "")).strip()
     cover.save()
+    _invalidate_project_cover_pdf_cache(project_id)
     return JsonResponse({"message": "표지 설정이 저장되었습니다."}, status=200)
 
 
@@ -951,6 +817,11 @@ def project_add_researcher_api(request, project_id: str):
         return JsonResponse({"message": "이미 등록된 연구원입니다."}, status=200)
     return JsonResponse({"message": "연구자가 추가되었습니다."}, status=200)
 
+@require_http_methods(["POST"])
+def project_remove_researcher_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_manage_project_members(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
 
 @require_http_methods(["POST"])
 def project_remove_researcher_api(request, project_id: str):
