@@ -1,49 +1,95 @@
-import { includeSources } from '../templates/templateSources';
-
-function extractBlock(html, blockName) {
-  const re = new RegExp(`{%\\s*block\\s+${blockName}\\s*%}([\\s\\S]*?){%\\s*endblock\\s*%}`, 'm');
-  const match = html.match(re);
-  return match ? match[1].trim() : '';
-}
-
-function extractBody(html) {
-  const match = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  return match ? match[1].trim() : html;
-}
+import { templateSources, includeSources } from '../templates/templateSources';
 
 function replaceIncludes(html) {
-  return html.replace(/{%\s*include\s+"([^"]+)"\s*%}/g, (_, includePath) => includeSources[includePath] || '');
+  let output = html;
+  let previous = '';
+  while (output !== previous) {
+    previous = output;
+    output = output.replace(/{%\s*include\s+["']([^"']+)["']\s*%}/g, (_, includePath) => includeSources[includePath] || '');
+  }
+  return output;
 }
 
-function stripTemplateTokens(html) {
+function extractBlocks(html) {
+  const blocks = {};
+  html.replace(/{%\s*block\s+(\w+)\s*%}([\s\S]*?){%\s*endblock\s*%}/g, (_, name, content) => {
+    blocks[name] = content;
+    return '';
+  });
+  return blocks;
+}
+
+function mergeWithBase(baseHtml, childBlocks) {
+  return baseHtml.replace(/{%\s*block\s+(\w+)\s*%}([\s\S]*?){%\s*endblock\s*%}/g, (_, name, fallback) => {
+    return childBlocks[name] ?? fallback;
+  });
+}
+
+function collapseControlTags(html) {
+  let output = html;
+
+  output = output.replace(
+    /{%\s*for\b[^%]*%}([\s\S]*?)(?:{%\s*empty\s*%}([\s\S]*?))?{%\s*endfor\s*%}/g,
+    (_, loopBody) => `${loopBody}${loopBody}`
+  );
+
+  output = output.replace(
+    /{%\s*if\b[^%]*%}([\s\S]*?)(?:{%\s*else\s*%}([\s\S]*?))?{%\s*endif\s*%}/g,
+    (_, ifBody) => ifBody
+  );
+
+  output = output.replace(/{%\s*(elif|empty|else|endif|endfor)\b[^%]*%}/g, '');
+  return output;
+}
+
+function replaceVariables(html) {
+  const mapping = [
+    ['current_user.name', '홍길동'],
+    ['current_user.role', '관리자'],
+    ['summary.teams', '12'],
+    ['summary.researchers', '48'],
+    ['summary.notes', '230'],
+    ['p.name', '샘플 프로젝트'],
+    ['p.status', 'active'],
+    ['p.manager', '홍길동'],
+    ['p.organization', '딥아이'],
+    ['p.id', 'a1b2c3d4-e5f6-7890-abcd-1234567890ef'],
+    ['error', '']
+  ];
+
+  return html.replace(/{{\s*([^}]+)\s*}}/g, (_, exprRaw) => {
+    const expr = exprRaw.trim();
+    const found = mapping.find(([key]) => expr.includes(key));
+    if (found) return found[1];
+    if (expr.includes('default')) return '미지정';
+    return '샘플';
+  });
+}
+
+function stripRemainingTags(html) {
   return html
     .replace(/{%\s*csrf_token\s*%}/g, '')
-    .replace(/{%\s*(if|elif|else|endif|for|empty|endfor)\b[^%]*%}/g, '')
     .replace(/{%\s*url\s+[^%]*%}/g, '#')
-    .replace(/{{\s*[^}]+\s*}}/g, '샘플')
     .replace(/{%\s*[^%]*%}/g, '');
 }
 
-export function parseTemplate(rawHtml) {
-  const replaced = replaceIncludes(rawHtml);
-  const isChild = replaced.includes('{% extends "base.html" %}') || replaced.includes('{% extends "base_admin.html" %}');
+function composeTemplate(rawHtml) {
+  const child = replaceIncludes(rawHtml);
+  const extendMatch = child.match(/{%\s*extends\s+["']([^"']+)["']\s*%}/);
+  if (!extendMatch) return child;
 
-  if (!isChild) {
-    return {
-      type: 'standalone',
-      title: '',
-      pageTitle: '',
-      actions: '',
-      content: stripTemplateTokens(extractBody(replaced))
-    };
-  }
+  const extendsPath = extendMatch[1];
+  const baseKey = `client/${extendsPath}`;
+  const baseRaw = templateSources[baseKey] || '';
+  const base = replaceIncludes(baseRaw);
+  const blocks = extractBlocks(child);
+  return mergeWithBase(base, blocks);
+}
 
-  const type = replaced.includes('{% extends "base_admin.html" %}') ? 'admin' : 'workflow';
-  return {
-    type,
-    title: stripTemplateTokens(extractBlock(replaced, 'title')),
-    pageTitle: stripTemplateTokens(extractBlock(replaced, 'page_title')),
-    actions: stripTemplateTokens(extractBlock(replaced, 'page_actions')),
-    content: stripTemplateTokens(extractBlock(replaced, 'content'))
-  };
+export function renderLegacyHtml(rawHtml) {
+  const composed = composeTemplate(rawHtml);
+  const withIncludes = replaceIncludes(composed);
+  const collapsed = collapseControlTags(withIncludes);
+  const replaced = replaceVariables(collapsed);
+  return stripRemainingTags(replaced);
 }
