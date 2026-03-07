@@ -83,6 +83,7 @@ class ProjectRepository:
         return Project.objects.create(
             name=command.name,
             manager=command.manager,
+            business_name=command.business_name,
             organization=organization,
             company=company,
             code=command.code,
@@ -127,6 +128,43 @@ class ProjectRepository:
             defaults={"role": "admin", "contribution": "프로젝트 생성자"},
         )
 
+    def update_project(self, project_id: str, payload: dict) -> dict:
+        project = Project.objects.filter(id=project_id).first()
+        if not project:
+            raise ValueError("프로젝트를 찾을 수 없습니다.")
+
+        project.name = str(payload.get("name") or project.name).strip() or project.name
+        project.manager = str(payload.get("manager") or project.manager).strip()
+        if hasattr(project, "business_name"):
+            project.business_name = str(payload.get("business_name") or project.business_name).strip()
+        project.organization = str(payload.get("organization") or project.organization).strip()
+        project.code = str(payload.get("code") or project.code).strip()
+        project.description = str(payload.get("description") or project.description).strip()
+
+        start_raw = str(payload.get("start_date") or "").strip()
+        end_raw = str(payload.get("end_date") or "").strip()
+        if start_raw:
+            try:
+                project.start_date = datetime.strptime(start_raw, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        else:
+            project.start_date = None
+        if end_raw:
+            try:
+                project.end_date = datetime.strptime(end_raw, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        else:
+            project.end_date = None
+
+        status = str(payload.get("status") or "").strip()
+        if status in {choice for choice, _ in Project.Status.choices}:
+            project.status = status
+
+        project.save()
+        return self.project_to_dict(project)
+
     def project_note_ids(self, project_id: str) -> list[str]:
         return [str(i) for i in ResearchNote.objects.filter(project_id=project_id).values_list("id", flat=True)]
 
@@ -139,11 +177,13 @@ class ProjectRepository:
             org = member.user.team.name if member.user.team else "미지정"
             grouped[org].append(
                 {
+                    "id": member.user.id,
                     "name": member.user.display_name,
                     "role": member.role,
                     "organization": org,
                     "major": "미지정",
                     "contribution": member.contribution,
+                    "is_owner": member.user.role == UserAccount.Role.OWNER,
                 }
             )
 
@@ -166,6 +206,7 @@ class ProjectRepository:
             "name": project.name,
             "status": project.status,
             "manager": project.manager,
+            "business_name": project.business_name,
             "organization": project.organization,
             "company_id": project.company_id,
             "company_name": project.company.name if project.company else project.organization,

@@ -247,6 +247,8 @@ class AdminRepository:
             role=normalized_role,
             team=team,
             is_approved=(normalized_role == UserAccount.Role.ADMIN),
+            requested_team_name=requested_team_name,
+            requested_team_description=requested_team_description,
         )
         return {
             "id": user.id,
@@ -262,11 +264,31 @@ class AdminRepository:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
         if not user:
             raise ValueError("사용자를 찾을 수 없습니다.")
+
+        if not user.team_id and user.requested_team_name:
+            team, _ = Team.objects.get_or_create(
+                name=user.requested_team_name,
+                defaults={
+                    "description": user.requested_team_description,
+                    "join_code": self._generate_join_code(),
+                },
+            )
+            user.team = team
+
         if not user.team_id:
             raise ValueError("승인하려면 먼저 팀을 지정해야 합니다.")
+
+        if not UserAccount.objects.filter(team_id=user.team_id, role=UserAccount.Role.OWNER, is_approved=True).exclude(id=user.id).exists():
+            user.role = UserAccount.Role.OWNER
+
         user.is_approved = True
-        user.save(update_fields=["is_approved", "updated_at"])
-        return {"id": user.id, "username": user.username, "is_approved": user.is_approved}
+        user.save(update_fields=["team", "role", "is_approved", "updated_at"])
+        return {
+            "id": user.id,
+            "username": user.username,
+            "is_approved": user.is_approved,
+            "join_code": user.team.join_code if user.team else "-",
+        }
 
     def change_user_role(self, user_id: int, role: str) -> dict:
         user = UserAccount.objects.select_related("team").filter(id=user_id).first()
@@ -286,23 +308,23 @@ class AdminRepository:
         user.delete()
         return {"username": username}
 
-    def change_user_role(self, user_id: int, role: str) -> dict:
-        user = UserAccount.objects.select_related("team").filter(id=user_id).first()
-        if not user:
-            raise ValueError("사용자를 찾을 수 없습니다.")
-        if role not in {UserAccount.Role.ADMIN, UserAccount.Role.MEMBER}:
-            raise ValueError("유효한 권한이 아닙니다.")
-        user.role = role
-        user.save(update_fields=["role", "updated_at"])
-        return {"id": user.id, "username": user.username, "role": user.get_role_display()}
+    def set_team_owner(self, team_id: int, owner_user_id: int) -> dict:
+        team = Team.objects.filter(id=team_id).first()
+        if not team:
+            raise ValueError("팀을 찾을 수 없습니다.")
 
-    def remove_user(self, user_id: int) -> dict:
-        user = UserAccount.objects.filter(id=user_id).first()
-        if not user:
+        owner = UserAccount.objects.filter(id=owner_user_id).first()
+        if not owner:
             raise ValueError("사용자를 찾을 수 없습니다.")
-        username = user.username
-        user.delete()
-        return {"username": username}
+
+        if owner.team_id != team.id:
+            owner.team = team
+
+        UserAccount.objects.filter(team_id=team.id, role=UserAccount.Role.OWNER).exclude(id=owner.id).update(role=UserAccount.Role.ADMIN)
+        owner.role = UserAccount.Role.OWNER
+        owner.is_approved = True
+        owner.save(update_fields=["team", "role", "is_approved", "updated_at"])
+        return {"team_id": team.id, "owner_user_id": owner.id}
 
     def list_managed_tables(self) -> list[dict]:
         rows = []

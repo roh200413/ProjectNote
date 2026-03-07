@@ -35,3 +35,5 @@ class UserAccount(TimestampedModel):
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
     team = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name="members")
     is_approved = models.BooleanField(default=False)
+    requested_team_name = models.CharField(max_length=120, blank=True, default="")
+    requested_team_description = models.CharField(max_length=255, blank=True, default="")

@@ -44,28 +44,36 @@ def admin_users_api(request):
         return JsonResponse(admin_repository.list_all_users(keyword=keyword), safe=False)
 
     action = request.POST.get("action", "assign_team").strip()
-    user_id = request.POST.get("user_id", "").strip()
-    if not user_id.isdigit():
-        return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
 
     try:
-        if action == "assign_team":
+        if action == "set_owner":
             team_id_raw = request.POST.get("team_id", "").strip()
-            team_id = None
-            if team_id_raw:
-                if not team_id_raw.isdigit():
-                    return JsonResponse({"detail": "유효한 팀 ID가 필요합니다."}, status=400)
-                team_id = int(team_id_raw)
-            payload = admin_repository.assign_user_team(user_id=int(user_id), team_id=team_id)
-        elif action == "approve":
-            payload = admin_repository.approve_user(user_id=int(user_id))
-        elif action == "grant_role":
-            role = request.POST.get("role", "").strip()
-            payload = admin_repository.change_user_role(user_id=int(user_id), role=role)
-        elif action == "expel":
-            payload = admin_repository.remove_user(user_id=int(user_id))
+            owner_user_id_raw = request.POST.get("owner_user_id", "").strip()
+            if not team_id_raw.isdigit() or not owner_user_id_raw.isdigit():
+                return JsonResponse({"detail": "유효한 팀/사용자 ID가 필요합니다."}, status=400)
+            payload = admin_repository.set_team_owner(team_id=int(team_id_raw), owner_user_id=int(owner_user_id_raw))
         else:
-            return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
+            user_id = request.POST.get("user_id", "").strip()
+            if not user_id.isdigit():
+                return JsonResponse({"detail": "유효한 사용자 ID가 필요합니다."}, status=400)
+
+            if action == "assign_team":
+                team_id_raw = request.POST.get("team_id", "").strip()
+                team_id = None
+                if team_id_raw:
+                    if not team_id_raw.isdigit():
+                        return JsonResponse({"detail": "유효한 팀 ID가 필요합니다."}, status=400)
+                    team_id = int(team_id_raw)
+                payload = admin_repository.assign_user_team(user_id=int(user_id), team_id=team_id)
+            elif action == "approve":
+                payload = admin_repository.approve_user(user_id=int(user_id))
+            elif action == "grant_role":
+                role = request.POST.get("role", "").strip()
+                payload = admin_repository.change_user_role(user_id=int(user_id), role=role)
+            elif action == "expel":
+                payload = admin_repository.remove_user(user_id=int(user_id))
+            else:
+                return JsonResponse({"detail": "지원하지 않는 작업입니다."}, status=400)
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     return JsonResponse(payload)
