@@ -9,7 +9,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
-from pypdf import PdfReader, PdfWriter
+from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
@@ -389,6 +389,7 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
     writer = PdfWriter()
     fmt = str(selected_file.get("format", "")).lower()
 
+    pw, ph = A4
     if fmt == "pdf":
         with source.open("rb") as src:
             reader = PdfReader(src, strict=False)
@@ -397,47 +398,62 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
                     reader.decrypt("")
                 except Exception:
                     pass
+
             for idx, page in enumerate(reader.pages):
+                src_w = float(page.mediabox.width)
+                src_h = float(page.mediabox.height)
+                if src_w <= 0 or src_h <= 0:
+                    continue
+
+                scale = min(pw / src_w, ph / src_h)
+                tx = (pw - (src_w * scale)) / 2
+                ty = (ph - (src_h * scale)) / 2
+
+                rebuilt = PageObject.create_blank_page(width=pw, height=ph)
+                rebuilt.merge_transformed_page(page, Transformation().scale(scale, scale).translate(tx, ty))
+
                 if idx == len(reader.pages) - 1:
-                    _overlay_signature_on_pdf_page(page)
-                writer.add_page(page)
+                    _overlay_signature_on_pdf_page(rebuilt)
+                writer.add_page(rebuilt)
     else:
         page_buffer = BytesIO()
         pdf = canvas.Canvas(page_buffer, pagesize=A4)
-        pw, ph = A4
-
-        sheet_left = 34
-        sheet_bottom = 42
-        sheet_width = pw - 68
-        sheet_height = ph - 84
-        pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
-
-        header_top = sheet_bottom + sheet_height - 28
-        _set_pdf_font(pdf, 13, bold=True)
-        pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
-        pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
-
-        content_left = sheet_left + 16
-        content_bottom = sheet_bottom + 92
-        content_width = sheet_width - 32
-        content_height = sheet_height - 160
-        pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
 
         image_exts = {"png", "jpg", "jpeg", "webp", "svg", "heic", "heif"}
         if fmt in image_exts:
             try:
-                pdf.drawImage(str(source), content_left + 6, content_bottom + 6, width=content_width - 12, height=content_height - 12, preserveAspectRatio=True, anchor='c')
+                # 이미지 기반 연구노트는 A4 전체를 채우도록 렌더링
+                pdf.drawImage(str(source), 0, 0, width=pw, height=ph, preserveAspectRatio=False)
             except Exception:
                 _set_pdf_font(pdf, 10)
-                pdf.drawString(content_left + 12, content_bottom + content_height - 24, "이미지를 불러오지 못했습니다. 원본파일을 확인해주세요.")
+                pdf.drawString(40, ph - 40, "이미지를 불러오지 못했습니다. 원본파일을 확인해주세요.")
+            _draw_signature_panel(pdf, left=24, bottom=32, width=pw - 48, compact=True)
         else:
+            sheet_left = 34
+            sheet_bottom = 42
+            sheet_width = pw - 68
+            sheet_height = ph - 84
+            pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
+
+            header_top = sheet_bottom + sheet_height - 28
+            _set_pdf_font(pdf, 13, bold=True)
+            pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
+            pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
+
+            content_left = sheet_left + 16
+            content_bottom = sheet_bottom + 92
+            content_width = sheet_width - 32
+            content_height = sheet_height - 160
+            pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
+
             _set_pdf_font(pdf, 11)
             pdf.drawString(content_left + 12, content_bottom + content_height - 24, f"파일명: {selected_file.get('name', '-')}")
             _set_pdf_font(pdf, 10)
             pdf.drawString(content_left + 12, content_bottom + content_height - 42, f"형식: {fmt.upper() if fmt else '-'}")
             pdf.drawString(content_left + 12, content_bottom + content_height - 60, "해당 파일 형식은 미리보기를 지원하지 않습니다.")
 
-        _draw_signature_panel(pdf, left=content_left, bottom=sheet_bottom + 24, width=content_width)
+            _draw_signature_panel(pdf, left=content_left, bottom=sheet_bottom + 24, width=content_width)
+
         pdf.showPage()
         pdf.save()
         page_buffer.seek(0)
