@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 {% block title %}프로젝트 연구자{% endblock %}
 {% block page_title %}프로젝트 연구자{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects/{{ project.id }}">프로젝트 상세</a>
-  <a class="pn-btn ghost" style="text-decoration:none" href="/frontend/projects">프로젝트 목록</a>
-</div>
-{% endblock %}
 {% block content %}
 <section class="pn-card" style="margin-bottom:12px">
   <h3 style="margin:0 0 8px">{{ project.name }}</h3>
@@ -40,4 +34,90 @@
   <div class="pn-sub">등록된 프로젝트 연구자가 없습니다.</div>
   {% endfor %}
 </section>
+
+{% if can_manage_project_members %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 10px">연구자 추가</h3>
+  <table class="pn-table">
+    <thead><tr><th>이름</th><th>소속/기관</th><th>추가</th></tr></thead>
+    <tbody>
+      {% for group in team_user_groups %}
+        {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.organization }}</td>
+          <td><button type="button" class="pn-btn add-researcher-btn" data-user-id="{{ member.id }}">추가</button></td>
+        </tr>
+        {% endfor %}
+      {% empty %}
+      <tr><td colspan="3" class="pn-sub">추가 가능한 연구자가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="pn-card">
+  <h3 style="margin:0 0 10px">연구자 삭제</h3>
+  <table class="pn-table">
+    <thead><tr><th>이름</th><th>소속/기관</th><th>권한</th><th>삭제</th></tr></thead>
+    <tbody>
+      {% for group in researcher_groups %}
+        {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.role }}</td>
+          <td>
+            {% if member.is_owner %}
+              <span class="pn-sub">소유자 제외 불가</span>
+            {% else %}
+              <button type="button" class="pn-btn ghost remove-researcher-btn" data-user-id="{{ member.id }}">삭제</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      {% empty %}
+      <tr><td colspan="4" class="pn-sub">삭제 가능한 연구자가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  function getCsrfToken() {
+    const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+  }
+
+  async function submitMemberAction(url, userId) {
+    const formData = new FormData();
+    formData.append('user_id', String(userId));
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      alert(body.detail || '처리에 실패했습니다.');
+      return;
+    }
+    window.location.reload();
+  }
+
+  document.querySelectorAll('.add-researcher-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      submitMemberAction('/api/v1/projects/{{ project.id }}/researchers', btn.dataset.userId);
+    });
+  });
+
+  document.querySelectorAll('.remove-researcher-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!confirm('정말 연구자를 삭제하시겠습니까?')) return;
+      submitMemberAction('/api/v1/projects/{{ project.id }}/researchers/remove', btn.dataset.userId);
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}
