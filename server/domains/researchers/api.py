@@ -44,7 +44,25 @@ def researchers_api(request):
     team_id = _resolve_team_id_from_session(profile)
 
     if request.method == "GET":
-        return JsonResponse(researcher_repository.list_researchers(), safe=False)
+        action = request.GET.get("action", "").strip()
+        q = request.GET.get("q", "").strip().lower()
+        all_items = researcher_repository.list_researchers()
+
+        if action == "unassigned":
+            rows = [item for item in all_items if not item.get("team_id")]
+            if q:
+                rows = [item for item in rows if q in str(item.get("username", "")).lower()]
+            return JsonResponse(rows, safe=False)
+
+        if action == "pending_for_my_team":
+            rows = [item for item in all_items if item.get("team_id") == team_id and not item.get("is_approved")]
+            return JsonResponse(rows, safe=False)
+
+        if _can_manage(request):
+            return JsonResponse(all_items, safe=False)
+
+        rows = [item for item in all_items if item.get("team_id") == team_id and item.get("is_approved")]
+        return JsonResponse(rows, safe=False)
 
     action = request.POST.get("action", "create").strip()
     if action == "create":
@@ -53,6 +71,11 @@ def researchers_api(request):
         except ValueError as exc:
             return JsonResponse({"detail": str(exc)}, status=400)
         return JsonResponse(created, status=201)
+
+    if action == "verify_id":
+        username = request.POST.get("username", "").strip()
+        can_invite = bool(username) and not any(item.get("username") == username for item in researcher_repository.list_researchers())
+        return JsonResponse({"can_invite": can_invite})
 
     if not _can_manage(request):
         return JsonResponse({"detail": "관리 권한이 없습니다."}, status=403)
