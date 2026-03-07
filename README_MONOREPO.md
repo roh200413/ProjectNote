@@ -26,7 +26,7 @@ From repository root:
 ## Notes
 
 - This step only creates the skeleton and executable stubs.
-- Core `/api/v1/*` backend APIs remain stable; `/frontend/*` runtime goes through `apps/web`, and `apps/web` currently wraps legacy Django UI from `/legacy/frontend/*` to preserve visual parity.
+- Core `/api/v1/*` backend APIs remain stable; `/frontend/*` runtime goes through `apps/web`. Migrated routes are native React pages, while only unmigrated paths use the legacy iframe fallback from `/legacy/frontend/*` (plus `/frontend/login` -> Django `/login`).
 - Next steps can migrate code incrementally into these folders.
 
 - Frontend cutover planning doc: `apps/web/docs/cutover-phase3-mapping.md`

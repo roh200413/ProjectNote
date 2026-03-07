@@ -50,4 +50,4 @@ Regression table: `apps/web/docs/parity-phase2.md`
 
 ## Current runtime note
 
-`/frontend/*` runtime is served by `apps/web` (React). For visual parity, web routes currently render legacy Django screens from `/legacy/frontend/*` in an iframe wrapper.
+`/frontend/*` runtime is served by `apps/web` (React). Migrated routes render native React UI; only unmigrated paths use a legacy iframe fallback (`/legacy/frontend/*`), and `/frontend/login` maps to Django `/login`.
