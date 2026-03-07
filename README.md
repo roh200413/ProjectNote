@@ -26,6 +26,7 @@ npm run dev:web
 
 - 기본 주소: `http://localhost:5173`
 - React 앱은 Django 페이지를 프록시(`/__django/*`)로 보여주므로 백엔드 서버도 함께 실행해야 로그인/페이지 기능이 동작합니다.
+- CSRF 오류가 나면 `.env`에 `DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`를 확인하세요(기본값에 포함됨).
 
 ### 2) Django 백엔드
 

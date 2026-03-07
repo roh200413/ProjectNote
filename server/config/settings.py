@@ -12,6 +12,15 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if host]
 
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "DJANGO_CSRF_TRUSTED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if origin.strip()
+]
+
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -80,3 +89,5 @@ else:
     RESEARCH_NOTES_STORAGE_ROOT = str(RESEARCH_NOTES_STORAGE_INTERNAL_ROOT)
 
 Path(RESEARCH_NOTES_STORAGE_ROOT).mkdir(parents=True, exist_ok=True)
+
+X_FRAME_OPTIONS = "SAMEORIGIN"
