@@ -1,11 +1,6 @@
 {% extends "base.html" %}
 {% block title %}연구자 관리{% endblock %}
 {% block page_title %}연구자 통합 관리{% endblock %}
-{% block page_actions %}
-<div style="display:flex;gap:8px">
-  <button class="pn-btn ghost" onclick="location.href='/frontend/projects'">프로젝트 보기</button>
-</div>
-{% endblock %}
 {% block content %}
 <section class="pn-card" style="margin-bottom:12px">
   <h3 style="margin-top:0">연구자 추가</h3>
@@ -41,7 +36,7 @@
   <h3 style="margin-top:0">3) 연구자 목록</h3>
   <p class="pn-sub" style="margin-top:0">현재 로그인한 관리자와 같은 회사 코드(팀)이며 승인 완료된 사용자만 표시됩니다.</p>
   <table class="pn-table" id="researcherTable">
-    <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>소속/기관</th><th>전공/부서명</th><th>상태</th><th>관리</th></tr></thead>
+    <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>전공/부서명</th><th>상태</th><th>관리</th></tr></thead>
     <tbody>
     {% for r in member_researchers %}
       <tr>
@@ -54,15 +49,6 @@
         <td>
           {% if can_manage_researchers %}
           <div style="display:grid;gap:6px">
-            <form class="manage-form" data-action="assign_team" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
-              <select class="pn-input" name="team_id" style="min-width:120px;padding:6px 8px">
-                <option value="">미지정</option>
-                {% for team in teams %}
-                  <option value="{{ team.id }}" {% if r.team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
-                {% endfor %}
-              </select>
-              <button class="pn-btn" type="submit">회사지정</button>
-            </form>
             <form class="manage-form" data-action="approve" data-user-id="{{ r.id }}" style="display:flex;gap:6px;align-items:center">
               <button class="pn-btn" type="submit" {% if r.is_approved %}disabled{% endif %}>승인</button>
             </form>
@@ -83,7 +69,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="8" class="pn-sub">현재 팀의 승인된 사용자가 없습니다.</td></tr>
+      <tr><td colspan="7" class="pn-sub">현재 팀의 승인된 사용자가 없습니다.</td></tr>
     {% endfor %}
     </tbody>
   </table>
