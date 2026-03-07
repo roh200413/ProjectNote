@@ -2,8 +2,18 @@ function backendOrigin() {
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 }
 
-export default function LegacyIframePage({ path }: { path: string }) {
-  const src = `${backendOrigin()}/legacy/frontend/${path}`;
+export default function LegacyIframePage({
+  path,
+  legacyPrefix = "legacy/frontend",
+}: {
+  path: string;
+  legacyPrefix?: string;
+}) {
+  const prefix = legacyPrefix.replace(/^\/+|\/+$/g, "");
+  const normalizedPath = path.replace(/^\/+/, "");
+  const src = prefix
+    ? `${backendOrigin()}/${prefix}/${normalizedPath}`
+    : `${backendOrigin()}/${normalizedPath}`;
 
   return (
     <main style={{ minHeight: '100vh', padding: 0, display: 'block' }}>
