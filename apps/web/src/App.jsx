@@ -6,7 +6,7 @@ export default function App() {
   return (
     <Routes>
       {routeCatalog.map((item) => (
-        <Route key={item.path} element={<LegacyTemplatePage source={item.source} />} path={item.path} />
+        <Route key={item.path} element={<LegacyTemplatePage backendPath={item.backendPath} />} path={item.path} />
       ))}
       <Route element={<Navigate replace to="/" />} path="*" />
     </Routes>

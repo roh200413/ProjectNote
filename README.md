@@ -25,6 +25,7 @@ npm run dev:web
 ```
 
 - 기본 주소: `http://localhost:5173`
+- React 앱은 Django 페이지를 프록시(`/__django/*`)로 보여주므로 백엔드 서버도 함께 실행해야 로그인/페이지 기능이 동작합니다.
 
 ### 2) Django 백엔드
 
