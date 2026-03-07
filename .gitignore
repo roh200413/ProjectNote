@@ -11,3 +11,7 @@ projectnote.db
 
 # uploaded research-note files (runtime data)
 storage/
+
+# web workspace artifacts
+apps/web/node_modules/
+apps/web/.next/
