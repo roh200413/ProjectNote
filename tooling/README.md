@@ -2,7 +2,7 @@
 
 Repository-level helper scripts for monorepo step 1.
 
-- `scripts/run_backend.sh`
+- `scripts/run_backend.sh` (starts Django dev server at `127.0.0.1:8000`)
 - `scripts/run_web.sh`
 - `scripts/check_ui.sh`
 - `scripts/check_types.sh`
