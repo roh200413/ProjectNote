@@ -46,3 +46,7 @@ Parity checklist/table: `apps/web/docs/parity-phase1.md`
 - `GET /frontend/projects/[projectId]/research-notes`
 
 Regression table: `apps/web/docs/parity-phase2.md`
+
+## Legacy Django templates
+
+Legacy `client/*.html` files may still exist in the repository for rollback/reference, but `/frontend/*` runtime traffic is cut over to `apps/web` via backend redirect policy.
