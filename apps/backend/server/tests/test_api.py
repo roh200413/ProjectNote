@@ -1697,15 +1697,3 @@ def test_project_research_files_api_returns_tokens_and_labels() -> None:
     assert ":" in payload[0]["token"]
     assert payload[0]["label"].startswith("[")
 
-
-def test_frontend_routes_are_redirected_to_web_app_origin() -> None:
-    response = client.get('/frontend/projects', {'tab': 'all'})
-    assert response.status_code == 302
-    assert response['Location'] == 'http://127.0.0.1:3000/frontend/projects?tab=all'
-
-
-@override_settings(WEB_APP_ORIGIN='https://web.example.com')
-def test_frontend_routes_respect_configured_web_app_origin() -> None:
-    response = client.get('/frontend/research-notes/abc/viewer')
-    assert response.status_code == 302
-    assert response['Location'] == 'https://web.example.com/frontend/research-notes/abc/viewer'
