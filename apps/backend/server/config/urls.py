@@ -1,6 +1,7 @@
 from django.urls import path
 
 from server.application import api
+from server.application.frontend_cutover import frontend_cutover_redirect
 from server.application.openapi import openapi_json_api
 from server.domains.admin import api as admin_api
 from server.domains.auth import api as auth_api
@@ -45,35 +46,44 @@ urlpatterns = [
     path("api/v1/research-notes/<str:note_id>/files/<str:file_id>/update", research_notes_api.research_note_file_update_api),
 
     path("admin/login", auth_api.admin_login_page),
-    path("frontend/admin", admin_api.admin_page),
-    path("frontend/admin/dashboard", admin_api.admin_dashboard_page),
-    path("frontend/admin/teams", admin_api.admin_teams_page),
-    path("frontend/admin/users", admin_api.admin_users_page),
-    path("frontend/admin/tables", admin_api.admin_tables_page),
 
     path("login", auth_api.login_page),
     path("signup", auth_api.signup_page),
     path("logout", auth_api.logout_page),
-    path("frontend/workflows", projects_api.workflow_home_page),
-    path("frontend/projects", projects_api.project_management_page),
-    path("frontend/projects/create", projects_api.project_create_page),
-    path("frontend/projects/<str:project_id>", projects_api.project_detail_page),
-    path("frontend/projects/<str:project_id>/researchers", projects_api.project_researchers_page),
-    path("frontend/projects/<str:project_id>/research-notes", projects_api.project_research_notes_page),
-    path("frontend/projects/<str:project_id>/research-notes/print", projects_api.project_research_notes_print_page),
-    path("frontend/my-page", signatures_api.my_page),
+
+    # Legacy template runtime (preserved for UI parity, consumed by apps/web iframe wrapper).
+    path("legacy/frontend/admin", admin_api.admin_page),
+    path("legacy/frontend/admin/dashboard", admin_api.admin_dashboard_page),
+    path("legacy/frontend/admin/teams", admin_api.admin_teams_page),
+    path("legacy/frontend/admin/users", admin_api.admin_users_page),
+    path("legacy/frontend/admin/tables", admin_api.admin_tables_page),
+    path("legacy/frontend/workflows", projects_api.workflow_home_page),
+    path("legacy/frontend/projects", projects_api.project_management_page),
+    path("legacy/frontend/projects/create", projects_api.project_create_page),
+    path("legacy/frontend/projects/<str:project_id>", projects_api.project_detail_page),
+    path("legacy/frontend/projects/<str:project_id>/researchers", projects_api.project_researchers_page),
+    path("legacy/frontend/projects/<str:project_id>/research-notes", projects_api.project_research_notes_page),
+    path("legacy/frontend/projects/<str:project_id>/research-notes/print", projects_api.project_research_notes_print_page),
+    path("legacy/frontend/my-page", signatures_api.my_page),
+    path("legacy/frontend/researchers", researchers_api.researchers_page),
+    path("legacy/frontend/integrations/github", researchers_api.github_integrations_page),
+    path("legacy/frontend/integrations/collaboration", researchers_api.collaboration_integrations_page),
+    path("legacy/frontend/data-updates", data_updates_api.data_updates_page),
+    path("legacy/frontend/final-download", signatures_api.final_download_page),
+    path("legacy/frontend/signatures", signatures_api.signature_page),
+    path("legacy/frontend/research-notes", research_notes_api.research_notes_page),
+    path("legacy/frontend/research-notes/<str:note_id>", research_notes_api.research_note_detail_page),
+    path("legacy/frontend/research-notes/<str:note_id>/viewer", research_notes_api.research_note_viewer_page),
+    path("legacy/frontend/research-notes/<str:note_id>/cover", research_notes_api.research_note_cover_page),
+    path("legacy/frontend/research-notes/<str:note_id>/printable", research_notes_api.research_note_printable_page),
+    path("legacy/frontend/research-notes/<str:note_id>/files/<str:file_id>/content", research_notes_api.research_note_file_content_page),
+
+    # Legacy action/content endpoints kept stable.
     path("frontend/my-page/signature", signatures_api.update_my_signature),
     path("frontend/my-page/research-note/upload", signatures_api.upload_my_research_note),
-    path("frontend/researchers", researchers_api.researchers_page),
-    path("frontend/integrations/github", researchers_api.github_integrations_page),
-    path("frontend/integrations/collaboration", researchers_api.collaboration_integrations_page),
-    path("frontend/data-updates", data_updates_api.data_updates_page),
-    path("frontend/final-download", signatures_api.final_download_page),
-    path("frontend/signatures", signatures_api.signature_page),
-    path("frontend/research-notes", research_notes_api.research_notes_page),
-    path("frontend/research-notes/<str:note_id>", research_notes_api.research_note_detail_page),
-    path("frontend/research-notes/<str:note_id>/viewer", research_notes_api.research_note_viewer_page),
-    path("frontend/research-notes/<str:note_id>/cover", research_notes_api.research_note_cover_page),
-    path("frontend/research-notes/<str:note_id>/printable", research_notes_api.research_note_printable_page),
     path("frontend/research-notes/<str:note_id>/files/<str:file_id>/content", research_notes_api.research_note_file_content_page),
+
+    # Runtime frontend cutover to React app.
+    path("frontend", frontend_cutover_redirect),
+    path("frontend/<path:legacy_path>", frontend_cutover_redirect),
 ]

@@ -1183,7 +1183,7 @@ def test_login_logout_and_auth_redirect() -> None:
     anon = Client()
     redirect_response = anon.get("/frontend/projects")
     assert redirect_response.status_code == 302
-    assert redirect_response["Location"].startswith("/login")
+    assert redirect_response["Location"] == "http://127.0.0.1:3000/frontend/projects"
 
     bad_login = anon.post("/login", {"username": "admin", "password": "wrong"})
     assert bad_login.status_code == 401
@@ -1697,3 +1697,17 @@ def test_project_research_files_api_returns_tokens_and_labels() -> None:
     assert ":" in payload[0]["token"]
     assert payload[0]["label"].startswith("[")
 
+
+
+def test_legacy_frontend_projects_page_still_renders_for_parity() -> None:
+    reset_db()
+    login(client)
+    response = client.get('/legacy/frontend/projects')
+    assert response.status_code == 200
+    assert '프로젝트 관리' in response.content.decode()
+
+
+def test_frontend_projects_route_redirects_to_web_runtime() -> None:
+    response = client.get('/frontend/projects')
+    assert response.status_code == 302
+    assert response['Location'] == 'http://127.0.0.1:3000/frontend/projects'

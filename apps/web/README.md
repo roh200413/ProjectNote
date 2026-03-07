@@ -50,4 +50,4 @@ Regression table: `apps/web/docs/parity-phase2.md`
 
 ## Current runtime note
 
-`/frontend/*` pages are currently served by Django templates. `apps/web` routes are available for incremental migration and parity validation.
+`/frontend/*` runtime is served by `apps/web` (React). For visual parity, web routes currently render legacy Django screens from `/legacy/frontend/*` in an iframe wrapper.

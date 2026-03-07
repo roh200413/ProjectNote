@@ -26,7 +26,7 @@ From repository root:
 ## Notes
 
 - This step only creates the skeleton and executable stubs.
-- Core `/api/v1/*` backend APIs remain stable; `/frontend/*` is currently served by Django templates while `apps/web` is used for incremental migration/parity validation.
+- Core `/api/v1/*` backend APIs remain stable; `/frontend/*` runtime goes through `apps/web`, and `apps/web` currently wraps legacy Django UI from `/legacy/frontend/*` to preserve visual parity.
 - Next steps can migrate code incrementally into these folders.
 
 - Frontend cutover planning doc: `apps/web/docs/cutover-phase3-mapping.md`
