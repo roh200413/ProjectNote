@@ -11,3 +11,6 @@ projectnote.db
 
 # uploaded research-note files (runtime data)
 storage/
+
+node_modules/
+apps/web/dist/
