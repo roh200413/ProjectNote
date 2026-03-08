@@ -48,3 +48,28 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 .pn-grid2 { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; }
 .pn-json { background:#0b1020; color:#d1e9ff; border-radius:8px; padding:12px; overflow:auto; max-height:420px; font-size:12px; }
 @media (max-width: 1024px) { .pn-grid2 { grid-template-columns: 1fr; } }
+
+.pn-layout { display:grid; grid-template-columns:240px 1fr; min-height:100vh; transition:grid-template-columns .25s ease; }
+.pn-layout.sidebar-collapsed { grid-template-columns:76px 1fr; }
+.pn-sidebar { background:#fff; border-right:1px solid #dbe2ed; display:flex; flex-direction:column; padding:12px 10px; gap:12px; overflow:hidden; }
+.pn-side-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:40px; }
+.pn-logo { font-size:14px; font-weight:800; color:#2563eb; white-space:nowrap; }
+.pn-collapse-btn { width:32px; height:32px; border-radius:10px; border:1px solid #dbe2ed; background:#f8fafc; color:#334155; cursor:pointer; }
+.pn-menu { display:flex; flex-direction:column; gap:8px; }
+.pn-side-link { display:flex; align-items:center; gap:10px; border:1px solid #dbe2ed; background:#f8fafc; border-radius:10px; color:#334155; text-decoration:none; padding:10px 12px; font-size:14px; font-weight:600; }
+.pn-side-link:hover,.pn-side-link.active { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; }
+.pn-side-icon { width:20px; text-align:center; font-size:16px; }
+.pn-side-text { white-space:nowrap; }
+.sidebar-collapsed .pn-logo,.sidebar-collapsed .pn-side-text { display:none; }
+.sidebar-collapsed .pn-side-head { justify-content:center; }
+.sidebar-collapsed .pn-side-link { justify-content:center; padding:10px; }
+.pn-main { padding:12px 18px 28px; }
+.pn-shell { max-width:1240px; margin:18px auto 0; }
+.pn-title { margin:0; font-size:42px; font-weight:800; }
+
+@media (max-width: 900px) {
+  .pn-layout { grid-template-columns:1fr; }
+  .pn-sidebar { display:none; }
+  .pn-main { padding:10px; }
+  .pn-title { font-size:30px; }
+}
