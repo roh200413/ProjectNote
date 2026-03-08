@@ -252,13 +252,15 @@ def projects(request):
             uuid.UUID(org_id)
         except ValueError:
             return json_uuid_validation_error("org_id", org_id)
-    return JsonResponse(project_repository.list_projects(), safe=False)
+    profile = effective_user_profile(request) or {}
+    return JsonResponse(project_repository.visible_projects_for_user(profile), safe=False)
 
 
 @require_http_methods(["GET", "POST"])
 def project_management_api(request):
     if request.method == "GET":
-        return JsonResponse(project_repository.list_projects(), safe=False)
+        profile = effective_user_profile(request) or {}
+        return JsonResponse(project_repository.visible_projects_for_user(profile), safe=False)
     payload = request.POST.copy()
     team_id = request.session.get("user_profile", {}).get("team_id")
     if team_id:
@@ -785,9 +787,29 @@ def project_cover_update_api(request, project_id: str):
     return JsonResponse({"message": "표지 설정이 저장되었습니다."}, status=200)
 
 
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def project_add_researcher_api(request, project_id: str):
     profile = effective_user_profile(request) or {}
+
+    if request.method == "GET":
+        if not project_repository.can_view_project(project_id, profile):
+            return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+        groups = project_repository.project_researcher_groups(project_id)
+        rows: list[dict] = []
+        for group in groups:
+            role = group.get("role")
+            for member in group.get("members", []):
+                rows.append({
+                    "id": member.get("id"),
+                    "name": member.get("name", "-"),
+                    "username": member.get("username", "-"),
+                    "email": member.get("email", "-"),
+                    "organization": member.get("organization", "-"),
+                    "status": member.get("status", "-"),
+                    "role": role,
+                })
+        return JsonResponse(rows, safe=False)
+
     if not project_repository.can_manage_project_members(project_id, profile):
         return JsonResponse({"detail": "권한이 없습니다."}, status=403)
 

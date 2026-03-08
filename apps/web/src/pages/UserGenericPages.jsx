@@ -46,9 +46,9 @@ export function HomePage() {
         </div>
       </section>
       <section className="pn-grid3">
-        <article className="pn-card"><div className="pn-sub">기관</div><h3>{summary?.teams ?? '-'}</h3></article>
         <article className="pn-card"><div className="pn-sub">프로젝트</div><h3>{summary?.projects ?? '-'}</h3></article>
         <article className="pn-card"><div className="pn-sub">연구노트</div><h3>{summary?.notes ?? '-'}</h3></article>
+        <article className="pn-card"><div className="pn-sub">내 프로젝트</div><h3>{projects.length}</h3></article>
       </section>
     </UserLayout>
   );
@@ -217,32 +217,33 @@ export function ProjectResearchersPage() {
       <section className="pn-card">
         <p className="pn-sub" style={{ margin: 0 }}>프로젝트 #{id} 기준 연구원 화면입니다.</p>
       </section>
-      <ResearchersPageTable />
+      <ResearchersPageTable projectId={id} />
     </UserLayout>
   );
 }
 
-function ResearchersPageTable() {
+function ResearchersPageTable({ projectId = "" }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState({ name: '', email: '', organization: '' });
   const [roleByUser, setRoleByUser] = useState({});
 
-  async function loadResearchers() {
+  const loadResearchers = useCallback(async () => {
     try {
-      const r = await apiFetch('/api/v1/researchers');
+      const endpoint = projectId ? `/api/v1/projects/${projectId}/researchers` : '/api/v1/researchers';
+      const r = await apiFetch(endpoint);
       const list = Array.isArray(r) ? r : [];
       setRows(list);
       setRoleByUser(Object.fromEntries(list.map((u) => [u.id, u.role === '관리자' ? 'admin' : 'member'])));
     } catch (e) {
       setError(e.message);
     }
-  }
+  }, [projectId]);
 
   useEffect(() => {
     loadResearchers();
-  }, []);
+  }, [loadResearchers]);
 
   async function createResearcher(e) {
     e.preventDefault();
@@ -280,7 +281,7 @@ function ResearchersPageTable() {
 
   return (
     <>
-      <section className="pn-card">
+      {!projectId && <section className="pn-card">
         <h3>연구원 추가</h3>
         <form className="pn-grid" onSubmit={createResearcher} style={{ gap: 8 }}>
           <input placeholder="이름" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -288,13 +289,13 @@ function ResearchersPageTable() {
           <input placeholder="소속/기관" required value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
           <button type="submit">연구원 추가</button>
         </form>
-      </section>
+      </section>}
 
       <section className="pn-card">
         <ApiError error={error} />
         {msg && <p className="pn-sub">{msg}</p>}
         <table className="pn-table">
-          <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>기관</th><th>상태</th><th>관리</th></tr></thead>
+          <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>기관</th><th>상태</th>{!projectId && <th>관리</th>}</tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
@@ -304,7 +305,7 @@ function ResearchersPageTable() {
                 <td>{r.email}</td>
                 <td>{r.organization}</td>
                 <td>{r.status}</td>
-                <td>
+{!projectId && <td>
                   <div className="pn-inline" style={{ flexWrap: 'wrap', margin: 0 }}>
                     <button type="button" onClick={() => manageResearcher(r.id, 'approve')} disabled={Boolean(r.is_approved)}>승인</button>
                     <select value={roleByUser[r.id] || 'member'} onChange={(e) => setRoleByUser({ ...roleByUser, [r.id]: e.target.value })}>
@@ -314,10 +315,10 @@ function ResearchersPageTable() {
                     <button type="button" onClick={() => manageResearcher(r.id, 'grant_role', { role: roleByUser[r.id] || 'member' })}>권한부여</button>
                     <button className="pn-danger" type="button" onClick={() => manageResearcher(r.id, 'expel')}>내보내기</button>
                   </div>
-                </td>
+                </td>}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="pn-sub" colSpan={7}>연구원이 없습니다.</td></tr>}
+            {rows.length === 0 && <tr><td className="pn-sub" colSpan={projectId ? 6 : 7}>연구원이 없습니다.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -352,12 +353,31 @@ function NotesTable({ endpoint }) {
 export function ProjectResearchNotesPage() {
   const { id } = useParams();
   const [project, setProject] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch('/api/v1/projects').then((rows) => {
-      const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(id)) : null;
-      setProject(found || null);
-    }).catch(() => setProject(null));
+    let canceled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const projects = await apiFetch('/api/v1/projects');
+        const found = Array.isArray(projects) ? projects.find((r) => String(r.id) === String(id)) : null;
+        if (!canceled) setProject(found || null);
+        const notes = await apiFetch('/api/v1/research-notes');
+        const filtered = Array.isArray(notes)
+          ? notes.filter((n) => String(n.project_code || '') === String(found?.code || ''))
+          : [];
+        if (!canceled) setRows(filtered);
+      } catch (e) {
+        if (!canceled) setError(e.message);
+      } finally {
+        if (!canceled) setLoading(false);
+      }
+    }
+    load();
+    return () => { canceled = true; };
   }, [id]);
 
   return (
@@ -366,7 +386,17 @@ export function ProjectResearchNotesPage() {
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
         <p className="pn-sub" style={{ margin: 0 }}>선택한 프로젝트 기준 연구노트 화면입니다.</p>
       </section>
-      <NotesTable endpoint="/api/v1/research-notes" />
+      <section className="pn-card">
+        <Loading loading={loading} />
+        <ApiError error={error} />
+        <table className="pn-table">
+          <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
+          <tbody>
+            {rows.map((n) => <tr key={n.id}><td>{n.title}</td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
+            {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">해당 프로젝트 연구노트가 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </section>
     </UserLayout>
   );
 }
@@ -501,4 +531,3 @@ export function GithubIntegrationsPage() {
     </UserLayout>
   );
 }
-
