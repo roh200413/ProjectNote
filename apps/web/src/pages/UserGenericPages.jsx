@@ -399,6 +399,7 @@ export function ProjectResearchersPage() {
     load();
   }, [load]);
 
+
   async function addResearcher() {
     if (!selectedUserId) return;
     setError('');
@@ -632,6 +633,8 @@ export function ProjectResearchNotesPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [currentSignature, setCurrentSignature] = useState('');
+  const [reviewerForm, setReviewerForm] = useState({ name: '', date: '' });
 
   const selectedNote = useMemo(
     () => rows.find((n) => String(n.id) === String(selectedNoteId)) || rows[0] || null,
@@ -665,6 +668,21 @@ export function ProjectResearchNotesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    apiFetch('/api/v1/signatures')
+      .then((sig) => setCurrentSignature(String(sig?.signature_data_url || '')))
+      .catch(() => setCurrentSignature(''));
+  }, []);
+
+  useEffect(() => {
+    const fallbackName = String(project?.manager || selectedNote?.owner || '').trim();
+    setReviewerForm((prev) => ({
+      name: prev.name || fallbackName,
+      date: prev.date || new Date().toLocaleString('ko-KR', { hour12: true }),
+    }));
+  }, [project, selectedNote]);
+
 
   async function loadNoteFiles(noteId) {
     if (!noteId) {
@@ -879,13 +897,26 @@ export function ProjectResearchNotesPage() {
           <div className="pn-grid2" style={{ alignItems: 'start', marginTop: 10 }}>
             <section className="pn-card" style={{ margin: 0 }}>
               <h4 style={{ marginTop: 0 }}>{selectedFile?.name || selectedNote.title}</h4>
-              {filesLoading && <p className="pn-sub">콘텐츠 불러오는 중...</p>}
-              {!filesLoading && selectedFile?.content_url && (
-                String(selectedFile.format || '').toLowerCase() === 'pdf'
-                  ? <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: 680, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`note-file-${selectedFile.id}`} />
-                  : <img alt={selectedFile.name} src={selectedFile.content_url} style={{ width: '100%', maxHeight: 680, objectFit: 'contain', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }} />
-              )}
-              {!filesLoading && !selectedFile && <p className="pn-sub">표시할 콘텐츠가 없습니다.</p>}
+              <div className="pn-a4-sheet">
+                <div className="pn-a4-content">
+                  {filesLoading && <p className="pn-sub">콘텐츠 불러오는 중...</p>}
+                  {!filesLoading && selectedFile?.content_url && (
+                    String(selectedFile.format || '').toLowerCase() === 'pdf'
+                      ? <iframe src={selectedFile.content_url} className="pn-a4-preview" title={`note-file-${selectedFile.id}`} />
+                      : <img alt={selectedFile.name} src={selectedFile.content_url} className="pn-a4-image" />
+                  )}
+                  {!filesLoading && !selectedFile && <p className="pn-sub">표시할 콘텐츠가 없습니다.</p>}
+                </div>
+
+                <div className="pn-a4-footer">
+                  <div className="pn-a4-cell"><small>작성자 이름</small><strong>{fileMetaForm.author || '-'}</strong></div>
+                  <div className="pn-a4-cell"><small>작성 일자</small><strong>{fileMetaForm.created || '-'}</strong></div>
+                  <div className="pn-a4-cell"><small>작성자 사인</small>{currentSignature ? <img alt="작성자 사인" className="pn-a4-sign" src={currentSignature} /> : <span className="pn-sub">사인 없음</span>}</div>
+                  <div className="pn-a4-cell"><small>점검자 이름</small><strong>{reviewerForm.name || '-'}</strong></div>
+                  <div className="pn-a4-cell"><small>점검 일자</small><strong>{reviewerForm.date || '-'}</strong></div>
+                  <div className="pn-a4-cell"><small>점검자 사인</small><span className="pn-sub">사인 없음</span></div>
+                </div>
+              </div>
 
               <div className="pn-inline" style={{ marginTop: 10, flexWrap: 'wrap' }}>
                 {noteFiles.map((f) => (
@@ -908,6 +939,8 @@ export function ProjectResearchNotesPage() {
               <div className="pn-grid" style={{ gap: 8 }}>
                 <div><label className="pn-sub">작성자</label><input value={fileMetaForm.author} onChange={(e) => setFileMetaForm((prev) => ({ ...prev, author: e.target.value }))} disabled={!selectedFile} /></div>
                 <div><label className="pn-sub">작성일</label><input value={fileMetaForm.created} onChange={(e) => setFileMetaForm((prev) => ({ ...prev, created: e.target.value }))} disabled={!selectedFile} /></div>
+                <div><label className="pn-sub">점검자 이름</label><input value={reviewerForm.name} onChange={(e) => setReviewerForm((prev) => ({ ...prev, name: e.target.value }))} /></div>
+                <div><label className="pn-sub">점검 일자</label><input value={reviewerForm.date} onChange={(e) => setReviewerForm((prev) => ({ ...prev, date: e.target.value }))} /></div>
                 <button type="button" onClick={saveFileMeta} disabled={!selectedFile || saving}>파일 메타 저장</button>
               </div>
             </section>
@@ -971,6 +1004,8 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [currentSignature, setCurrentSignature] = useState('');
+  const [reviewerForm, setReviewerForm] = useState({ name: '', date: '' });
   const [showNoteEdit, setShowNoteEdit] = useState(false);
   const [outputFormat, setOutputFormat] = useState('pdf');
 

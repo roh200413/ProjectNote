@@ -132,6 +132,47 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 }
 
 
+
+.pn-a4-sheet {
+  width: 100%;
+  max-width: 780px;
+  min-height: 1040px;
+  margin: 0 auto;
+  padding: 18px;
+  border: 1px solid #d7deea;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.pn-a4-content {
+  min-height: 860px;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+.pn-a4-preview { width: 100%; min-height: 830px; border: 0; }
+.pn-a4-image { width: 100%; max-height: 830px; object-fit: contain; }
+.pn-a4-footer {
+  margin-top: 10px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pn-a4-cell {
+  min-height: 72px;
+  border-right: 1px solid #cfd8e6;
+  border-bottom: 1px solid #cfd8e6;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.pn-a4-cell:nth-child(3n) { border-right: 0; }
+.pn-a4-cell:nth-child(n+4) { border-bottom: 0; }
+.pn-a4-sign { max-width: 100%; max-height: 32px; object-fit: contain; }
+
 .pn-note-workspace { display:grid; grid-template-columns: 240px 1fr; gap:12px; align-items:start; }
 .pn-note-left { position: sticky; top: 12px; }
 .pn-note-menu { display:grid; gap:6px; margin-top: 10px; }
