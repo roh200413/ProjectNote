@@ -617,17 +617,28 @@ export function ProjectResearchNotesPage() {
   const [project, setProject] = useState(null);
   const [rows, setRows] = useState([]);
   const [selectedNoteId, setSelectedNoteId] = useState('');
+  const [noteFiles, setNoteFiles] = useState([]);
+  const [selectedFileId, setSelectedFileId] = useState('');
   const [outputFormat, setOutputFormat] = useState('viewer');
   const [uploadMeta, setUploadMeta] = useState({ title: '', summary: '', author: '' });
+  const [editorForm, setEditorForm] = useState({ title: '', summary: '' });
+  const [fileMetaForm, setFileMetaForm] = useState({ author: '', created: '' });
+  const [showEditor, setShowEditor] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [filesLoading, setFilesLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const selectedNote = useMemo(
     () => rows.find((n) => String(n.id) === String(selectedNoteId)) || rows[0] || null,
     [rows, selectedNoteId]
+  );
+  const selectedFile = useMemo(
+    () => noteFiles.find((f) => String(f.id) === String(selectedFileId)) || noteFiles[0] || null,
+    [noteFiles, selectedFileId]
   );
 
   const load = useCallback(async () => {
@@ -654,6 +665,39 @@ export function ProjectResearchNotesPage() {
     load();
   }, [load]);
 
+  async function loadNoteFiles(noteId) {
+    if (!noteId) {
+      setNoteFiles([]);
+      setSelectedFileId('');
+      return;
+    }
+    setFilesLoading(true);
+    try {
+      const files = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
+      const list = Array.isArray(files) ? files : [];
+      setNoteFiles(list);
+      setSelectedFileId((prev) => prev || (list[0]?.id || ''));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setFilesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedNote?.id) return;
+    setEditorForm({ title: selectedNote.title || '', summary: selectedNote.summary || '' });
+    loadNoteFiles(selectedNote.id);
+  }, [selectedNote]);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setFileMetaForm({ author: '', created: '' });
+      return;
+    }
+    setFileMetaForm({ author: selectedFile.author || '', created: selectedFile.created || '' });
+  }, [selectedFile]);
+
   async function openNoteByFormat(noteId) {
     if (!noteId) {
       setError('먼저 연구노트를 선택해주세요.');
@@ -674,14 +718,57 @@ export function ProjectResearchNotesPage() {
     }
     try {
       const files = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
-      const selectedFileId = Array.isArray(files) ? files[0]?.id : null;
-      if (!selectedFileId) {
+      const fileId = Array.isArray(files) ? files[0]?.id : null;
+      if (!fileId) {
         setError('PDF로 만들 파일이 없습니다.');
         return;
       }
-      window.location.href = `/api/v1/research-notes/${noteId}/viewer-export-pdf?file=${selectedFileId}`;
+      window.location.href = `/api/v1/research-notes/${noteId}/viewer-export-pdf?file=${fileId}`;
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function saveNoteEditor(e) {
+    e.preventDefault();
+    if (!selectedNote?.id) return;
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const res = await apiFetch(`/api/v1/research-notes/${selectedNote.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(editorForm)
+      });
+      const updated = res?.note || res;
+      setRows((prev) => prev.map((n) => (String(n.id) === String(updated.id) ? { ...n, ...updated } : n)));
+      setMsg('연구노트 정보를 저장했습니다.');
+    } catch (e2) {
+      setError(e2.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveFileMeta() {
+    if (!selectedNote?.id || !selectedFile?.id) return;
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const updated = await apiFetch(`/api/v1/research-notes/${selectedNote.id}/files/${selectedFile.id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(fileMetaForm)
+      });
+      const filePayload = updated?.file || updated;
+      setNoteFiles((prev) => prev.map((f) => (String(f.id) === String(filePayload.id) ? { ...f, ...filePayload } : f)));
+      setMsg('파일 메타정보를 저장했습니다.');
+    } catch (e2) {
+      setError(e2.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -720,6 +807,7 @@ export function ProjectResearchNotesPage() {
       await load();
       if (latestNoteId) {
         setSelectedNoteId(String(latestNoteId));
+        setShowEditor(true);
         await openNoteByFormat(String(latestNoteId));
       }
     } catch (e) {
@@ -729,11 +817,16 @@ export function ProjectResearchNotesPage() {
     }
   }
 
+  function onNoteClick(noteId) {
+    setSelectedNoteId(String(noteId));
+    setShowEditor(true);
+  }
+
   return (
     <UserLayout title="연구노트 관리">
       <section className="pn-card">
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
-        <p className="pn-sub" style={{ margin: 0 }}>드래그앤드롭으로 PDF/이미지 업로드 후, 선택한 포맷으로 바로 연구노트를 열 수 있습니다.</p>
+        <p className="pn-sub" style={{ margin: 0 }}>노트를 클릭하면 편집기가 열리고, 콘텐츠(PDF/이미지) 미리보기와 메타정보 편집이 가능합니다.</p>
       </section>
 
       <section className="pn-card">
@@ -745,14 +838,14 @@ export function ProjectResearchNotesPage() {
           <tbody>
             {rows.map((n) => (
               <tr key={n.id} style={{ background: String(selectedNote?.id) === String(n.id) ? '#eff6ff' : undefined }}>
-                <td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td>
+                <td><button className="pn-link" onClick={() => onNoteClick(n.id)} type="button" style={{ background: 'transparent', border: 0, padding: 0 }}>{n.title}</button></td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
                 <td>{n.period}</td>
                 <td>{n.files}</td>
                 <td>
                   <div className="pn-inline" style={{ margin: 0 }}>
-                    <button className="pn-btn-secondary" onClick={() => setSelectedNoteId(String(n.id))} type="button">선택</button>
+                    <button className="pn-btn-secondary" onClick={() => onNoteClick(n.id)} type="button">편집기 열기</button>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/viewer`}>뷰어</Link>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/cover`}>커버</Link>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/printable`}>출력</Link>
@@ -764,6 +857,56 @@ export function ProjectResearchNotesPage() {
           </tbody>
         </table>
       </section>
+
+      {showEditor && selectedNote && (
+        <section className="pn-card">
+          <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>파일 편집기</h3>
+            <div className="pn-inline" style={{ margin: 0 }}>
+              <button className="pn-btn-secondary" type="button" onClick={() => setShowEditor(false)}>닫기</button>
+              <button className="pn-btn-secondary" type="button" onClick={() => nav('/research-notes')}>목록</button>
+              <button type="button" onClick={() => openNoteByFormat(selectedNote.id)}>현재 보기 포맷 열기</button>
+            </div>
+          </div>
+
+          <div className="pn-grid2" style={{ alignItems: 'start', marginTop: 10 }}>
+            <section className="pn-card" style={{ margin: 0 }}>
+              <h4 style={{ marginTop: 0 }}>{selectedFile?.name || selectedNote.title}</h4>
+              {filesLoading && <p className="pn-sub">콘텐츠 불러오는 중...</p>}
+              {!filesLoading && selectedFile?.content_url && (
+                String(selectedFile.format || '').toLowerCase() === 'pdf'
+                  ? <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: 680, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`note-file-${selectedFile.id}`} />
+                  : <img alt={selectedFile.name} src={selectedFile.content_url} style={{ width: '100%', maxHeight: 680, objectFit: 'contain', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }} />
+              )}
+              {!filesLoading && !selectedFile && <p className="pn-sub">표시할 콘텐츠가 없습니다.</p>}
+
+              <div className="pn-inline" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+                {noteFiles.map((f) => (
+                  <button key={f.id} className={String(selectedFile?.id) === String(f.id) ? '' : 'pn-btn-secondary'} onClick={() => setSelectedFileId(String(f.id))} type="button">
+                    {f.name}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="pn-card" style={{ margin: 0 }}>
+              <h4 style={{ marginTop: 0 }}>연구노트 정보 편집</h4>
+              <form onSubmit={saveNoteEditor} className="pn-grid" style={{ gap: 8 }}>
+                <div><label className="pn-sub">제목</label><input value={editorForm.title} onChange={(e) => setEditorForm((prev) => ({ ...prev, title: e.target.value }))} required /></div>
+                <div><label className="pn-sub">메모</label><textarea rows={3} value={editorForm.summary} onChange={(e) => setEditorForm((prev) => ({ ...prev, summary: e.target.value }))} /></div>
+                <button type="submit" disabled={saving}>저장</button>
+              </form>
+
+              <h4 style={{ marginTop: 14 }}>파일 메타 편집</h4>
+              <div className="pn-grid" style={{ gap: 8 }}>
+                <div><label className="pn-sub">작성자</label><input value={fileMetaForm.author} onChange={(e) => setFileMetaForm((prev) => ({ ...prev, author: e.target.value }))} disabled={!selectedFile} /></div>
+                <div><label className="pn-sub">작성일</label><input value={fileMetaForm.created} onChange={(e) => setFileMetaForm((prev) => ({ ...prev, created: e.target.value }))} disabled={!selectedFile} /></div>
+                <button type="button" onClick={saveFileMeta} disabled={!selectedFile || saving}>파일 메타 저장</button>
+              </div>
+            </section>
+          </div>
+        </section>
+      )}
 
       <section className="pn-card">
         <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
