@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
 
@@ -52,14 +52,62 @@ export function HomePage() {
 export function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [form, setForm] = useState({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
+
+  async function loadProjects() {
+    try {
+      const rows = await apiFetch('/api/v1/projects');
+      setProjects(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   useEffect(() => {
-    apiFetch('/api/v1/projects').then((rows) => setProjects(Array.isArray(rows) ? rows : [])).catch((e) => setError(e.message));
+    loadProjects();
   }, []);
+
+  async function createProject(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const created = await apiFetch('/api/v1/project-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(form)
+      });
+      setMsg(`프로젝트 생성 완료: ${created.name}`);
+      setForm({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
+      loadProjects();
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
 
   return (
     <UserLayout title="프로젝트 통합 관리">
       <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
+      <section className="pn-card">
+        <h3>프로젝트 생성</h3>
+        <form className="pn-grid" onSubmit={createProject} style={{ gap: 8 }}>
+          <input placeholder="프로젝트명" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input placeholder="매니저(username)" value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} />
+          <input placeholder="사업명" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+          <input placeholder="기관" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
+          <input placeholder="코드" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <input placeholder="설명" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="draft">draft</option>
+            <option value="active">active</option>
+            <option value="completed">completed</option>
+          </select>
+          <button type="submit">프로젝트 생성</button>
+        </form>
+      </section>
+
       <section className="pn-card">
         <p className="pn-sub">프로젝트를 클릭하면 해당 프로젝트 연구노트 관리 화면으로 이동합니다.</p>
         <table className="pn-table">
@@ -80,48 +128,7 @@ export function ProjectsPage() {
 }
 
 export function ProjectCreatePage() {
-  const nav = useNavigate();
-  const [form, setForm] = useState({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
-
-  async function submit(e) {
-    e.preventDefault();
-    setError('');
-    setMsg('');
-    try {
-      const created = await apiFetch('/api/v1/project-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: formEncoded(form)
-      });
-      setMsg(`생성 완료: ${created.name}`);
-      if (created.id) setTimeout(() => nav(`/projects/${created.id}`), 600);
-    } catch (e2) {
-      setError(e2.message);
-    }
-  }
-
-  return (
-    <UserLayout title="프로젝트 생성">
-      <section className="pn-card">
-        <form className="pn-grid" onSubmit={submit} style={{ gap: 8 }}>
-          <input placeholder="프로젝트명" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <input placeholder="매니저(username)" value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} />
-          <input placeholder="사업명" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
-          <input placeholder="기관" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
-          <input placeholder="코드" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-          <input placeholder="설명" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-            <option value="draft">draft</option><option value="active">active</option><option value="completed">completed</option>
-          </select>
-          <button type="submit">생성</button>
-        </form>
-        <ApiError error={error} />
-        {msg && <p className="pn-sub">{msg}</p>}
-      </section>
-    </UserLayout>
-  );
+  return <ProjectsPage />;
 }
 
 export function ProjectDetailPage() {
@@ -181,15 +188,103 @@ export function ProjectResearchersPage() {
 function ResearchersPageTable() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
-  useEffect(() => { apiFetch('/api/v1/researchers').then((r) => setRows(Array.isArray(r) ? r : [])).catch((e) => setError(e.message)); }, []);
+  const [msg, setMsg] = useState('');
+  const [form, setForm] = useState({ name: '', email: '', organization: '' });
+  const [roleByUser, setRoleByUser] = useState({});
+
+  async function loadResearchers() {
+    try {
+      const r = await apiFetch('/api/v1/researchers');
+      const list = Array.isArray(r) ? r : [];
+      setRows(list);
+      setRoleByUser(Object.fromEntries(list.map((u) => [u.id, u.role === '관리자' ? 'admin' : 'member'])));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    loadResearchers();
+  }, []);
+
+  async function createResearcher(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      await apiFetch('/api/v1/researchers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({ action: 'create', ...form })
+      });
+      setMsg('연구원을 추가했습니다.');
+      setForm({ name: '', email: '', organization: '' });
+      loadResearchers();
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
+  async function manageResearcher(userId, action, extra = {}) {
+    setError('');
+    setMsg('');
+    try {
+      await apiFetch('/api/v1/researchers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({ action, user_id: userId, ...extra })
+      });
+      setMsg('연구원 관리 작업이 반영되었습니다.');
+      loadResearchers();
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
 
   return (
-    <section className="pn-card">
-      <ApiError error={error} />
-      <table className="pn-table"><thead><tr><th>이름</th><th>역할</th><th>이메일</th><th>기관</th><th>상태</th></tr></thead><tbody>
-        {rows.map((r) => <tr key={r.id}><td>{r.name}</td><td>{r.role}</td><td>{r.email}</td><td>{r.organization}</td><td>{r.status}</td></tr>)}
-      </tbody></table>
-    </section>
+    <>
+      <section className="pn-card">
+        <h3>연구원 추가</h3>
+        <form className="pn-grid" onSubmit={createResearcher} style={{ gap: 8 }}>
+          <input placeholder="이름" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input placeholder="이메일" required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="소속/기관" required value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
+          <button type="submit">연구원 추가</button>
+        </form>
+      </section>
+
+      <section className="pn-card">
+        <ApiError error={error} />
+        {msg && <p className="pn-sub">{msg}</p>}
+        <table className="pn-table">
+          <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>기관</th><th>상태</th><th>관리</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{r.name}</td>
+                <td>{r.username}</td>
+                <td>{r.role}</td>
+                <td>{r.email}</td>
+                <td>{r.organization}</td>
+                <td>{r.status}</td>
+                <td>
+                  <div className="pn-inline" style={{ flexWrap: 'wrap', margin: 0 }}>
+                    <button type="button" onClick={() => manageResearcher(r.id, 'approve')} disabled={Boolean(r.is_approved)}>승인</button>
+                    <select value={roleByUser[r.id] || 'member'} onChange={(e) => setRoleByUser({ ...roleByUser, [r.id]: e.target.value })}>
+                      <option value="member">일반</option>
+                      <option value="admin">관리자</option>
+                    </select>
+                    <button type="button" onClick={() => manageResearcher(r.id, 'grant_role', { role: roleByUser[r.id] || 'member' })}>권한부여</button>
+                    <button className="pn-danger" type="button" onClick={() => manageResearcher(r.id, 'expel')}>내보내기</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td className="pn-sub" colSpan={7}>연구원이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </section>
+    </>
   );
 }
 

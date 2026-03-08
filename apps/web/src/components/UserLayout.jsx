@@ -5,8 +5,7 @@ import { apiFetch } from '../utils/http';
 const nav = [
   ['/', '🏠', '홈'],
   ['/projects', '📁', '프로젝트 통합 관리'],
-  ['/researchers', '👥', '연구원 통합 관리'],
-  ['/research-notes', '📝', '연구노트']
+  ['/researchers', '👥', '연구원 통합 관리']
 ];
 
 export default function UserLayout({ title, children }) {

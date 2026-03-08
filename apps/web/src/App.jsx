@@ -14,7 +14,6 @@ import {
   GithubIntegrationsPage,
   HomePage,
   MyPage,
-  ProjectCreatePage,
   ProjectDetailPage,
   ProjectResearchNotesPage,
   ProjectResearchNotesPrintPage,
@@ -23,7 +22,6 @@ import {
   ResearchNoteCoverPage,
   ResearchNoteDetailPage,
   ResearchNotePrintablePage,
-  ResearchNotesListPage,
   ResearchNoteViewerPage,
   ResearchersPage
 } from './pages/UserGenericPages';
@@ -50,13 +48,13 @@ export default function App() {
 
       <Route element={<UserRoute><HomePage /></UserRoute>} path="/" />
       <Route element={<UserRoute><ProjectsPage /></UserRoute>} path="/projects" />
-      <Route element={<UserRoute><ProjectCreatePage /></UserRoute>} path="/projects/create" />
+      <Route element={<Navigate replace to="/projects" />} path="/projects/create" />
       <Route element={<UserRoute><ProjectDetailPage /></UserRoute>} path="/projects/:id" />
       <Route element={<UserRoute><ProjectResearchNotesPage /></UserRoute>} path="/projects/:id/research-notes" />
       <Route element={<UserRoute><ProjectResearchNotesPrintPage /></UserRoute>} path="/projects/:id/research-notes/print" />
       <Route element={<UserRoute><ResearchersPage /></UserRoute>} path="/researchers" />
       <Route element={<UserRoute><ProjectResearchersPage /></UserRoute>} path="/projects/:id/researchers" />
-      <Route element={<UserRoute><ResearchNotesListPage /></UserRoute>} path="/research-notes" />
+      <Route element={<Navigate replace to="/projects" />} path="/research-notes" />
       <Route element={<UserRoute><ResearchNoteDetailPage /></UserRoute>} path="/research-notes/:id" />
       <Route element={<UserRoute><ResearchNoteViewerPage /></UserRoute>} path="/research-notes/:id/viewer" />
       <Route element={<UserRoute><ResearchNoteCoverPage /></UserRoute>} path="/research-notes/:id/cover" />
