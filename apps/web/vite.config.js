@@ -4,9 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const legacyEnabled = env.VITE_ENABLE_LEGACY_PAGES === 'true';
+  const backendOrigin = env.VITE_BACKEND_ORIGIN || 'http://127.0.0.1:8000';
 
   const djangoProxy = {
-    target: 'http://127.0.0.1:8000',
+    target: backendOrigin,
     changeOrigin: true,
     secure: false
   };

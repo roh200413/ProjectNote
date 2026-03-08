@@ -26,7 +26,8 @@ npm run dev:web
 ```
 
 - 기본 주소: `http://localhost:5173`
-- React 앱은 Django 페이지를 프록시(`/__django/*`)로 보여주므로 백엔드 서버도 함께 실행해야 로그인/페이지 기능이 동작합니다.
+- React 앱은 Django API를 Vite 프록시로 연결하므로 백엔드 서버도 함께 실행해야 합니다.
+- 기본 프록시 대상은 `http://127.0.0.1:8000`이며, 필요하면 `apps/web/.env.local`에 `VITE_BACKEND_ORIGIN=http://<host>:<port>`를 설정하세요.
 - CSRF 오류가 나면 `.env`에 `DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`를 확인하세요(기본값에 포함됨).
 
 ### 2) Django 백엔드
@@ -64,3 +65,9 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 ```
 
 - dev 서버 재시작 후 반영됩니다.
+
+### 자주 발생하는 오류
+
+- `http proxy error ... ECONNREFUSED 127.0.0.1:8000`
+  - 원인: Django 서버 미실행 또는 포트 불일치
+  - 조치: `python manage.py runserver 0.0.0.0:8000` 실행 또는 `VITE_BACKEND_ORIGIN` 수정
