@@ -1,130 +1,320 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
-import { apiFetch } from '../utils/http';
+import { apiFetch, formEncoded, getCookie } from '../utils/http';
 
-function DataPanel({ title, endpoint, transform }) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+function ApiError({ error }) {
+  if (!error) return null;
+  return <p className="pn-err">{error}</p>;
+}
 
-  useEffect(() => {
-    apiFetch(endpoint)
-      .then((res) => setData(transform ? transform(res) : res))
-      .catch((e) => setError(e.message));
-  }, [endpoint, transform]);
-
-  return (
-    <section className="pn-card">
-      <h3 style={{ marginTop: 0 }}>{title}</h3>
-      {error && <p className="pn-err">{error}</p>}
-      <pre className="pn-json">{JSON.stringify(data, null, 2)}</pre>
-    </section>
-  );
+function Loading({ loading }) {
+  if (!loading) return null;
+  return <p className="pn-sub">불러오는 중...</p>;
 }
 
 export function HomePage() {
+  const [summary, setSummary] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    Promise.all([apiFetch('/api/v1/dashboard/summary'), apiFetch('/api/v1/projects')])
+      .then(([s, p]) => {
+        setSummary(s);
+        setProjects(Array.isArray(p) ? p.slice(0, 5) : []);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
   return (
     <UserLayout title="워크플로우 홈">
-      <div className="pn-grid2">
-        <DataPanel title="대시보드 요약" endpoint="/api/v1/dashboard/summary" />
-        <DataPanel title="프로젝트 목록" endpoint="/api/v1/projects" />
-      </div>
+      <ApiError error={error} />
+      <section className="pn-grid3" style={{ marginBottom: 12 }}>
+        <article className="pn-card"><div className="pn-sub">기관</div><h3>{summary?.teams ?? '-'}</h3></article>
+        <article className="pn-card"><div className="pn-sub">프로젝트</div><h3>{summary?.projects ?? '-'}</h3></article>
+        <article className="pn-card"><div className="pn-sub">연구노트</div><h3>{summary?.notes ?? '-'}</h3></article>
+      </section>
+      <section className="pn-card">
+        <h3 style={{ marginTop: 0 }}>최근 프로젝트</h3>
+        <table className="pn-table">
+          <thead><tr><th>이름</th><th>상태</th><th>기관</th></tr></thead>
+          <tbody>
+            {projects.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.status}</td><td>{p.organization || '-'}</td></tr>)}
+            {projects.length === 0 && <tr><td colSpan={3} className="pn-sub">데이터가 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </section>
     </UserLayout>
   );
 }
 
 export function ProjectsPage() {
+  const [projects, setProjects] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch('/api/v1/projects').then((rows) => setProjects(Array.isArray(rows) ? rows : [])).catch((e) => setError(e.message));
+  }, []);
+
   return (
     <UserLayout title="프로젝트 관리">
-      <DataPanel title="프로젝트 목록" endpoint="/api/v1/projects" />
+      <ApiError error={error} />
+      <section className="pn-card">
+        <table className="pn-table">
+          <thead><tr><th>이름</th><th>코드</th><th>상태</th><th>매니저</th><th>기관</th></tr></thead>
+          <tbody>
+            {projects.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.code}</td><td>{p.status}</td><td>{p.manager}</td><td>{p.organization || '-'}</td></tr>)}
+            {projects.length === 0 && <tr><td colSpan={5} className="pn-sub">프로젝트가 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </section>
+    </UserLayout>
+  );
+}
+
+export function ProjectCreatePage() {
+  const nav = useNavigate();
+  const [form, setForm] = useState({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const created = await apiFetch('/api/v1/project-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(form)
+      });
+      setMsg(`생성 완료: ${created.name}`);
+      if (created.id) setTimeout(() => nav(`/projects/${created.id}`), 600);
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
+  return (
+    <UserLayout title="프로젝트 생성">
+      <section className="pn-card">
+        <form className="pn-grid" onSubmit={submit} style={{ gap: 8 }}>
+          <input placeholder="프로젝트명" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <input placeholder="매니저(username)" value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} />
+          <input placeholder="사업명" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+          <input placeholder="기관" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
+          <input placeholder="코드" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <input placeholder="설명" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="draft">draft</option><option value="active">active</option><option value="completed">completed</option>
+          </select>
+          <button type="submit">생성</button>
+        </form>
+        <ApiError error={error} />
+        {msg && <p className="pn-sub">{msg}</p>}
+      </section>
     </UserLayout>
   );
 }
 
 export function ProjectDetailPage() {
   const { id } = useParams();
-  const transform = useCallback((rows) => (Array.isArray(rows) ? rows.find((r) => String(r.id) === String(id)) : rows), [id]);
+  const [project, setProject] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    apiFetch('/api/v1/projects')
+      .then((rows) => {
+        const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(id)) : null;
+        setProject(found || null);
+      })
+      .catch((e) => setError(e.message));
+  }, [id]);
+
   return (
     <UserLayout title="프로젝트 상세">
-      <DataPanel title={`프로젝트 ${id} 상세(목록 필터)`} endpoint="/api/v1/projects" transform={transform} />
-    </UserLayout>
-  );
-}
-
-export function ProjectCreatePage() {
-  return (
-    <UserLayout title="프로젝트 생성">
-      <section className="pn-card"><p className="pn-sub">프로젝트 생성 React 폼은 다음 단계에서 상세 필드로 확장 예정입니다.</p></section>
+      <ApiError error={error} />
+      <section className="pn-card">
+        {project ? (
+          <table className="pn-table"><tbody>
+            <tr><th>ID</th><td>{project.id}</td></tr>
+            <tr><th>이름</th><td>{project.name}</td></tr>
+            <tr><th>코드</th><td>{project.code}</td></tr>
+            <tr><th>상태</th><td>{project.status}</td></tr>
+            <tr><th>매니저</th><td>{project.manager}</td></tr>
+            <tr><th>기관</th><td>{project.organization || '-'}</td></tr>
+            <tr><th>설명</th><td>{project.description || '-'}</td></tr>
+          </tbody></table>
+        ) : <p className="pn-sub">프로젝트를 찾을 수 없습니다.</p>}
+      </section>
     </UserLayout>
   );
 }
 
 export function ResearchersPage() {
-  return <UserLayout title="연구자 관리"><DataPanel title="연구자 목록" endpoint="/api/v1/researchers" /></UserLayout>;
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+  useEffect(() => { apiFetch('/api/v1/researchers').then((r) => setRows(Array.isArray(r) ? r : [])).catch((e) => setError(e.message)); }, []);
+  return (
+    <UserLayout title="연구자 관리">
+      <ApiError error={error} />
+      <section className="pn-card"><table className="pn-table"><thead><tr><th>이름</th><th>역할</th><th>이메일</th><th>기관</th><th>상태</th></tr></thead><tbody>
+        {rows.map((r) => <tr key={r.id}><td>{r.name}</td><td>{r.role}</td><td>{r.email}</td><td>{r.organization}</td><td>{r.status}</td></tr>)}
+      </tbody></table></section>
+    </UserLayout>
+  );
 }
 
 export function ProjectResearchersPage() {
-  const { id } = useParams();
-  return <UserLayout title="프로젝트 참여 연구자"><DataPanel title={`프로젝트 ${id} 참여 연구자`} endpoint="/api/v1/researchers" /></UserLayout>;
+  return <ResearchersPage />;
 }
 
-export function ProjectResearchNotesPage() {
-  const { id } = useParams();
-  return <UserLayout title="프로젝트 연구노트"><DataPanel title={`프로젝트 ${id} 연구노트`} endpoint="/api/v1/research-notes" /></UserLayout>;
+function NotesTable({ endpoint }) {
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    setLoading(true);
+    apiFetch(endpoint).then((r) => setRows(Array.isArray(r) ? r : [])).catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [endpoint]);
+
+  return (
+    <section className="pn-card">
+      <Loading loading={loading} />
+      <ApiError error={error} />
+      <table className="pn-table">
+        <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
+        <tbody>
+          {rows.map((n) => <tr key={n.id}><td>{n.title}</td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
+          {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">연구노트가 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </section>
+  );
 }
 
-export function ProjectResearchNotesPrintPage() {
-  const { id } = useParams();
-  return <UserLayout title="프로젝트 연구노트 인쇄"><DataPanel title={`프로젝트 ${id} 연구노트(인쇄용)`} endpoint="/api/v1/research-notes" /></UserLayout>;
+export function ProjectResearchNotesPage() { return <UserLayout title="프로젝트 연구노트"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
+export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
+export function ResearchNotesListPage() { return <UserLayout title="연구노트 목록"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
+
+function ResearchNoteDetailCard({ id, title }) {
+  const [note, setNote] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => { apiFetch(`/api/v1/research-notes/${id}`).then(setNote).catch((e) => setError(e.message)); }, [id]);
+  return (
+    <UserLayout title={title}>
+      <ApiError error={error} />
+      <section className="pn-card">
+        <pre className="pn-json">{JSON.stringify(note, null, 2)}</pre>
+      </section>
+    </UserLayout>
+  );
 }
 
-export function ResearchNotesListPage() {
-  return <UserLayout title="연구노트 목록"><DataPanel title="연구노트 목록" endpoint="/api/v1/research-notes" /></UserLayout>;
-}
-
-export function ResearchNoteDetailPage() {
-  const { id } = useParams();
-  return <UserLayout title="연구노트 상세"><DataPanel title={`연구노트 ${id}`} endpoint={`/api/v1/research-notes/${id}`} /></UserLayout>;
-}
-
-export function ResearchNoteViewerPage() {
-  const { id } = useParams();
-  return <UserLayout title="연구노트 뷰어"><DataPanel title={`연구노트 ${id} 뷰어 데이터`} endpoint={`/api/v1/research-notes/${id}`} /></UserLayout>;
-}
-
-export function ResearchNoteCoverPage() {
-  const { id } = useParams();
-  return <UserLayout title="연구노트 커버"><DataPanel title={`연구노트 ${id} 커버 데이터`} endpoint={`/api/v1/research-notes/${id}`} /></UserLayout>;
-}
-
-export function ResearchNotePrintablePage() {
-  const { id } = useParams();
-  return <UserLayout title="연구노트 출력"><DataPanel title={`연구노트 ${id} 출력 데이터`} endpoint={`/api/v1/research-notes/${id}`} /></UserLayout>;
-}
+export function ResearchNoteDetailPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 상세" />; }
+export function ResearchNoteViewerPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 뷰어" />; }
+export function ResearchNoteCoverPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 커버" />; }
+export function ResearchNotePrintablePage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 출력" />; }
 
 export function MyPage() {
+  const [sign, setSign] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => { apiFetch('/api/v1/signatures').then(setSign).catch((e) => setError(e.message)); }, []);
   return (
     <UserLayout title="마이페이지">
-      <div className="pn-grid2">
-        <DataPanel title="부트스트랩" endpoint="/api/v1/frontend/bootstrap" />
-        <DataPanel title="내 서명" endpoint="/api/v1/signatures" />
-      </div>
+      <ApiError error={error} />
+      <section className="pn-card">
+        <h3 style={{ marginTop: 0 }}>내 서명 상태</h3>
+        <p>서명자: {sign?.last_signed_by || '-'}</p>
+        <p>최근 서명일: {sign?.last_signed_at || '-'}</p>
+        <p>상태: {sign?.status || '-'}</p>
+      </section>
     </UserLayout>
   );
 }
 
 export function DataUpdatesPage() {
-  return <UserLayout title="활동내역"><DataPanel title="활동내역" endpoint="/api/v1/data-updates" /></UserLayout>;
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState('');
+  useEffect(() => { apiFetch('/api/v1/data-updates').then((r) => setRows(Array.isArray(r) ? r : [])).catch((e) => setError(e.message)); }, []);
+  return (
+    <UserLayout title="활동내역">
+      <ApiError error={error} />
+      <section className="pn-card"><table className="pn-table"><thead><tr><th>ID</th><th>대상</th><th>상태</th><th>업데이트시각</th></tr></thead><tbody>
+        {rows.map((r) => <tr key={r.id}><td>{r.id}</td><td>{r.target}</td><td>{r.status}</td><td>{r.updated_at}</td></tr>)}
+      </tbody></table></section>
+    </UserLayout>
+  );
 }
 
 export function GithubIntegrationsPage() {
-  return <UserLayout title="GitHub 연동"><section className="pn-card"><p className="pn-sub">GitHub 연동 설정 화면 React 복구 완료(기능 확장 예정).</p></section></UserLayout>;
+  return (
+    <UserLayout title="GitHub 연동">
+      <section className="pn-card"><p className="pn-sub">GitHub/협업 연동 상세 기능은 다음 단계에서 연결합니다.</p></section>
+    </UserLayout>
+  );
 }
 
 export function SignaturesPage() {
-  return <UserLayout title="서명"><DataPanel title="서명 상태" endpoint="/api/v1/signatures" /></UserLayout>;
+  const [sign, setSign] = useState(null);
+  const [status, setStatus] = useState('valid');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  useEffect(() => {
+    apiFetch('/api/v1/signatures').then((s) => {
+      setSign(s);
+      setStatus(s?.status || 'valid');
+    }).catch((e) => setError(e.message));
+  }, []);
+
+  async function updateStatus() {
+    setError('');
+    try {
+      const updated = await apiFetch('/api/v1/signatures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({ status })
+      });
+      setSign(updated);
+      setMsg('서명 상태 업데이트 완료');
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  return (
+    <UserLayout title="서명">
+      <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
+      <section className="pn-card">
+        <p>현재 상태: {sign?.status || '-'}</p>
+        <div className="pn-inline">
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="valid">valid</option>
+            <option value="pending">pending</option>
+            <option value="expired">expired</option>
+          </select>
+          <button type="button" onClick={updateStatus}>상태 저장</button>
+        </div>
+      </section>
+    </UserLayout>
+  );
 }
 
 export function FinalDownloadPage() {
-  return <UserLayout title="최종 다운로드"><DataPanel title="최종 다운로드 데이터" endpoint="/api/v1/final-download" /></UserLayout>;
+  const [payload, setPayload] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => { apiFetch('/api/v1/final-download').then(setPayload).catch((e) => setError(e.message)); }, []);
+  return (
+    <UserLayout title="최종 다운로드">
+      <ApiError error={error} />
+      <section className="pn-card">
+        <p>포맷: {payload?.format || '-'}</p>
+        <p>상태: {payload?.status || '-'}</p>
+        <p>생성시각: {payload?.generated_at || '-'}</p>
+        <a href={payload?.download_url || '#'} target="_blank" rel="noreferrer">다운로드 링크</a>
+      </section>
+    </UserLayout>
+  );
 }

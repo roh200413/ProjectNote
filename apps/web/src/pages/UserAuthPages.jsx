@@ -13,7 +13,7 @@ export function LoginPage() {
     setError('');
     try {
       await fetch('/login', { credentials: 'include' });
-      await fetch('/login', {
+      const res = await fetch('/login', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -22,6 +22,7 @@ export function LoginPage() {
         },
         body: formEncoded({ username, password, next: '/frontend/workflows' })
       });
+      if (!res.ok) throw new Error(`로그인 실패 (${res.status})`);
       nav('/');
     } catch (err) {
       setError(err.message);
