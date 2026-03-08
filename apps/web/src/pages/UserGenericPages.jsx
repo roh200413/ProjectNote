@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
+import { saveSelectedProject } from '../utils/projectContext';
 
 function ApiError({ error }) {
   if (!error) return null;
@@ -36,7 +37,7 @@ export function HomePage() {
         <table className="pn-table">
           <thead><tr><th>프로젝트</th><th>상태</th><th>기관</th></tr></thead>
           <tbody>
-            {projects.map((p) => <tr key={p.id}><td><Link className="pn-link" to={`/projects/${p.id}/research-notes`}>{p.name}</Link></td><td>{p.status}</td><td>{p.organization || '-'}</td></tr>)}
+            {projects.map((p) => <tr key={p.id}><td><Link className="pn-link" onClick={() => saveSelectedProject(p)} to={`/projects/${p.id}/research-notes`}>{p.name}</Link></td><td>{p.status}</td><td>{p.organization || '-'}</td></tr>)}
             {projects.length === 0 && <tr><td colSpan={3} className="pn-sub">관리중인 프로젝트가 없습니다.</td></tr>}
           </tbody>
         </table>
@@ -72,7 +73,7 @@ export function ProjectsPage() {
           <tbody>
             {projects.map((p) => (
               <tr key={p.id}>
-                <td><Link className="pn-link" to={`/projects/${p.id}/research-notes`}>{p.name}</Link></td>
+                <td><Link className="pn-link" onClick={() => saveSelectedProject(p)} to={`/projects/${p.id}/research-notes`}>{p.name}</Link></td>
                 <td>{p.code}</td><td>{p.status}</td><td>{p.manager}</td><td>{p.organization || '-'}</td>
               </tr>
             ))}
@@ -85,6 +86,7 @@ export function ProjectsPage() {
 }
 
 export function ProjectCreatePage() {
+  const nav = useNavigate();
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [members, setMembers] = useState([]);
@@ -121,7 +123,9 @@ export function ProjectCreatePage() {
           invited_members: JSON.stringify([])
         })
       });
+      saveSelectedProject(created);
       setMsg(`프로젝트 생성 완료: ${created.name}`);
+      setTimeout(() => nav(`/projects/${created.id}`), 400);
     } catch (e2) {
       setError(e2.message);
     }
@@ -171,32 +175,82 @@ export function ProjectCreatePage() {
 export function ProjectDetailPage() {
   const { id } = useParams();
   const [project, setProject] = useState(null);
+  const [form, setForm] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     apiFetch('/api/v1/projects')
       .then((rows) => {
         const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(id)) : null;
         setProject(found || null);
+        setForm(found || null);
+        if (found) saveSelectedProject(found);
       })
       .catch((e) => setError(e.message));
   }, [id]);
 
+  async function saveProject(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const updated = await apiFetch(`/api/v1/projects/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(form || {})
+      });
+      setProject(updated);
+      setForm(updated);
+      saveSelectedProject(updated);
+      setEditing(false);
+      setMsg('프로젝트 정보를 수정했습니다.');
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
   return (
     <UserLayout title="프로젝트 상세">
       <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
       <section className="pn-card">
-        {project ? (
-          <table className="pn-table"><tbody>
-            <tr><th>ID</th><td>{project.id}</td></tr>
-            <tr><th>이름</th><td>{project.name}</td></tr>
-            <tr><th>코드</th><td>{project.code}</td></tr>
-            <tr><th>상태</th><td>{project.status}</td></tr>
-            <tr><th>매니저</th><td>{project.manager}</td></tr>
-            <tr><th>기관</th><td>{project.organization || '-'}</td></tr>
-            <tr><th>설명</th><td>{project.description || '-'}</td></tr>
-          </tbody></table>
-        ) : <p className="pn-sub">프로젝트를 찾을 수 없습니다.</p>}
+        {!project && <p className="pn-sub">프로젝트를 찾을 수 없습니다.</p>}
+        {project && !editing && (
+          <>
+            <table className="pn-table"><tbody>
+              <tr><th>ID</th><td>{project.id}</td></tr>
+              <tr><th>이름</th><td>{project.name}</td></tr>
+              <tr><th>코드</th><td>{project.code}</td></tr>
+              <tr><th>상태</th><td>{project.status}</td></tr>
+              <tr><th>매니저</th><td>{project.manager}</td></tr>
+              <tr><th>기관</th><td>{project.organization || '-'}</td></tr>
+              <tr><th>설명</th><td>{project.description || '-'}</td></tr>
+              <tr><th>기간</th><td>{project.start_date || '-'} ~ {project.end_date || '-'}</td></tr>
+            </tbody></table>
+            <div className="pn-inline" style={{ justifyContent: 'flex-end' }}>
+              <button onClick={() => setEditing(true)} type="button">수정하기</button>
+            </div>
+          </>
+        )}
+        {project && editing && form && (
+          <form className="pn-grid2" onSubmit={saveProject}>
+            <div><label className="pn-sub">과제명</label><input required value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div><label className="pn-sub">과제 책임자</label><input value={form.manager || ''} onChange={(e) => setForm({ ...form, manager: e.target.value })} /></div>
+            <div><label className="pn-sub">사업명</label><input value={form.business_name || ''} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></div>
+            <div><label className="pn-sub">기관</label><input value={form.organization || ''} onChange={(e) => setForm({ ...form, organization: e.target.value })} /></div>
+            <div><label className="pn-sub">과제 번호</label><input value={form.code || ''} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+            <div><label className="pn-sub">상태</label><select value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="draft">draft</option><option value="active">active</option><option value="completed">completed</option></select></div>
+            <div><label className="pn-sub">시작일</label><input type="date" value={form.start_date || ''} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+            <div><label className="pn-sub">종료일</label><input type="date" value={form.end_date || ''} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+            <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">설명</label><input value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+            <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+              <button className="pn-side-list" onClick={() => { setEditing(false); setForm(project); }} type="button">취소</button>
+              <button type="submit">저장</button>
+            </div>
+          </form>
+        )}
       </section>
     </UserLayout>
   );
@@ -212,12 +266,95 @@ export function ResearchersPage() {
 
 export function ProjectResearchersPage() {
   const { id } = useParams();
+  const [rows, setRows] = useState([]);
+  const [candidates, setCandidates] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const [projectMembers, allResearchers] = await Promise.all([
+        apiFetch(`/api/v1/projects/${id}/researchers`),
+        apiFetch('/api/v1/researchers')
+      ]);
+      const members = Array.isArray(projectMembers) ? projectMembers : [];
+      setRows(members);
+      const memberIds = new Set(members.map((m) => String(m.id)));
+      const all = Array.isArray(allResearchers) ? allResearchers : [];
+      const available = all.filter((r) => !memberIds.has(String(r.id)));
+      setCandidates(available);
+      if (available.length > 0 && !selectedUserId) setSelectedUserId(String(available[0].id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [id, selectedUserId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function addResearcher() {
+    if (!selectedUserId) return;
+    setError('');
+    setMsg('');
+    try {
+      const res = await apiFetch(`/api/v1/projects/${id}/researchers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({ user_id: selectedUserId })
+      });
+      setMsg(res?.message || '연구원이 추가되었습니다.');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function removeResearcher(userId) {
+    setError('');
+    setMsg('');
+    try {
+      const res = await apiFetch(`/api/v1/projects/${id}/researchers/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({ user_id: userId })
+      });
+      setMsg(res?.message || '연구원을 제외했습니다.');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   return (
-    <UserLayout title="프로젝트 연구원">
+    <UserLayout title="참여 연구원 관리">
       <section className="pn-card">
-        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 #{id} 기준 연구원 화면입니다.</p>
+        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 #{id} 참여 연구원을 관리합니다.</p>
       </section>
-      <ResearchersPageTable projectId={id} />
+      <section className="pn-card">
+        <ApiError error={error} />
+        {msg && <p className="pn-sub">{msg}</p>}
+        <div className="pn-inline">
+          <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+            {candidates.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.username})</option>)}
+            {candidates.length === 0 && <option value="">추가 가능한 연구원이 없습니다.</option>}
+          </select>
+          <button disabled={!selectedUserId} onClick={addResearcher} type="button">프로젝트에 추가</button>
+        </div>
+        <table className="pn-table">
+          <thead><tr><th>이름</th><th>아이디</th><th>권한</th><th>이메일</th><th>기관</th><th>상태</th><th>관리</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{r.name}</td><td>{r.username}</td><td>{r.role}</td><td>{r.email}</td><td>{r.organization}</td><td>{r.status}</td>
+                <td><button className="pn-danger" onClick={() => removeResearcher(r.id)} type="button">프로젝트 제외</button></td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={7} className="pn-sub">참여 연구원이 없습니다.</td></tr>}
+          </tbody>
+        </table>
+      </section>
     </UserLayout>
   );
 }
@@ -342,7 +479,7 @@ function NotesTable({ endpoint }) {
       <table className="pn-table">
         <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
         <tbody>
-          {rows.map((n) => <tr key={n.id}><td>{n.title}</td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
+          {rows.map((n) => <tr key={n.id}><td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
           {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">연구노트가 없습니다.</td></tr>}
         </tbody>
       </table>
@@ -392,7 +529,7 @@ export function ProjectResearchNotesPage() {
         <table className="pn-table">
           <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
           <tbody>
-            {rows.map((n) => <tr key={n.id}><td>{n.title}</td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
+            {rows.map((n) => <tr key={n.id}><td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
             {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">해당 프로젝트 연구노트가 없습니다.</td></tr>}
           </tbody>
         </table>

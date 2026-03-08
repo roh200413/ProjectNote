@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/http';
+import { clearSelectedProject, readSelectedProject, saveSelectedProject } from '../utils/projectContext';
 
 const nav = [
   ['/', '🏠', '대시보드'],
@@ -11,32 +12,35 @@ const nav = [
 
 export default function UserLayout({ title, children }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [activeProject, setActiveProject] = useState(null);
+  const [activeProject, setActiveProject] = useState(() => readSelectedProject());
   const [projectMenuOpen, setProjectMenuOpen] = useState(true);
   const location = useLocation();
 
   const projectId = useMemo(() => {
-    const match = location.pathname.match(/^\/projects\/(\d+)/);
+    const match = location.pathname.match(/^\/projects\/([^/]+)/);
     return match ? match[1] : '';
   }, [location.pathname]);
 
   useEffect(() => {
-    let cancelled = false;
     if (!projectId) {
-      setActiveProject(null);
-      return () => {
-        cancelled = true;
-      };
+      setActiveProject(readSelectedProject());
+      return;
     }
 
+    let cancelled = false;
     apiFetch('/api/v1/projects')
       .then((rows) => {
         if (cancelled) return;
         const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(projectId)) : null;
-        setActiveProject(found || { id: projectId, name: `프로젝트 #${projectId}`, code: '-' });
+        const project = found || { id: projectId, name: `프로젝트 #${projectId}`, code: '-' };
+        setActiveProject(project);
+        saveSelectedProject(project);
       })
       .catch(() => {
-        if (!cancelled) setActiveProject({ id: projectId, name: `프로젝트 #${projectId}`, code: '-' });
+        if (cancelled) return;
+        const fallback = { id: projectId, name: `프로젝트 #${projectId}`, code: '-' };
+        setActiveProject(fallback);
+        saveSelectedProject(fallback);
       });
 
     return () => {
@@ -45,8 +49,8 @@ export default function UserLayout({ title, children }) {
   }, [projectId]);
 
   useEffect(() => {
-    if (projectId) setProjectMenuOpen(true);
-  }, [projectId]);
+    if (activeProject?.id) setProjectMenuOpen(true);
+  }, [activeProject?.id]);
 
   return (
     <div className={`pn-layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
@@ -65,23 +69,28 @@ export default function UserLayout({ title, children }) {
           ))}
         </nav>
 
-        {projectId && (
+        {activeProject?.id && (
           <section className="pn-project-context">
-            <button
-              className="pn-project-context-toggle"
-              onClick={() => setProjectMenuOpen((v) => !v)}
-              type="button"
-            >
+            <button className="pn-project-context-toggle" onClick={() => setProjectMenuOpen((v) => !v)} type="button">
               <span>현재 프로젝트</span>
               <span aria-hidden="true">{projectMenuOpen ? '▾' : '▸'}</span>
             </button>
-            <div className="pn-project-context-name">{activeProject?.name || `프로젝트 #${projectId}`}</div>
-            <div className="pn-sub" style={{ margin: 0 }}>코드: {activeProject?.code || '-'}</div>
+            <div className="pn-project-context-name">{activeProject.name}</div>
+            <div className="pn-sub" style={{ margin: 0 }}>코드: {activeProject.code || '-'}</div>
             {projectMenuOpen && (
               <div className="pn-project-context-menu">
-                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}` ? 'active' : ''}`} to={`/projects/${projectId}`}>프로젝트 내용</Link>
-                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}/researchers` ? 'active' : ''}`} to={`/projects/${projectId}/researchers`}>연구원 내용</Link>
-                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}/research-notes` ? 'active' : ''}`} to={`/projects/${projectId}/research-notes`}>연구노트 내용</Link>
+                <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}` ? 'active' : ''}`} to={`/projects/${activeProject.id}`}>
+                  프로젝트 상세 보기 및 수정
+                </Link>
+                <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}/research-notes` ? 'active' : ''}`} to={`/projects/${activeProject.id}/research-notes`}>
+                  연구노트 관리
+                </Link>
+                <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}/researchers` ? 'active' : ''}`} to={`/projects/${activeProject.id}/researchers`}>
+                  참여 연구원 관리
+                </Link>
+                <button className="pn-side-list" onClick={() => { clearSelectedProject(); setActiveProject(null); }} style={{ textAlign: 'left', width: '100%', cursor: 'pointer' }} type="button">
+                  프로젝트 메뉴 닫기
+                </button>
               </div>
             )}
           </section>
