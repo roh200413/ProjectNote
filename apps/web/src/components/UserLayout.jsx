@@ -35,11 +35,15 @@ export default function UserLayout({ title, children }) {
         </nav>
       </aside>
 
-            <section className="pn-main">
+      <section className="pn-main">
         <main className="pn-shell">
           <div className="pn-headline">
             <h1 className="pn-title">{title}</h1>
-            <p className="pn-sub" style={{ margin: 0 }}>일반 사용자 화면 · React</p>
+            <div style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
+              <p className="pn-sub" style={{ margin: 0 }}>일반 사용자 화면 · React</p>
+              <Link className="pn-side-list" to="/my-page">개인 페이지</Link>
+              <Link className="pn-side-list" to="/logout">로그아웃</Link>
+            </div>
           </div>
           {children}
         </main>
