@@ -502,6 +502,64 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
     return output.getvalue()
 
 
+
+
+@require_http_methods(["POST"])
+def research_note_file_upload_api(request, note_id: str):
+    try:
+        note_obj = ResearchNote.objects.select_related("project").get(id=note_id)
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    upload = request.FILES.get("file") or request.FILES.get("research_note_file")
+    if not upload:
+        return JsonResponse({"detail": "업로드할 파일이 없습니다."}, status=400)
+
+    safe_name = Path(upload.name).name
+    extension = Path(safe_name).suffix.lstrip(".").lower()
+    allowed_extensions = {"jpeg", "jpg", "png", "svg", "tiff", "webp", "heif", "heic", "pdf"}
+    if extension not in allowed_extensions:
+        return JsonResponse({"detail": "PDF 또는 이미지 파일만 업로드할 수 있습니다."}, status=400)
+
+    profile = effective_user_profile(request) or {}
+    username = str(profile.get("username") or "anonymous").strip() or "anonymous"
+    author_name = str(profile.get("name") or username).strip() or username
+
+    existing_folders = research_note_repository.list_note_folders(note_id)
+    if existing_folders:
+        note_folder = Path(existing_folders[0])
+    else:
+        note_folder = Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / username / str(note_id)
+
+    note_folder.mkdir(parents=True, exist_ok=True)
+    target_path = note_folder / safe_name
+    with target_path.open("wb") as destination:
+        for chunk in upload.chunks():
+            destination.write(chunk)
+
+    file_obj = ResearchNoteFile.objects.create(
+        note=note_obj,
+        name=safe_name,
+        author=author_name,
+        format=extension,
+        created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
+    )
+
+    ResearchNoteFolder.objects.get_or_create(note=note_obj, name=str(note_folder))
+    note_obj.files = note_obj.note_files.count()
+    note_obj.save(update_fields=["files", "last_updated_at", "updated_at"])
+
+    payload = {
+        "id": str(file_obj.id),
+        "name": file_obj.name,
+        "author": file_obj.author,
+        "format": file_obj.format,
+        "created": file_obj.created,
+        "content_url": f"/frontend/research-notes/{note_id}/files/{file_obj.id}/content",
+        "download_url": f"/frontend/research-notes/{note_id}/files/{file_obj.id}/content?download=1",
+    }
+    return JsonResponse({"message": "연구파일이 업로드되었습니다.", "file": payload}, status=201)
+
 @require_http_methods(["POST"])
 def research_note_file_update_api(request, note_id: str, file_id: str):
     try:

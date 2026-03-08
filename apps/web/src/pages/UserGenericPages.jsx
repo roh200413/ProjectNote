@@ -577,14 +577,18 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
   const [selectedFileId, setSelectedFileId] = useState('');
+  const [coverFileId, setCoverFileId] = useState('');
   const [form, setForm] = useState({ title: '', summary: '' });
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [dragActive, setDragActive] = useState(false);
 
   const selectedFile = useMemo(() => files.find((f) => String(f.id) === String(selectedFileId)) || files[0] || null, [files, selectedFileId]);
   const filteredFiles = useMemo(() => files.filter((f) => `${f.name} ${f.author}`.toLowerCase().includes(search.toLowerCase())), [files, search]);
+  const imageFiles = useMemo(() => files.filter((f) => ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic'].includes(String(f.format || '').toLowerCase())), [files]);
+  const selectedCoverFile = useMemo(() => imageFiles.find((f) => String(f.id) === String(coverFileId)) || imageFiles[0] || null, [imageFiles, coverFileId]);
 
   const modeTitle = mode === 'viewer'
     ? '연구노트 뷰어'
@@ -633,11 +637,48 @@ function ResearchNoteWorkspace({ id, mode }) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
         body: formEncoded(form)
       });
-      setNote(updated);
-      setForm({ title: updated?.title || '', summary: updated?.summary || '' });
+      setNote(updated?.note || updated);
+      setForm({ title: (updated?.note || updated)?.title || '', summary: (updated?.note || updated)?.summary || '' });
       setMsg('연구노트를 수정했습니다.');
     } catch (e2) {
       setError(e2.message);
+    }
+  }
+
+  async function uploadFiles(fileList) {
+    const filesToUpload = Array.from(fileList || []);
+    if (filesToUpload.length === 0) return;
+    setError('');
+    setMsg('');
+
+    const allowed = ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic', 'pdf'];
+    const invalid = filesToUpload.find((f) => !allowed.includes(String(f.name.split('.').pop() || '').toLowerCase()));
+    if (invalid) {
+      setError('PDF 또는 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    try {
+      const uploadedRows = [];
+      for (const file of filesToUpload) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await apiFetch(`/api/v1/research-notes/${id}/files/upload`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd
+        });
+        if (res?.file) uploadedRows.push(res.file);
+      }
+      if (uploadedRows.length > 0) {
+        setFiles((prev) => [...uploadedRows, ...prev]);
+        setSelectedFileId(String(uploadedRows[0].id));
+        const img = uploadedRows.find((f) => ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic'].includes(String(f.format || '').toLowerCase()));
+        if (img) setCoverFileId(String(img.id));
+      }
+      setMsg(`${uploadedRows.length}개 파일을 업로드했습니다.`);
+    } catch (e) {
+      setError(e.message);
     }
   }
 
@@ -676,13 +717,18 @@ function ResearchNoteWorkspace({ id, mode }) {
 
       {mode === 'cover' && (
         <section className="pn-card">
-          <h3>연구노트 표지</h3>
-          <div className="pn-grid2">
+          <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, alignItems: 'center' }}>
+            <h3 style={{ margin: 0 }}>연구노트 표지</h3>
+            <label className="pn-side-list" htmlFor="coverImageInput" style={{ cursor: 'pointer' }}>표지 넣기</label>
+          </div>
+          <input accept="image/*" id="coverImageInput" onChange={(e) => uploadFiles(e.target.files)} style={{ display: 'none' }} type="file" />
+          <div className="pn-grid2" style={{ marginTop: 10 }}>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">제목</div><strong>{note?.title || '-'}</strong></article>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">과제번호</div><strong>{note?.project_code || '-'}</strong></article>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">책임자</div><strong>{note?.owner || '-'}</strong></article>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">연구기간</div><strong>{note?.period || '-'}</strong></article>
           </div>
+          {selectedCoverFile && <img alt="연구노트 표지" src={selectedCoverFile.content_url} style={{ width: '100%', marginTop: 12, borderRadius: 10, border: '1px solid #e5e7eb', maxHeight: 360, objectFit: 'contain', background: '#fff' }} />}
         </section>
       )}
 
@@ -718,13 +764,20 @@ function ResearchNoteWorkspace({ id, mode }) {
             <div className="pn-inline" style={{ margin: 0 }}>
               <button className="pn-btn-secondary" type="button">파일 이동</button>
               <button className="pn-btn-secondary" type="button">파일 삭제</button>
-              <button type="button">연구파일 추가</button>
+              <label className="pn-side-list" htmlFor="noteFileInput" style={{ cursor: 'pointer' }}>연구파일 추가</label>
             </div>
           </div>
+          <input accept=".pdf,image/*" id="noteFileInput" multiple onChange={(e) => uploadFiles(e.target.files)} style={{ display: 'none' }} type="file" />
 
-          <div className="pn-note-dropzone">
+          <div
+            className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
+            onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+            onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadFiles(e.dataTransfer.files); }}
+          >
             마우스로 드래그 해서 연구파일을 추가해주세요.
-            <div className="pn-sub" style={{ marginTop: 8 }}>추가 가능 파일 유형: Jpeg, Jpg, Png, SVG, tiff, Webp, Heif, Heic, Doc, Docx, PPTX, PPT, xls, Xlsx, PDF</div>
+            <div className="pn-sub" style={{ marginTop: 8 }}>추가 가능 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
           </div>
 
           <div className="pn-inline" style={{ marginTop: 12, marginBottom: 8 }}>

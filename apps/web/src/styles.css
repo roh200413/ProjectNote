@@ -149,3 +149,5 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
   .pn-note-workspace { grid-template-columns: 1fr; }
   .pn-note-left { position: static; }
 }
+
+.pn-note-dropzone.drag { border-color:#2563eb; background:#dbeafe; }
