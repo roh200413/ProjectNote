@@ -253,6 +253,10 @@ export function ProjectDetailPage() {
     window.location.href = `/api/v1/projects/${id}/cover/print`;
   }
 
+  const coverPeriodText = [coverForm?.start_date || '', coverForm?.end_date || ''].filter(Boolean).join(' ~ ') || '-';
+  const coverImagePreview = (coverForm?.cover_image_data_url || '').startsWith('data:image/');
+  const hasPdfAsset = (coverForm?.cover_image_data_url || '').startsWith('data:application/pdf');
+
   return (
     <UserLayout title="프로젝트 상세">
       <ApiError error={error} />
@@ -298,36 +302,58 @@ export function ProjectDetailPage() {
 
       {project && coverForm && (
         <section className="pn-card">
-          <details>
+          <details open>
             <summary>표지 설정</summary>
             {coverMsg && <p className="pn-sub">{coverMsg}</p>}
-            <form className="pn-grid2" onSubmit={saveCover}>
-              <div><label className="pn-sub">제목</label><input value={coverForm.title || ''} onChange={(e) => setCoverForm({ ...coverForm, title: e.target.value })} /></div>
-              <div><label className="pn-sub">과제 번호</label><input value={coverForm.code || ''} onChange={(e) => setCoverForm({ ...coverForm, code: e.target.value })} /></div>
-              <div><label className="pn-sub">사업명</label><input value={coverForm.business_name || ''} onChange={(e) => setCoverForm({ ...coverForm, business_name: e.target.value })} /></div>
-              <div><label className="pn-sub">기관</label><input value={coverForm.organization || ''} onChange={(e) => setCoverForm({ ...coverForm, organization: e.target.value })} /></div>
-              <div><label className="pn-sub">책임자</label><input value={coverForm.manager || ''} onChange={(e) => setCoverForm({ ...coverForm, manager: e.target.value })} /></div>
-              <div><label className="pn-sub">시작일</label><input type="date" value={coverForm.start_date || ''} onChange={(e) => setCoverForm({ ...coverForm, start_date: e.target.value })} /></div>
-              <div><label className="pn-sub">종료일</label><input type="date" value={coverForm.end_date || ''} onChange={(e) => setCoverForm({ ...coverForm, end_date: e.target.value })} /></div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="pn-sub">표시 옵션</label>
-                <div className="pn-inline">
-                  <label><input type="checkbox" checked={!!coverForm.show_title} onChange={(e) => setCoverForm({ ...coverForm, show_title: e.target.checked })} /> 제목</label>
-                  <label><input type="checkbox" checked={!!coverForm.show_business_name} onChange={(e) => setCoverForm({ ...coverForm, show_business_name: e.target.checked })} /> 사업명</label>
-                  <label><input type="checkbox" checked={!!coverForm.show_code} onChange={(e) => setCoverForm({ ...coverForm, show_code: e.target.checked })} /> 과제 번호</label>
-                  <label><input type="checkbox" checked={!!coverForm.show_org} onChange={(e) => setCoverForm({ ...coverForm, show_org: e.target.checked })} /> 기관</label>
-                  <label><input type="checkbox" checked={!!coverForm.show_manager} onChange={(e) => setCoverForm({ ...coverForm, show_manager: e.target.checked })} /> 책임자</label>
-                  <label><input type="checkbox" checked={!!coverForm.show_period} onChange={(e) => setCoverForm({ ...coverForm, show_period: e.target.checked })} /> 기간</label>
+            <div className="pn-cover-layout">
+              <form className="pn-grid2" onSubmit={saveCover}>
+                <div><label className="pn-sub">제목</label><input value={coverForm.title || ''} onChange={(e) => setCoverForm({ ...coverForm, title: e.target.value })} /></div>
+                <div><label className="pn-sub">과제 번호</label><input value={coverForm.code || ''} onChange={(e) => setCoverForm({ ...coverForm, code: e.target.value })} /></div>
+                <div><label className="pn-sub">사업명</label><input value={coverForm.business_name || ''} onChange={(e) => setCoverForm({ ...coverForm, business_name: e.target.value })} /></div>
+                <div><label className="pn-sub">기관</label><input value={coverForm.organization || ''} onChange={(e) => setCoverForm({ ...coverForm, organization: e.target.value })} /></div>
+                <div><label className="pn-sub">책임자</label><input value={coverForm.manager || ''} onChange={(e) => setCoverForm({ ...coverForm, manager: e.target.value })} /></div>
+                <div><label className="pn-sub">시작일</label><input type="date" value={coverForm.start_date || ''} onChange={(e) => setCoverForm({ ...coverForm, start_date: e.target.value })} /></div>
+                <div><label className="pn-sub">종료일</label><input type="date" value={coverForm.end_date || ''} onChange={(e) => setCoverForm({ ...coverForm, end_date: e.target.value })} /></div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="pn-sub">표시 옵션</label>
+                  <div className="pn-cover-checks">
+                    <label><input type="checkbox" checked={!!coverForm.show_title} onChange={(e) => setCoverForm({ ...coverForm, show_title: e.target.checked })} /> 제목</label>
+                    <label><input type="checkbox" checked={!!coverForm.show_business_name} onChange={(e) => setCoverForm({ ...coverForm, show_business_name: e.target.checked })} /> 사업명</label>
+                    <label><input type="checkbox" checked={!!coverForm.show_code} onChange={(e) => setCoverForm({ ...coverForm, show_code: e.target.checked })} /> 과제 번호</label>
+                    <label><input type="checkbox" checked={!!coverForm.show_org} onChange={(e) => setCoverForm({ ...coverForm, show_org: e.target.checked })} /> 기관</label>
+                    <label><input type="checkbox" checked={!!coverForm.show_manager} onChange={(e) => setCoverForm({ ...coverForm, show_manager: e.target.checked })} /> 책임자</label>
+                    <label><input type="checkbox" checked={!!coverForm.show_period} onChange={(e) => setCoverForm({ ...coverForm, show_period: e.target.checked })} /> 기간</label>
+                  </div>
+                </div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="pn-sub">표지 원본 업로드 (이미지/PDF)</label>
+                  <input type="file" accept="image/*,application/pdf" onChange={onCoverFileChange} />
+                  {hasPdfAsset && <p className="pn-sub" style={{ marginTop: 6 }}>PDF 원본이 업로드되어 있습니다. 미리보기는 PDF 출력에서 확인할 수 있습니다.</p>}
+                </div>
+                <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+                  <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">표지 PDF 출력</button>
+                  <button type="submit">표지 저장</button>
+                </div>
+              </form>
+
+              <div className="pn-cover-preview-wrap">
+                <div className={`pn-cover-a4${coverImagePreview ? ' has-bg' : ''}`}>
+                  {coverImagePreview && <img className="pn-cover-bg" src={coverForm.cover_image_data_url} alt="cover" />}
+                  <div className="pn-cover-head">Electronic Lab Notebook</div>
+                  {coverForm.show_title && <h2 className="pn-cover-title">{coverForm.title || '-'}</h2>}
+                  <table className="pn-cover-table">
+                    <tbody>
+                      {coverForm.show_code && <tr><th>과제 번호</th><td>{coverForm.code || '-'}</td></tr>}
+                      {coverForm.show_business_name && <tr><th>사업명</th><td>{coverForm.business_name || '-'}</td></tr>}
+                      {coverForm.show_org && <tr><th>기관명</th><td>{coverForm.organization || '-'}</td></tr>}
+                      {coverForm.show_manager && <tr><th>책임자</th><td>{coverForm.manager || '-'}</td></tr>}
+                      {coverForm.show_period && <tr><th>기간</th><td>{coverPeriodText}</td></tr>}
+                    </tbody>
+                  </table>
+                  <div className="pn-cover-foot">ProjectNote</div>
                 </div>
               </div>
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label className="pn-sub">표지 이미지/PDF 파일</label>
-                <input type="file" accept="image/*,application/pdf" onChange={onCoverFileChange} />
-              </div>
-              <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
-                <button type="submit">표지 저장</button>
-              </div>
-            </form>
+            </div>
           </details>
         </section>
       )}
