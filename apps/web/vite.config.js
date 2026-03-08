@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => {
     '/login': djangoProxy,
     '/logout': djangoProxy,
     '/signup': djangoProxy,
-    '/admin/login': djangoProxy
+    '/admin/login': djangoProxy,
+    '/frontend': djangoProxy
   };
 
   if (legacyEnabled) {
@@ -25,7 +26,6 @@ export default defineConfig(({ mode }) => {
       ...djangoProxy,
       rewrite: (path) => path.replace(/^\/__django/, '')
     };
-    proxy['/frontend'] = djangoProxy;
   }
 
   return {
