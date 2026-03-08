@@ -1452,6 +1452,37 @@ def test_domain_oriented_project_service_exists() -> None:
     assert hasattr(service, "create_project")
 
 
+def test_project_service_handles_non_numeric_profile_id_on_create() -> None:
+    reset_db()
+    team = Team.objects.create(name="생성팀", description="desc", join_code="TEAM01")
+    creator = UserAccount.objects.create(
+        username="creator",
+        display_name="생성자",
+        email="creator@example.com",
+        password="secret123",
+        role=UserAccount.Role.ADMIN,
+        team=team,
+        is_approved=True,
+    )
+
+    service = ProjectService()
+    created = service.create_project(
+        {
+            "name": "예외없는 생성",
+            "manager": "생성자",
+            "organization": "생성팀",
+            "code": "SAFE-001",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "status": "active",
+        },
+        user_profile={"id": "11111111-2222-3333-4444-555555555555", "username": creator.username},
+    )
+
+    project = Project.objects.get(id=created["id"])
+    assert ProjectMember.objects.filter(project=project, user=creator).exists()
+
+
 def test_signup_and_admin_user_management_tables() -> None:
     reset_db()
     seed_workflow_data()

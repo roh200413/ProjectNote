@@ -112,11 +112,18 @@ class ProjectRepository:
             return
 
         user = None
-        user_id = user_profile.get("id")
-        if user_id:
+        raw_user_id = user_profile.get("id")
+        user_id = None
+        if isinstance(raw_user_id, int):
+            user_id = raw_user_id
+        elif isinstance(raw_user_id, str) and raw_user_id.isdigit():
+            user_id = int(raw_user_id)
+
+        if user_id is not None:
             user = UserAccount.objects.select_related("team").filter(id=user_id).first()
+
         if not user:
-            username = user_profile.get("username", "").strip()
+            username = str(user_profile.get("username", "")).strip()
             if username:
                 user = UserAccount.objects.select_related("team").filter(username=username).first()
         if not user:

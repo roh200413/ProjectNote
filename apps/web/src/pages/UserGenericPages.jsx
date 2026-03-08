@@ -118,7 +118,7 @@ export function ProjectCreatePage() {
         body: formEncoded({
           ...form,
           period: form.start_date && form.end_date ? `${form.start_date} ~ ${form.end_date}` : '',
-          members: members.length || undefined
+          invited_members: JSON.stringify([])
         })
       });
       setMsg(`프로젝트 생성 완료: ${created.name}`);
