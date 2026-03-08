@@ -130,3 +130,22 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
   .pn-headline-row { flex-direction:column; }
   .pn-top-actions { width:100%; justify-content:flex-end; }
 }
+
+
+.pn-note-workspace { display:grid; grid-template-columns: 240px 1fr; gap:12px; align-items:start; }
+.pn-note-left { position: sticky; top: 12px; }
+.pn-note-menu { display:grid; gap:6px; margin-top: 10px; }
+.pn-note-dropzone {
+  border: 1px dashed #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  text-align: center;
+  padding: 28px 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 1024px) {
+  .pn-note-workspace { grid-template-columns: 1fr; }
+  .pn-note-left { position: static; }
+}

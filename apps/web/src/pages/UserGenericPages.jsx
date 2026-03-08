@@ -575,13 +575,16 @@ export function ProjectResearchNotesPrintPage() { return <UserLayout title="프�
 function ResearchNoteWorkspace({ id, mode }) {
   const [note, setNote] = useState(null);
   const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [selectedFileId, setSelectedFileId] = useState('');
   const [form, setForm] = useState({ title: '', summary: '' });
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const selectedFile = useMemo(() => files.find((f) => String(f.id) === String(selectedFileId)) || files[0] || null, [files, selectedFileId]);
+  const filteredFiles = useMemo(() => files.filter((f) => `${f.name} ${f.author}`.toLowerCase().includes(search.toLowerCase())), [files, search]);
 
   const modeTitle = mode === 'viewer'
     ? '연구노트 뷰어'
@@ -597,15 +600,18 @@ function ResearchNoteWorkspace({ id, mode }) {
       setLoading(true);
       setError('');
       try {
-        const [detail, fileRows] = await Promise.all([
+        const [detail, fileRows, folderRows] = await Promise.all([
           apiFetch(`/api/v1/research-notes/${id}`),
-          apiFetch(`/api/v1/research-notes/${id}/files`)
+          apiFetch(`/api/v1/research-notes/${id}/files`),
+          apiFetch(`/api/v1/research-notes/${id}/folders`)
         ]);
         if (canceled) return;
         setNote(detail);
         setForm({ title: detail?.title || '', summary: detail?.summary || '' });
         const list = Array.isArray(fileRows) ? fileRows : [];
+        const folderList = Array.isArray(folderRows) ? folderRows : [];
         setFiles(list);
+        setFolders(folderList);
         setSelectedFileId((prev) => prev || (list[0]?.id || ''));
       } catch (e) {
         if (!canceled) setError(e.message);
@@ -642,29 +648,28 @@ function ResearchNoteWorkspace({ id, mode }) {
       {msg && <p className="pn-sub">{msg}</p>}
 
       <section className="pn-card">
-        <h3>{note?.title || `연구노트 #${id}`}</h3>
-        <table className="pn-table"><tbody>
-          <tr><th>작성자</th><td>{note?.owner || '-'}</td></tr>
-          <tr><th>프로젝트 코드</th><td>{note?.project_code || '-'}</td></tr>
-          <tr><th>연구기간</th><td>{note?.period || '-'}</td></tr>
-          <tr><th>요약</th><td>{note?.summary || '-'}</td></tr>
-          <tr><th>파일수</th><td>{note?.files ?? files.length}</td></tr>
+        <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
+          <div>
+            <p className="pn-sub" style={{ marginBottom: 4 }}>소유권한</p>
+            <h3 style={{ marginBottom: 0 }}>{note?.title || `연구노트 #${id}`}</h3>
+          </div>
+          <div className="pn-inline" style={{ margin: 0, flexWrap: 'wrap' }}>
+            <button className="pn-btn-secondary" type="button">⚙ 연구노트 수정</button>
+            {selectedFile && <a className="pn-side-list" href={`/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`}>연구노트 다운로드</a>}
+          </div>
+        </div>
+        <table className="pn-table" style={{ marginTop: 10 }}><tbody>
+          <tr><th>책임자</th><td>{note?.owner || '-'}</td><th>과제번호</th><td>{note?.project_code || '-'}</td><th>연구기간</th><td>{note?.period || '-'}</td><th>연구파일</th><td>{note?.files ?? files.length}</td></tr>
         </tbody></table>
       </section>
 
       {mode === 'detail' && (
         <section className="pn-card">
           <h3>업데이트 연구노트</h3>
-          <form className="pn-grid" onSubmit={updateNote} style={{ gap: 8 }}>
-            <div>
-              <label className="pn-sub">제목</label>
-              <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-            </div>
-            <div>
-              <label className="pn-sub">요약</label>
-              <input value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
-            </div>
-            <button type="submit">저장</button>
+          <form className="pn-grid2" onSubmit={updateNote}>
+            <div><label className="pn-sub">제목</label><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+            <div><label className="pn-sub">요약</label><input value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></div>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}><button type="submit">저장</button></div>
           </form>
         </section>
       )}
@@ -674,50 +679,89 @@ function ResearchNoteWorkspace({ id, mode }) {
           <h3>연구노트 표지</h3>
           <div className="pn-grid2">
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">제목</div><strong>{note?.title || '-'}</strong></article>
-            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">프로젝트 코드</div><strong>{note?.project_code || '-'}</strong></article>
+            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">과제번호</div><strong>{note?.project_code || '-'}</strong></article>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">책임자</div><strong>{note?.owner || '-'}</strong></article>
             <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">연구기간</div><strong>{note?.period || '-'}</strong></article>
           </div>
         </section>
       )}
 
-      <section className="pn-card">
-        <div className="pn-inline" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>연구파일</h3>
-          <div className="pn-inline" style={{ margin: 0, flexWrap: 'wrap' }}>
-            <Link className="pn-side-list" to={`/research-notes/${id}`}>상세</Link>
-            <Link className="pn-side-list" to={`/research-notes/${id}/viewer`}>뷰어</Link>
-            <Link className="pn-side-list" to={`/research-notes/${id}/cover`}>표지</Link>
-            <Link className="pn-side-list" to={`/research-notes/${id}/printable`}>출력</Link>
-            {selectedFile && <a className="pn-side-list" href={`/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`}>PDF 저장</a>}
+      <section className="pn-note-workspace">
+        <aside className="pn-card pn-note-left">
+          <h3>연구폴더 목록</h3>
+          <button type="button">+ 연구폴더 생성</button>
+          <div className="pn-note-menu">
+            <a className="pn-side-list active" href="#">연구노트 홈</a>
+            <a className="pn-side-list" href="#">에디터</a>
+            {folders.map((folder) => <a className="pn-side-list" href="#" key={folder.id}>{folder.name}</a>)}
           </div>
-        </div>
+        </aside>
 
-        <div className="pn-grid2" style={{ marginTop: 12 }}>
-          <section className="pn-card" style={{ margin: 0 }}>
-            <h4>파일 목록</h4>
-            <table className="pn-table">
-              <thead><tr><th>파일명</th><th>작성자</th><th>작성일</th></tr></thead>
-              <tbody>
-                {files.map((f) => (
-                  <tr key={f.id} onClick={() => setSelectedFileId(f.id)} style={{ cursor: 'pointer', background: String(f.id) === String(selectedFile?.id) ? '#eff6ff' : undefined }}>
-                    <td>{f.name}</td><td>{f.author}</td><td>{f.created}</td>
-                  </tr>
-                ))}
-                {files.length === 0 && <tr><td colSpan={3} className="pn-sub">파일이 없습니다.</td></tr>}
-              </tbody>
-            </table>
-          </section>
+        <section className="pn-card" style={{ margin: 0 }}>
+          <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, alignItems: 'center' }}>
+            <h3 style={{ margin: 0 }}>연구폴더 ({folders.length})</h3>
+            <button type="button">연구폴더 생성</button>
+          </div>
+          <div className="pn-grid3" style={{ marginTop: 10 }}>
+            {folders.slice(0, 6).map((folder) => (
+              <article className="pn-card" key={folder.id} style={{ margin: 0 }}>
+                <div className="pn-sub">📁 폴더</div>
+                <strong>{folder.name}</strong>
+                <div className="pn-sub" style={{ marginTop: 8 }}>Update</div>
+              </article>
+            ))}
+            {folders.length === 0 && <p className="pn-sub">폴더가 없습니다.</p>}
+          </div>
 
-          <section className="pn-card" style={{ margin: 0 }}>
-            <h4>{mode === 'viewer' ? '연구노트 뷰어' : mode === 'printable' ? '출력 미리보기' : '파일 미리보기'}</h4>
-            {selectedFile ? (
-              <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: '420px', border: '1px solid #e5e7eb', borderRadius: 8 }} title={`note-file-${selectedFile.id}`} />
-            ) : (
-              <p className="pn-sub">미리볼 파일을 선택하세요.</p>
-            )}
-          </section>
-        </div>
+          <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 16, marginBottom: 8, flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>연구파일 ({filteredFiles.length})</h3>
+            <div className="pn-inline" style={{ margin: 0 }}>
+              <button className="pn-btn-secondary" type="button">파일 이동</button>
+              <button className="pn-btn-secondary" type="button">파일 삭제</button>
+              <button type="button">연구파일 추가</button>
+            </div>
+          </div>
+
+          <div className="pn-note-dropzone">
+            마우스로 드래그 해서 연구파일을 추가해주세요.
+            <div className="pn-sub" style={{ marginTop: 8 }}>추가 가능 파일 유형: Jpeg, Jpg, Png, SVG, tiff, Webp, Heif, Heic, Doc, Docx, PPTX, PPT, xls, Xlsx, PDF</div>
+          </div>
+
+          <div className="pn-inline" style={{ marginTop: 12, marginBottom: 8 }}>
+            <select><option>파일명</option></select>
+            <input placeholder="검색어를 입력해주세요." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <button className="pn-btn-secondary" type="button">검색</button>
+            <button type="button">상세검색</button>
+          </div>
+
+          <table className="pn-table">
+            <thead><tr><th>연구파일 정보</th><th>형식</th><th>작성일자</th><th>작성자</th><th>관리</th></tr></thead>
+            <tbody>
+              {filteredFiles.map((f) => (
+                <tr key={f.id} style={{ background: String(selectedFile?.id) === String(f.id) ? '#eff6ff' : undefined }}>
+                  <td>{f.name}</td>
+                  <td>{f.format || '-'}</td>
+                  <td>{f.created || '-'}</td>
+                  <td>{f.author || '-'}</td>
+                  <td>
+                    <div className="pn-inline" style={{ margin: 0 }}>
+                      <button className="pn-btn-secondary" onClick={() => setSelectedFileId(f.id)} type="button">미리보기</button>
+                      <a className="pn-side-list" href={f.download_url}>다운로드</a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredFiles.length === 0 && <tr><td colSpan={5} className="pn-sub">파일이 없습니다.</td></tr>}
+            </tbody>
+          </table>
+
+          {(mode === 'viewer' || mode === 'printable') && (
+            <section className="pn-card" style={{ marginTop: 12, padding: 12 }}>
+              <h4>{mode === 'viewer' ? '연구노트 뷰어' : '출력 미리보기'}</h4>
+              {selectedFile ? <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: 420, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`preview-${selectedFile.id}`} /> : <p className="pn-sub">선택된 파일이 없습니다.</p>}
+            </section>
+          )}
+        </section>
       </section>
     </UserLayout>
   );

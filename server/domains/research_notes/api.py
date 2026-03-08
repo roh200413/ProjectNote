@@ -109,6 +109,25 @@ def research_note_files_api(_request, note_id: str):
     return JsonResponse(payload, safe=False)
 
 
+@require_GET
+def research_note_folders_api(_request, note_id: str):
+    try:
+        research_note_repository.get_research_note(note_id)
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    folders = research_note_repository.list_note_folders(note_id)
+    payload = [
+        {
+            "id": str(index + 1),
+            "name": str(Path(raw).name or raw),
+            "raw_path": raw,
+        }
+        for index, raw in enumerate(folders)
+    ]
+    return JsonResponse(payload, safe=False)
+
+
 @require_http_methods(["POST"])
 def research_note_update_api(request, note_id: str):
     try:
