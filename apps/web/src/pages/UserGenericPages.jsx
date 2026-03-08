@@ -624,6 +624,7 @@ export function ProjectResearchNotesPage() {
   const [editorForm, setEditorForm] = useState({ title: '', summary: '' });
   const [fileMetaForm, setFileMetaForm] = useState({ author: '', created: '' });
   const [showEditor, setShowEditor] = useState(false);
+  const [showUpdatePanel, setShowUpdatePanel] = useState(true);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
@@ -820,13 +821,19 @@ export function ProjectResearchNotesPage() {
   function onNoteClick(noteId) {
     setSelectedNoteId(String(noteId));
     setShowEditor(true);
+    setShowUpdatePanel(false);
   }
 
   return (
     <UserLayout title="연구노트 관리">
       <section className="pn-card">
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
-        <p className="pn-sub" style={{ margin: 0 }}>노트를 클릭하면 편집기가 열리고, 콘텐츠(PDF/이미지) 미리보기와 메타정보 편집이 가능합니다.</p>
+        <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
+          <p className="pn-sub" style={{ margin: 0 }}>노트를 클릭하면 편집기가 열리고, 콘텐츠(PDF/이미지) 미리보기와 메타정보 편집이 가능합니다.</p>
+          <button className="pn-btn-secondary" type="button" onClick={() => setShowUpdatePanel((prev) => !prev)}>
+            {showUpdatePanel ? '업데이트 연구노트 닫기' : '업데이트 연구노트 열기'}
+          </button>
+        </div>
       </section>
 
       <section className="pn-card">
@@ -908,6 +915,7 @@ export function ProjectResearchNotesPage() {
         </section>
       )}
 
+      {showUpdatePanel && (
       <section className="pn-card">
         <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
@@ -945,6 +953,7 @@ export function ProjectResearchNotesPage() {
           </div>
         </div>
       </section>
+      )}
     </UserLayout>
   );
 }
