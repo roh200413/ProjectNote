@@ -38,6 +38,10 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 
 .pn-headline { margin-bottom: 12px; }
 .pn-headline h1 { margin: 0; }
+
+.pn-headline-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.pn-top-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.pn-top-actions .pn-side-list { white-space:nowrap; }
 .pn-admin-grid { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:start; }
 .pn-side-menu { display:grid; gap:6px; }
 .pn-side-list { display:block; padding:10px 12px; border:1px solid #dbe2ed; border-radius:9px; color:#334155; text-decoration:none; font-size:14px; }
@@ -72,4 +76,6 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
   .pn-sidebar { display:none; }
   .pn-main { padding:10px; }
   .pn-title { font-size:30px; }
+  .pn-headline-row { flex-direction:column; }
+  .pn-top-actions { width:100%; justify-content:flex-end; }
 }
