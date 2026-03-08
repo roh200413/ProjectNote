@@ -467,9 +467,13 @@ function NotesTable({ endpoint }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     setLoading(true);
-    apiFetch(endpoint).then((r) => setRows(Array.isArray(r) ? r : [])).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    apiFetch(endpoint)
+      .then((r) => setRows(Array.isArray(r) ? r : []))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
   }, [endpoint]);
 
   return (
@@ -477,10 +481,25 @@ function NotesTable({ endpoint }) {
       <Loading loading={loading} />
       <ApiError error={error} />
       <table className="pn-table">
-        <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
+        <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
         <tbody>
-          {rows.map((n) => <tr key={n.id}><td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
-          {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">연구노트가 없습니다.</td></tr>}
+          {rows.map((n) => (
+            <tr key={n.id}>
+              <td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td>
+              <td>{n.owner}</td>
+              <td>{n.project_code}</td>
+              <td>{n.period}</td>
+              <td>{n.files}</td>
+              <td>
+                <div className="pn-inline" style={{ margin: 0 }}>
+                  <Link className="pn-side-list" to={`/research-notes/${n.id}/viewer`}>뷰어</Link>
+                  <Link className="pn-side-list" to={`/research-notes/${n.id}/cover`}>커버</Link>
+                  <Link className="pn-side-list" to={`/research-notes/${n.id}/printable`}>출력</Link>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">연구노트가 없습니다.</td></tr>}
         </tbody>
       </table>
     </section>
@@ -518,19 +537,34 @@ export function ProjectResearchNotesPage() {
   }, [id]);
 
   return (
-    <UserLayout title="프로젝트 연구노트">
+    <UserLayout title="연구노트 관리">
       <section className="pn-card">
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
-        <p className="pn-sub" style={{ margin: 0 }}>선택한 프로젝트 기준 연구노트 화면입니다.</p>
+        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 연구노트 목록과 상세 기능으로 이동할 수 있습니다.</p>
       </section>
       <section className="pn-card">
         <Loading loading={loading} />
         <ApiError error={error} />
         <table className="pn-table">
-          <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th></tr></thead>
+          <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
           <tbody>
-            {rows.map((n) => <tr key={n.id}><td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td><td>{n.owner}</td><td>{n.project_code}</td><td>{n.period}</td><td>{n.files}</td></tr>)}
-            {rows.length === 0 && !loading && <tr><td colSpan={5} className="pn-sub">해당 프로젝트 연구노트가 없습니다.</td></tr>}
+            {rows.map((n) => (
+              <tr key={n.id}>
+                <td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td>
+                <td>{n.owner}</td>
+                <td>{n.project_code}</td>
+                <td>{n.period}</td>
+                <td>{n.files}</td>
+                <td>
+                  <div className="pn-inline" style={{ margin: 0 }}>
+                    <Link className="pn-side-list" to={`/research-notes/${n.id}/viewer`}>뷰어</Link>
+                    <Link className="pn-side-list" to={`/research-notes/${n.id}/cover`}>커버</Link>
+                    <Link className="pn-side-list" to={`/research-notes/${n.id}/printable`}>출력</Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -538,24 +572,88 @@ export function ProjectResearchNotesPage() {
   );
 }
 export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
-function ResearchNoteDetailCard({ id, title }) {
+function ResearchNoteDetailCard({ id, title, readOnly = false }) {
   const [note, setNote] = useState(null);
+  const [form, setForm] = useState({ title: '', summary: '' });
   const [error, setError] = useState('');
-  useEffect(() => { apiFetch(`/api/v1/research-notes/${id}`).then(setNote).catch((e) => setError(e.message)); }, [id]);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    apiFetch(`/api/v1/research-notes/${id}`)
+      .then((loaded) => {
+        setNote(loaded);
+        setForm({ title: loaded?.title || '', summary: loaded?.summary || '' });
+      })
+      .catch((e) => setError(e.message));
+  }, [id]);
+
+  async function saveNote(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const response = await apiFetch(`/api/v1/research-notes/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(form)
+      });
+      setMsg(response?.message || '연구노트를 수정했습니다.');
+      const refreshed = await apiFetch(`/api/v1/research-notes/${id}`);
+      setNote(refreshed);
+      setForm({ title: refreshed?.title || '', summary: refreshed?.summary || '' });
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
   return (
     <UserLayout title={title}>
       <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
       <section className="pn-card">
-        <pre className="pn-json">{JSON.stringify(note, null, 2)}</pre>
+        <table className="pn-table"><tbody>
+          <tr><th>ID</th><td>{note?.id || id}</td></tr>
+          <tr><th>제목</th><td>{note?.title || '-'}</td></tr>
+          <tr><th>작성자</th><td>{note?.owner || '-'}</td></tr>
+          <tr><th>프로젝트 코드</th><td>{note?.project_code || '-'}</td></tr>
+          <tr><th>기간</th><td>{note?.period || '-'}</td></tr>
+          <tr><th>파일 수</th><td>{note?.files ?? '-'}</td></tr>
+        </tbody></table>
+      </section>
+
+      {!readOnly && (
+        <section className="pn-card">
+          <h3>연구노트 수정</h3>
+          <form className="pn-grid" onSubmit={saveNote} style={{ gap: 8 }}>
+            <div>
+              <label className="pn-sub">제목</label>
+              <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="pn-sub">요약</label>
+              <input value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
+            </div>
+            <button type="submit">연구노트 저장</button>
+          </form>
+        </section>
+      )}
+
+      <section className="pn-card">
+        <div className="pn-inline" style={{ flexWrap: 'wrap' }}>
+          <Link className="pn-side-list" to={`/research-notes/${id}`}>상세</Link>
+          <Link className="pn-side-list" to={`/research-notes/${id}/viewer`}>뷰어</Link>
+          <Link className="pn-side-list" to={`/research-notes/${id}/cover`}>커버</Link>
+          <Link className="pn-side-list" to={`/research-notes/${id}/printable`}>출력</Link>
+        </div>
       </section>
     </UserLayout>
   );
 }
 
 export function ResearchNoteDetailPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 상세" />; }
-export function ResearchNoteViewerPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 뷰어" />; }
-export function ResearchNoteCoverPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 커버" />; }
-export function ResearchNotePrintablePage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} title="연구노트 출력" />; }
+export function ResearchNoteViewerPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} readOnly title="연구노트 뷰어" />; }
+export function ResearchNoteCoverPage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} readOnly title="연구노트 커버" />; }
+export function ResearchNotePrintablePage() { const { id } = useParams(); return <ResearchNoteDetailCard id={id} readOnly title="연구노트 출력" />; }
 
 export function MyPage() {
   const [sign, setSign] = useState(null);
