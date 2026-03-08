@@ -79,7 +79,7 @@ function composeTemplate(rawHtml) {
   if (!extendMatch) return child;
 
   const extendsPath = extendMatch[1];
-  const baseKey = `client/${extendsPath}`;
+  const baseKey = `legacy/client/${extendsPath}`;
   const baseRaw = templateSources[baseKey] || '';
   const base = replaceIncludes(baseRaw);
   const blocks = extractBlocks(child);

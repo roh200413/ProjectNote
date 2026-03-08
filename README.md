@@ -4,6 +4,7 @@ ProjectNote를 **모노레포 구조**로 정리했습니다.
 
 - `server/`: 기존 Django 백엔드
 - `apps/web`: 기존 `client/*.html` 화면들을 React 라우트 기반으로 옮긴 프론트엔드
+  - 템플릿 복사본: `apps/web/src/legacy/client` (원본 client 삭제 대비)
 
 ## Workspace 구조
 
@@ -49,4 +50,4 @@ python manage.py runserver 0.0.0.0:8000
 - 관리자: 대시보드/팀/유저/테이블
 - 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
 
-기존 HTML은 삭제하지 않고 `client/`에 유지해 점진적 마이그레이션이 가능하도록 했습니다.
+기존 HTML은 `apps/web/src/legacy/client`로 복사해 두어 `client/` 폴더를 제거해도 React 쪽 렌더링이 유지됩니다.

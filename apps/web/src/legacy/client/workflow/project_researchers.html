@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}프로젝트 연구자{% endblock %}
+{% block page_title %}프로젝트 연구자{% endblock %}
+{% block content %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 8px">{{ project.name }}</h3>
+  <p class="pn-sub" style="margin:0">해당 프로젝트에 속한 연구자 목록입니다.</p>
+</section>
+
+<section class="pn-card" id="projectResearchersSection">
+  <h3 style="margin:0 0 10px">집단별 연구자 목록 상세</h3>
+  {% for group in researcher_groups %}
+  <article class="pn-card" style="background:#f8fafc;padding:10px;margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong>{{ group.group }}</strong>
+      <small class="pn-sub">리드 {{ group.lead }}</small>
+    </div>
+    <table class="pn-table">
+      <thead><tr><th>이름</th><th>권한</th><th>소속/기관</th><th>전공/부서명</th><th>업무</th></tr></thead>
+      <tbody>
+      {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.role }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.major }}</td>
+          <td>{{ member.contribution }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </article>
+  {% empty %}
+  <div class="pn-sub">등록된 프로젝트 연구자가 없습니다.</div>
+  {% endfor %}
+</section>
+
+{% if can_manage_project_members %}
+<section class="pn-card" style="margin-bottom:12px">
+  <h3 style="margin:0 0 10px">연구자 추가</h3>
+  <table class="pn-table">
+    <thead><tr><th>이름</th><th>소속/기관</th><th>추가</th></tr></thead>
+    <tbody>
+      {% for group in team_user_groups %}
+        {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.organization }}</td>
+          <td><button type="button" class="pn-btn add-researcher-btn" data-user-id="{{ member.id }}">추가</button></td>
+        </tr>
+        {% endfor %}
+      {% empty %}
+      <tr><td colspan="3" class="pn-sub">추가 가능한 연구자가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="pn-card">
+  <h3 style="margin:0 0 10px">연구자 삭제</h3>
+  <table class="pn-table">
+    <thead><tr><th>이름</th><th>소속/기관</th><th>권한</th><th>삭제</th></tr></thead>
+    <tbody>
+      {% for group in researcher_groups %}
+        {% for member in group.members %}
+        <tr>
+          <td>{{ member.name }}</td>
+          <td>{{ member.organization }}</td>
+          <td>{{ member.role }}</td>
+          <td>
+            {% if member.is_owner %}
+              <span class="pn-sub">소유자 제외 불가</span>
+            {% else %}
+              <button type="button" class="pn-btn ghost remove-researcher-btn" data-user-id="{{ member.id }}">삭제</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      {% empty %}
+      <tr><td colspan="4" class="pn-sub">삭제 가능한 연구자가 없습니다.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  function getCsrfToken() {
+    const cookie = document.cookie.split(';').map(v => v.trim()).find(v => v.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+  }
+
+  async function submitMemberAction(url, userId) {
+    const formData = new FormData();
+    formData.append('user_id', String(userId));
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: formData,
+      credentials: 'same-origin'
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      alert(body.detail || '처리에 실패했습니다.');
+      return;
+    }
+    window.location.reload();
+  }
+
+  document.querySelectorAll('.add-researcher-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      submitMemberAction('/api/v1/projects/{{ project.id }}/researchers', btn.dataset.userId);
+    });
+  });
+
+  document.querySelectorAll('.remove-researcher-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!confirm('정말 연구자를 삭제하시겠습니까?')) return;
+      submitMemberAction('/api/v1/projects/{{ project.id }}/researchers/remove', btn.dataset.userId);
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,62 +1,62 @@
-import adminLogin from '../../../../client/auth/admin_login.html?raw';
-import login from '../../../../client/auth/login.html?raw';
-import signup from '../../../../client/auth/signup.html?raw';
-import adminAdmin from '../../../../client/admin/admin.html?raw';
-import adminDashboard from '../../../../client/admin/dashboard.html?raw';
-import adminTables from '../../../../client/admin/tables.html?raw';
-import adminTeams from '../../../../client/admin/teams.html?raw';
-import adminUsers from '../../../../client/admin/users.html?raw';
-import adminNavList from '../../../../client/admin/partials/nav_list.html?raw';
-import base from '../../../../client/base.html?raw';
-import baseAdmin from '../../../../client/base_admin.html?raw';
-import rnCover from '../../../../client/research_notes/cover.html?raw';
-import rnDetail from '../../../../client/research_notes/detail.html?raw';
-import rnList from '../../../../client/research_notes/list.html?raw';
-import rnPrintable from '../../../../client/research_notes/printable.html?raw';
-import rnViewer from '../../../../client/research_notes/viewer.html?raw';
-import wfCollab from '../../../../client/workflow/collaboration_integrations.html?raw';
-import wfFinalDownload from '../../../../client/workflow/final_download.html?raw';
-import wfGithub from '../../../../client/workflow/github_integrations.html?raw';
-import wfHome from '../../../../client/workflow/home.html?raw';
-import wfMyPage from '../../../../client/workflow/my_page.html?raw';
-import wfProjectCreate from '../../../../client/workflow/project_create.html?raw';
-import wfProjectDetail from '../../../../client/workflow/project_detail.html?raw';
-import wfProjectNotes from '../../../../client/workflow/project_research_notes.html?raw';
-import wfProjectNotesPrint from '../../../../client/workflow/project_research_notes_print.html?raw';
-import wfProjectResearchers from '../../../../client/workflow/project_researchers.html?raw';
-import wfProjects from '../../../../client/workflow/projects.html?raw';
-import wfResearchers from '../../../../client/workflow/researchers.html?raw';
-import wfSignatures from '../../../../client/workflow/signatures.html?raw';
+import adminLogin from '../legacy/client/auth/admin_login.html?raw';
+import login from '../legacy/client/auth/login.html?raw';
+import signup from '../legacy/client/auth/signup.html?raw';
+import adminAdmin from '../legacy/client/admin/admin.html?raw';
+import adminDashboard from '../legacy/client/admin/dashboard.html?raw';
+import adminTables from '../legacy/client/admin/tables.html?raw';
+import adminTeams from '../legacy/client/admin/teams.html?raw';
+import adminUsers from '../legacy/client/admin/users.html?raw';
+import adminNavList from '../legacy/client/admin/partials/nav_list.html?raw';
+import base from '../legacy/client/base.html?raw';
+import baseAdmin from '../legacy/client/base_admin.html?raw';
+import rnCover from '../legacy/client/research_notes/cover.html?raw';
+import rnDetail from '../legacy/client/research_notes/detail.html?raw';
+import rnList from '../legacy/client/research_notes/list.html?raw';
+import rnPrintable from '../legacy/client/research_notes/printable.html?raw';
+import rnViewer from '../legacy/client/research_notes/viewer.html?raw';
+import wfCollab from '../legacy/client/workflow/collaboration_integrations.html?raw';
+import wfFinalDownload from '../legacy/client/workflow/final_download.html?raw';
+import wfGithub from '../legacy/client/workflow/github_integrations.html?raw';
+import wfHome from '../legacy/client/workflow/home.html?raw';
+import wfMyPage from '../legacy/client/workflow/my_page.html?raw';
+import wfProjectCreate from '../legacy/client/workflow/project_create.html?raw';
+import wfProjectDetail from '../legacy/client/workflow/project_detail.html?raw';
+import wfProjectNotes from '../legacy/client/workflow/project_research_notes.html?raw';
+import wfProjectNotesPrint from '../legacy/client/workflow/project_research_notes_print.html?raw';
+import wfProjectResearchers from '../legacy/client/workflow/project_researchers.html?raw';
+import wfProjects from '../legacy/client/workflow/projects.html?raw';
+import wfResearchers from '../legacy/client/workflow/researchers.html?raw';
+import wfSignatures from '../legacy/client/workflow/signatures.html?raw';
 
 export const templateSources = {
-  'client/auth/admin_login.html': adminLogin,
-  'client/auth/login.html': login,
-  'client/auth/signup.html': signup,
-  'client/admin/admin.html': adminAdmin,
-  'client/admin/dashboard.html': adminDashboard,
-  'client/admin/tables.html': adminTables,
-  'client/admin/teams.html': adminTeams,
-  'client/admin/users.html': adminUsers,
-  'client/base.html': base,
-  'client/base_admin.html': baseAdmin,
-  'client/research_notes/cover.html': rnCover,
-  'client/research_notes/detail.html': rnDetail,
-  'client/research_notes/list.html': rnList,
-  'client/research_notes/printable.html': rnPrintable,
-  'client/research_notes/viewer.html': rnViewer,
-  'client/workflow/collaboration_integrations.html': wfCollab,
-  'client/workflow/final_download.html': wfFinalDownload,
-  'client/workflow/github_integrations.html': wfGithub,
-  'client/workflow/home.html': wfHome,
-  'client/workflow/my_page.html': wfMyPage,
-  'client/workflow/project_create.html': wfProjectCreate,
-  'client/workflow/project_detail.html': wfProjectDetail,
-  'client/workflow/project_research_notes.html': wfProjectNotes,
-  'client/workflow/project_research_notes_print.html': wfProjectNotesPrint,
-  'client/workflow/project_researchers.html': wfProjectResearchers,
-  'client/workflow/projects.html': wfProjects,
-  'client/workflow/researchers.html': wfResearchers,
-  'client/workflow/signatures.html': wfSignatures
+  'legacy/client/auth/admin_login.html': adminLogin,
+  'legacy/client/auth/login.html': login,
+  'legacy/client/auth/signup.html': signup,
+  'legacy/client/admin/admin.html': adminAdmin,
+  'legacy/client/admin/dashboard.html': adminDashboard,
+  'legacy/client/admin/tables.html': adminTables,
+  'legacy/client/admin/teams.html': adminTeams,
+  'legacy/client/admin/users.html': adminUsers,
+  'legacy/client/base.html': base,
+  'legacy/client/base_admin.html': baseAdmin,
+  'legacy/client/research_notes/cover.html': rnCover,
+  'legacy/client/research_notes/detail.html': rnDetail,
+  'legacy/client/research_notes/list.html': rnList,
+  'legacy/client/research_notes/printable.html': rnPrintable,
+  'legacy/client/research_notes/viewer.html': rnViewer,
+  'legacy/client/workflow/collaboration_integrations.html': wfCollab,
+  'legacy/client/workflow/final_download.html': wfFinalDownload,
+  'legacy/client/workflow/github_integrations.html': wfGithub,
+  'legacy/client/workflow/home.html': wfHome,
+  'legacy/client/workflow/my_page.html': wfMyPage,
+  'legacy/client/workflow/project_create.html': wfProjectCreate,
+  'legacy/client/workflow/project_detail.html': wfProjectDetail,
+  'legacy/client/workflow/project_research_notes.html': wfProjectNotes,
+  'legacy/client/workflow/project_research_notes_print.html': wfProjectNotesPrint,
+  'legacy/client/workflow/project_researchers.html': wfProjectResearchers,
+  'legacy/client/workflow/projects.html': wfProjects,
+  'legacy/client/workflow/researchers.html': wfResearchers,
+  'legacy/client/workflow/signatures.html': wfSignatures
 };
 
 export const includeSources = {
