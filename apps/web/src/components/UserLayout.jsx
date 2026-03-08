@@ -9,7 +9,8 @@ const nav = [
   ['/my-page', '🙍', '마이페이지'],
   ['/data-updates', '📌', '활동내역'],
   ['/signatures', '✍️', '서명'],
-  ['/final-download', '⬇️', '최종 다운로드']
+  ['/final-download', '⬇️', '최종 다운로드'],
+  ['/logout', '🚪', '로그아웃']
 ];
 
 export default function UserLayout({ title, children }) {
@@ -38,10 +39,7 @@ export default function UserLayout({ title, children }) {
         <main className="pn-shell">
           <div className="pn-headline">
             <h1 className="pn-title">{title}</h1>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <p className="pn-sub" style={{ margin: 0 }}>일반 사용자 화면 · React</p>
-              <Link className="pn-side-list" to="/logout">로그아웃</Link>
-            </div>
+            <p className="pn-sub" style={{ margin: 0 }}>일반 사용자 화면 · React</p>
           </div>
           {children}
         </main>
