@@ -90,6 +90,25 @@ def research_note_detail_api(_request, note_id: str):
         raise Http404("Research note not found") from exc
 
 
+@require_GET
+def research_note_files_api(_request, note_id: str):
+    try:
+        research_note_repository.get_research_note(note_id)
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+    files = research_note_repository.list_note_files(note_id)
+    payload = [
+        {
+            **item,
+            "content_url": f"/frontend/research-notes/{note_id}/files/{item['id']}/content",
+            "download_url": f"/frontend/research-notes/{note_id}/files/{item['id']}/content?download=1",
+        }
+        for item in files
+    ]
+    return JsonResponse(payload, safe=False)
+
+
 @require_http_methods(["POST"])
 def research_note_update_api(request, note_id: str):
     try:

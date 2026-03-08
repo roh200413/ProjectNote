@@ -572,20 +572,152 @@ export function ProjectResearchNotesPage() {
   );
 }
 export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
-function ResearchNoteLegacyFramePage({ id, title, legacyPath }) {
-  const src = `/frontend/research-notes/${id}${legacyPath}`;
+function ResearchNoteWorkspace({ id, mode }) {
+  const [note, setNote] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [selectedFileId, setSelectedFileId] = useState('');
+  const [form, setForm] = useState({ title: '', summary: '' });
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const selectedFile = useMemo(() => files.find((f) => String(f.id) === String(selectedFileId)) || files[0] || null, [files, selectedFileId]);
+
+  const modeTitle = mode === 'viewer'
+    ? '연구노트 뷰어'
+    : mode === 'cover'
+      ? '연구노트 표지'
+      : mode === 'printable'
+        ? '연구노트 출력'
+        : '연구노트 상세';
+
+  useEffect(() => {
+    let canceled = false;
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const [detail, fileRows] = await Promise.all([
+          apiFetch(`/api/v1/research-notes/${id}`),
+          apiFetch(`/api/v1/research-notes/${id}/files`)
+        ]);
+        if (canceled) return;
+        setNote(detail);
+        setForm({ title: detail?.title || '', summary: detail?.summary || '' });
+        const list = Array.isArray(fileRows) ? fileRows : [];
+        setFiles(list);
+        setSelectedFileId((prev) => prev || (list[0]?.id || ''));
+      } catch (e) {
+        if (!canceled) setError(e.message);
+      } finally {
+        if (!canceled) setLoading(false);
+      }
+    }
+    load();
+    return () => { canceled = true; };
+  }, [id]);
+
+  async function updateNote(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const updated = await apiFetch(`/api/v1/research-notes/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(form)
+      });
+      setNote(updated);
+      setForm({ title: updated?.title || '', summary: updated?.summary || '' });
+      setMsg('연구노트를 수정했습니다.');
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
   return (
-    <UserLayout title={title}>
+    <UserLayout title={modeTitle}>
+      <Loading loading={loading} />
+      <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
+
       <section className="pn-card">
-        <p className="pn-sub" style={{ marginBottom: 8 }}>기존 HTML 연구노트 화면을 그대로 표시합니다.</p>
-        <a className="pn-link" href={src} rel="noreferrer" target="_blank">새 탭에서 열기</a>
+        <h3>{note?.title || `연구노트 #${id}`}</h3>
+        <table className="pn-table"><tbody>
+          <tr><th>작성자</th><td>{note?.owner || '-'}</td></tr>
+          <tr><th>프로젝트 코드</th><td>{note?.project_code || '-'}</td></tr>
+          <tr><th>연구기간</th><td>{note?.period || '-'}</td></tr>
+          <tr><th>요약</th><td>{note?.summary || '-'}</td></tr>
+          <tr><th>파일수</th><td>{note?.files ?? files.length}</td></tr>
+        </tbody></table>
       </section>
-      <section className="pn-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <iframe
-          src={src}
-          style={{ width: '100%', minHeight: '900px', border: '0' }}
-          title={`${title}-${id}`}
-        />
+
+      {mode === 'detail' && (
+        <section className="pn-card">
+          <h3>업데이트 연구노트</h3>
+          <form className="pn-grid" onSubmit={updateNote} style={{ gap: 8 }}>
+            <div>
+              <label className="pn-sub">제목</label>
+              <input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div>
+              <label className="pn-sub">요약</label>
+              <input value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
+            </div>
+            <button type="submit">저장</button>
+          </form>
+        </section>
+      )}
+
+      {mode === 'cover' && (
+        <section className="pn-card">
+          <h3>연구노트 표지</h3>
+          <div className="pn-grid2">
+            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">제목</div><strong>{note?.title || '-'}</strong></article>
+            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">프로젝트 코드</div><strong>{note?.project_code || '-'}</strong></article>
+            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">책임자</div><strong>{note?.owner || '-'}</strong></article>
+            <article className="pn-card" style={{ margin: 0 }}><div className="pn-sub">연구기간</div><strong>{note?.period || '-'}</strong></article>
+          </div>
+        </section>
+      )}
+
+      <section className="pn-card">
+        <div className="pn-inline" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>연구파일</h3>
+          <div className="pn-inline" style={{ margin: 0, flexWrap: 'wrap' }}>
+            <Link className="pn-side-list" to={`/research-notes/${id}`}>상세</Link>
+            <Link className="pn-side-list" to={`/research-notes/${id}/viewer`}>뷰어</Link>
+            <Link className="pn-side-list" to={`/research-notes/${id}/cover`}>표지</Link>
+            <Link className="pn-side-list" to={`/research-notes/${id}/printable`}>출력</Link>
+            {selectedFile && <a className="pn-side-list" href={`/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`}>PDF 저장</a>}
+          </div>
+        </div>
+
+        <div className="pn-grid2" style={{ marginTop: 12 }}>
+          <section className="pn-card" style={{ margin: 0 }}>
+            <h4>파일 목록</h4>
+            <table className="pn-table">
+              <thead><tr><th>파일명</th><th>작성자</th><th>작성일</th></tr></thead>
+              <tbody>
+                {files.map((f) => (
+                  <tr key={f.id} onClick={() => setSelectedFileId(f.id)} style={{ cursor: 'pointer', background: String(f.id) === String(selectedFile?.id) ? '#eff6ff' : undefined }}>
+                    <td>{f.name}</td><td>{f.author}</td><td>{f.created}</td>
+                  </tr>
+                ))}
+                {files.length === 0 && <tr><td colSpan={3} className="pn-sub">파일이 없습니다.</td></tr>}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="pn-card" style={{ margin: 0 }}>
+            <h4>{mode === 'viewer' ? '연구노트 뷰어' : mode === 'printable' ? '출력 미리보기' : '파일 미리보기'}</h4>
+            {selectedFile ? (
+              <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: '420px', border: '1px solid #e5e7eb', borderRadius: 8 }} title={`note-file-${selectedFile.id}`} />
+            ) : (
+              <p className="pn-sub">미리볼 파일을 선택하세요.</p>
+            )}
+          </section>
+        </div>
       </section>
     </UserLayout>
   );
@@ -593,22 +725,22 @@ function ResearchNoteLegacyFramePage({ id, title, legacyPath }) {
 
 export function ResearchNoteDetailPage() {
   const { id } = useParams();
-  return <ResearchNoteLegacyFramePage id={id} legacyPath="" title="연구노트 상세" />;
+  return <ResearchNoteWorkspace id={id} mode="detail" />;
 }
 
 export function ResearchNoteViewerPage() {
   const { id } = useParams();
-  return <ResearchNoteLegacyFramePage id={id} legacyPath="/viewer" title="연구노트 뷰어" />;
+  return <ResearchNoteWorkspace id={id} mode="viewer" />;
 }
 
 export function ResearchNoteCoverPage() {
   const { id } = useParams();
-  return <ResearchNoteLegacyFramePage id={id} legacyPath="/cover" title="연구노트 커버" />;
+  return <ResearchNoteWorkspace id={id} mode="cover" />;
 }
 
 export function ResearchNotePrintablePage() {
   const { id } = useParams();
-  return <ResearchNoteLegacyFramePage id={id} legacyPath="/printable" title="연구노트 출력" />;
+  return <ResearchNoteWorkspace id={id} mode="printable" />;
 }
 
 export function MyPage() {
