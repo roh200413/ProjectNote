@@ -1,0 +1,114 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { apiFetch } from '../utils/http';
+
+const nav = [
+  ['/', '🏠', '홈'],
+  ['/projects', '📁', '프로젝트 통합 관리'],
+  ['/researchers', '👥', '연구원 통합 관리'],
+  ['/research-notes', '📝', '연구노트']
+];
+
+export default function UserLayout({ title, children }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeProject, setActiveProject] = useState(null);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(true);
+  const location = useLocation();
+
+  const projectId = useMemo(() => {
+    const match = location.pathname.match(/^\/projects\/(\d+)/);
+    return match ? match[1] : '';
+  }, [location.pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectId) {
+      setActiveProject(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    apiFetch('/api/v1/projects')
+      .then((rows) => {
+        if (cancelled) return;
+        const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(projectId)) : null;
+        setActiveProject(found || { id: projectId, name: `프로젝트 #${projectId}`, code: '-' });
+      })
+      .catch(() => {
+        if (!cancelled) setActiveProject({ id: projectId, name: `프로젝트 #${projectId}`, code: '-' });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) setProjectMenuOpen(true);
+  }, [projectId]);
+
+  return (
+    <div className={`pn-layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <aside className="pn-sidebar">
+        <div className="pn-side-head">
+          <div className="pn-logo">Project Note</div>
+          <button className="pn-collapse-btn" onClick={() => setCollapsed((v) => !v)} type="button">☰</button>
+        </div>
+
+        <nav className="pn-menu">
+          {nav.map(([to, icon, label]) => (
+            <Link className={`pn-side-link ${location.pathname === to ? 'active' : ''}`} key={to} to={to}>
+              <span className="pn-side-icon">{icon}</span>
+              <span className="pn-side-text">{label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {projectId && (
+          <section className="pn-project-context">
+            <button
+              className="pn-project-context-toggle"
+              onClick={() => setProjectMenuOpen((v) => !v)}
+              type="button"
+            >
+              <span>현재 프로젝트</span>
+              <span aria-hidden="true">{projectMenuOpen ? '▾' : '▸'}</span>
+            </button>
+            <div className="pn-project-context-name">{activeProject?.name || `프로젝트 #${projectId}`}</div>
+            <div className="pn-sub" style={{ margin: 0 }}>코드: {activeProject?.code || '-'}</div>
+            {projectMenuOpen && (
+              <div className="pn-project-context-menu">
+                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}` ? 'active' : ''}`} to={`/projects/${projectId}`}>프로젝트 내용</Link>
+                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}/researchers` ? 'active' : ''}`} to={`/projects/${projectId}/researchers`}>연구원 내용</Link>
+                <Link className={`pn-side-list ${location.pathname === `/projects/${projectId}/research-notes` ? 'active' : ''}`} to={`/projects/${projectId}/research-notes`}>연구노트 내용</Link>
+              </div>
+            )}
+          </section>
+        )}
+      </aside>
+
+      <section className="pn-main">
+        <main className="pn-shell">
+          <div className="pn-headline pn-headline-row">
+            <div>
+              <h1 className="pn-title">{title}</h1>
+              <p className="pn-sub" style={{ margin: 0 }}>일반 사용자 화면 · React</p>
+            </div>
+            <div className="pn-top-actions" role="navigation">
+              <Link className="pn-side-link" to="/my-page">
+                <span className="pn-side-icon">👤</span>
+                <span className="pn-side-text">개인 페이지</span>
+              </Link>
+              <Link className="pn-side-link" to="/logout">
+                <span className="pn-side-icon">↪</span>
+                <span className="pn-side-text">로그아웃</span>
+              </Link>
+            </div>
+          </div>
+          {children}
+        </main>
+      </section>
+    </div>
+  );
+}

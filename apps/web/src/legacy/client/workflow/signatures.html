@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}사인 업데이트{% endblock %}
+{% block page_title %}사인 업데이트{% endblock %}
+{% block content %}
+<div class="pn-grid cols-2">
+  <section class="pn-card">
+    <h3 style="margin-top:0">현재 상태</h3>
+    <p>마지막 서명자: <strong id="sigBy">{{ signature.last_signed_by }}</strong></p>
+    <p>서명 시각: <span id="sigAt">{{ signature.last_signed_at }}</span></p>
+    <p>상태: <span id="sigStatus" class="pn-status-ok">{{ signature.status }}</span></p>
+    <div style="margin-top:10px">
+      <div class="pn-label">현재 사인 이미지</div>
+      <div id="sigImageWrap" style="min-height:120px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;padding:8px">
+        {% if signature.signature_data_url %}
+          <img id="sigImage" src="{{ signature.signature_data_url }}" alt="사인 이미지" style="max-width:100%;max-height:200px;object-fit:contain" />
+        {% else %}
+          <span id="sigImageEmpty" class="pn-sub">등록된 사인 이미지가 없습니다.</span>
+          <img id="sigImage" alt="사인 이미지" style="display:none;max-width:100%;max-height:200px;object-fit:contain" />
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="pn-card">
+    <h3 style="margin-top:0">사인 갱신</h3>
+    <form id="signatureForm" class="pn-grid" style="gap:10px">
+      <div>
+        <label class="pn-label">상태</label>
+        <select class="pn-select" name="status"><option>valid</option><option>revoked</option></select>
+      </div>
+
+      <div>
+        <label class="pn-label">사인 이미지 업로드</label>
+        <div id="signatureDropzone" style="height:180px;border:2px dashed #b7c6dd;border-radius:12px;background:#eef1f6;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;cursor:pointer;overflow:hidden">
+          <div id="dropHint" style="color:#4b5563;font-size:14px;line-height:1.5">드래그 앤 드롭 또는 클릭으로 사인 이미지를 선택하세요.</div>
+          <img id="dropPreview" alt="업로드 미리보기" style="display:none;max-width:100%;max-height:100%;object-fit:contain" />
+        </div>
+        <input id="signatureFileInput" type="file" accept="image/*" style="display:none" />
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button id="clearSignature" class="pn-btn ghost" type="button">초기화</button>
+        <button class="pn-btn" type="submit">업데이트</button>
+      </div>
+    </form>
+    <div id="signatureToast" class="pn-toast"></div>
+  </section>
+</div>
+<script>
+  const form = document.getElementById('signatureForm');
+  const sigImage = document.getElementById('sigImage');
+  const sigImageEmpty = document.getElementById('sigImageEmpty');
+  const dropzone = document.getElementById('signatureDropzone');
+  const fileInput = document.getElementById('signatureFileInput');
+  const dropHint = document.getElementById('dropHint');
+  const dropPreview = document.getElementById('dropPreview');
+  const clearButton = document.getElementById('clearSignature');
+  const toast = document.getElementById('signatureToast');
+  let selectedImageDataUrl = '';
+
+  function showPreview(dataUrl) {
+    selectedImageDataUrl = dataUrl;
+    dropPreview.src = dataUrl;
+    dropPreview.style.display = 'block';
+    dropHint.style.display = 'none';
+  }
+
+  function clearPreview() {
+    selectedImageDataUrl = '';
+    dropPreview.removeAttribute('src');
+    dropPreview.style.display = 'none';
+    dropHint.style.display = 'block';
+    fileInput.value = '';
+  }
+
+  function readFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      toast.textContent = '이미지 파일만 업로드할 수 있습니다.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => showPreview(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => readFile(e.target.files[0]));
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#2463eb';
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.borderColor = '#b7c6dd';
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#b7c6dd';
+    readFile(e.dataTransfer.files[0]);
+  });
+
+  clearButton.addEventListener('click', clearPreview);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = new FormData(form);
+    if (selectedImageDataUrl) {
+      data.set('signature_data_url', selectedImageDataUrl);
+    }
+
+    const response = await fetch('/api/v1/signatures', {
+      method: 'POST',
+      headers: {'X-CSRFToken': getCsrfToken()},
+      body: data,
+      credentials: 'same-origin'
+    });
+    const body = await response.json();
+    if (response.ok){
+      document.getElementById('sigBy').textContent = body.last_signed_by;
+      document.getElementById('sigAt').textContent = body.last_signed_at;
+      document.getElementById('sigStatus').textContent = body.status;
+      if (body.signature_data_url) {
+        sigImage.src = body.signature_data_url;
+        sigImage.style.display = 'block';
+        if (sigImageEmpty) sigImageEmpty.style.display = 'none';
+      }
+      toast.textContent = '사인 상태가 업데이트되었습니다.';
+      clearPreview();
+    } else {
+      toast.textContent = body.detail || '업데이트 실패';
+    }
+  });
+</script>
+{% endblock %}

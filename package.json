@@ -1,0 +1,12 @@
+{
+  "name": "projectnote-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @projectnote/web",
+    "build:web": "npm run build -w @projectnote/web",
+    "lint:web": "npm run lint -w @projectnote/web"
+  }
+}

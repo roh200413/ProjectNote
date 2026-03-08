@@ -1,9 +1,36 @@
-# ProjectNote Backend (Django)
+# ProjectNote Monorepo
 
-연구노트 통합 플랫폼을 위한 Django 기반 백엔드/프론트 프로토타입입니다.
-모든 화면은 `client/base.html` 디자인 시스템(공통 네비게이션/토큰/컴포넌트)을 기반으로 동작합니다.
+ProjectNote를 **모노레포 구조**로 정리했습니다.
 
-## 실행
+- `server/`: 기존 Django 백엔드
+- `apps/web`: 기존 `client/*.html` 화면들을 React 라우트 기반으로 옮긴 프론트엔드
+  - 템플릿 복사본: `apps/web/src/legacy/client` (원본 client 삭제 대비)
+
+## Workspace 구조
+
+```text
+.
+├─ apps/
+│  └─ web/          # React + Vite
+├─ client/          # 기존 HTML 템플릿(참고/점진적 이전용)
+└─ server/          # Django 백엔드
+```
+
+## 실행 방법
+
+### 1) React 프론트엔드
+
+```bash
+npm install
+npm run dev:web
+```
+
+- 기본 주소: `http://localhost:5173`
+- React 앱은 Django 페이지를 프록시(`/__django/*`)로 보여주므로 백엔드 서버도 함께 실행해야 로그인/페이지 기능이 동작합니다.
+- CSRF 오류가 나면 `.env`에 `DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`를 확인하세요(기본값에 포함됨).
+
+### 2) Django 백엔드
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -13,153 +40,27 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-## 기본 점검
-개발 서버 실행 전에 아래 명령으로 프로젝트 상태를 빠르게 점검할 수 있습니다.
+## React 전환 범위
+
+`apps/web/src/pages/routeCatalog.js`에 기존 HTML 경로를 기준으로 React 라우트를 구성했습니다.
+
+- 인증: 로그인/회원가입/관리자 로그인
+- 워크플로우: 홈, 프로젝트 목록/생성/상세, 연구자/마이페이지/서명/다운로드
+- 연구노트: 목록/상세/뷰어/커버/출력
+- 관리자: 대시보드/팀/유저/테이블
+- 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
+
+기존 HTML은 `apps/web/src/legacy/client`로 복사해 두어 `client/` 폴더를 제거해도 React 쪽 렌더링이 유지됩니다.
+
+### 레거시 Django HTML fallback on/off
+
+기본값은 **OFF** 입니다. (React 구현 페이지가 아니면 안내 화면 표시)
+
+- 설정 위치: `apps/web/.env.local`
+- 임시 활성화 값:
 
 ```bash
-python manage.py check
-pytest -q
+echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 ```
 
-## DB 적용 및 직접 확인
-
-### 1) DB 파일 위치
-이 프로젝트는 Django + SQLite를 사용하며 DB 파일은 아래 경로입니다.
-
-- `/workspace/ProjectNote/server/projectnote.db`
-
-`server/config/settings.py`의 `DATABASES` 설정에서 확인할 수 있습니다.
-
-### 2) 테이블 생성(마이그레이션)
-```bash
-python manage.py migrate
-```
-
-### 3) 데모 데이터 생성(옵션)
-```bash
-python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
-python manage.py shell -c "from server.application.sqlalchemy_session import sqlalchemy_table_names; print(sqlalchemy_table_names())"
-```
-
-### 4) SQLite CLI로 직접 확인
-```bash
-sqlite3 server/projectnote.db ".tables"
-sqlite3 server/projectnote.db "SELECT id, name, status FROM workflow_app_project;"
-sqlite3 server/projectnote.db "SELECT id, email, organization FROM workflow_app_researcher;"
-```
-
-### 5) JetBrains DB Navigator / Database Tool 설정
-- Database Type: `SQLite`
-- Config Type: `File`
-- Database file: `/workspace/ProjectNote/server/projectnote.db`
-- Schema: `main`
-- SSH Tunnel: 사용 안 함
-
-
-
-## server 정리 구조
-- `server/config/`: 실행/설정 진입점(`settings.py`, `urls.py`, `asgi.py`, `wsgi.py`, `apps.py`)
-- `server/application/`: 애플리케이션 파사드/조합 계층(`api.py`, `models.py`, `services.py`, `schemas.py`, `repositories.py`, `web_support.py`)
-- `server/domains/`: DDD 도메인별 비즈니스 모듈
-- `server/application/sqlalchemy_session.py`: DB 점검용 SQLAlchemy 유틸
-
-## 아키텍처(DDD + ORM)
-- `application` 역할: 도메인 객체를 HTTP/검증/응답에 맞게 조합하는 유스케이스 계층(도메인 규칙 자체는 `domains`에 유지)
-- `server/domains/*/api.py`: 도메인별 API/페이지 엔드포인트
-- `server/domains/projects`: 프로젝트 생성/조회 도메인
-- `server/domains/researchers`: 연구자 도메인
-- `server/domains/research_notes`: 연구노트 도메인
-- `server/domains/data_updates`: 데이터 업데이트 도메인
-- `server/domains/signatures`: 서명 도메인
-- `server/application/services.py`, `server/application/schemas.py`: 유스케이스/입력 스키마 파사드
-- SQLAlchemy 유틸은 `server/application/sqlalchemy_session.py`로 통합
-
-현재 런타임은 Django로 통일되어 있으며, 기존 FastAPI 실험 코드(`app/`)는 제거했습니다.
-SQLAlchemy는 DB 직접 점검/외부 도구 연동 용도로 유지합니다.
-
-
-
-## 관리자 초기 설정
-```bash
-python manage.py migrate
-python manage.py shell -c "from server.application.mock_data import seed_demo_data; print(seed_demo_data(reset=True))"
-```
-
-- `/frontend/admin`에서 팀 생성
-- 최초 관리자 계정 생성(1회 제한)
-- 테이블별 row 수 확인 및 데이터 비우기
-
-## 주요 API
-- `GET /api/v1/health`
-- `GET /api/v1/frontend/bootstrap`
-- `GET /api/v1/dashboard/summary`
-- `GET /api/v1/projects?org_id=<uuid>`
-- `GET/POST /api/v1/project-management`
-- `GET/POST /api/v1/researchers`
-- `GET/POST /api/v1/data-updates`
-- `GET /api/v1/final-download`
-- `GET/POST /api/v1/signatures`
-- `GET /api/v1/research-notes`
-- `GET /api/v1/research-notes/<id>`
-
-## 프론트엔드 페이지
-- `GET/POST /login`
-- `GET/POST /admin/login`
-- `GET /logout`
-- `GET /frontend/workflows`
-- `GET /frontend/admin` (대시보드로 리다이렉트)
-- `GET /frontend/admin/dashboard`
-- `GET /frontend/admin/teams`
-- `GET /frontend/admin/users`
-- `GET /frontend/admin/tables`
-- `GET /frontend/projects`
-- `GET /frontend/projects/create`
-- `GET /frontend/projects/<id>`
-- `GET /frontend/researchers` (연구자 전용 정보 관리)
-- `GET /frontend/my-page`
-- `POST /frontend/my-page/signature` (data URL 이미지 업로드)
-- `GET /frontend/data-updates`
-- `GET /frontend/final-download`
-- `GET /frontend/signatures`
-- `GET /frontend/research-notes`
-- `GET /frontend/research-notes/<id>`
-
-## 테스트
-```bash
-pytest -q
-python manage.py check
-```
-
-## 환경 변수
-프로젝트 루트의 `.env` 파일에서 환경 변수를 직접 관리하세요.
-
-```bash
-touch .env
-```
-
-- `RESEARCH_NOTES_STORAGE_USE_EXTERNAL`: `true` 또는 `false` (기본값: `false`)
-  - `false`: 내부 고정 경로 `ProjectNote/storage/research_notes` 사용
-  - `true`: `.env`의 `RESEARCH_NOTES_STORAGE_ROOT` 경로 사용
-- `RESEARCH_NOTES_STORAGE_ROOT`: `RESEARCH_NOTES_STORAGE_USE_EXTERNAL=true`일 때 사용할 연구노트 파일 저장 경로
-
-## 슈퍼 어드민 계정 관리(JSON)
-- 기본 슈퍼 어드민 로그인 계정은 프로젝트 루트의 `server/super_admin_accounts.json`에서 관리합니다.
-- 앱 실행 시 JSON 계정은 `SuperAdminAccount` 테이블로 동기화되며, 관리자 콘솔(`/frontend/admin/*`) 진입은 `admin/login`에서 **슈퍼 어드민 계정만** 허용됩니다.
-- 슈퍼 어드민 권한 범위는 **DB 데이터 테이블 관리(조회/비우기)** 전용이며, 팀 관리/가입자 관리/일반 워크플로우 페이지 접근은 제한됩니다.
-- 일반 관리자/일반 사용자 계정은 로그인 시 팀 미할당 상태라면 홈으로 이동하지 않고 `관리자 팀 할당 및 승인이 되지 않았습니다.` 메시지가 표시됩니다.
-- 형식 예시:
-
-```json
-{
-  "users": {
-    "admin": {
-      "password": "admin1234",
-      "name": "노승희",
-      "role": "관리자",
-      "email": "paul@deep-ai.kr",
-      "organization": "(주)딥아이",
-      "major": "R&D"
-    }
-  }
-}
-```
+- dev 서버 재시작 후 반영됩니다.
