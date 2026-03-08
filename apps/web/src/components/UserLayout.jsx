@@ -88,7 +88,7 @@ export default function UserLayout({ title, children }) {
                 <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}/researchers` ? 'active' : ''}`} to={`/projects/${activeProject.id}/researchers`}>
                   참여 연구원 관리
                 </Link>
-                <button className="pn-side-list" onClick={() => { clearSelectedProject(); setActiveProject(null); }} style={{ textAlign: 'left', width: '100%', cursor: 'pointer' }} type="button">
+                <button className="pn-side-list-btn" onClick={() => { clearSelectedProject(); setActiveProject(null); }} type="button">
                   프로젝트 메뉴 닫기
                 </button>
               </div>

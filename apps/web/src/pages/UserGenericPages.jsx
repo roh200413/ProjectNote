@@ -246,7 +246,7 @@ export function ProjectDetailPage() {
             <div><label className="pn-sub">종료일</label><input type="date" value={form.end_date || ''} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
             <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">설명</label><input value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
-              <button className="pn-side-list" onClick={() => { setEditing(false); setForm(project); }} type="button">취소</button>
+              <button className="pn-btn-secondary" onClick={() => { setEditing(false); setForm(project); }} type="button">취소</button>
               <button type="submit">저장</button>
             </div>
           </form>
