@@ -689,6 +689,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [showNoteEdit, setShowNoteEdit] = useState(false);
 
   const selectedFile = useMemo(() => files.find((f) => String(f.id) === String(selectedFileId)) || files[0] || null, [files, selectedFileId]);
   const filteredFiles = useMemo(() => files.filter((f) => `${f.name} ${f.author}`.toLowerCase().includes(search.toLowerCase())), [files, search]);
@@ -744,6 +745,7 @@ function ResearchNoteWorkspace({ id, mode }) {
       });
       setNote(updated?.note || updated);
       setForm({ title: (updated?.note || updated)?.title || '', summary: (updated?.note || updated)?.summary || '' });
+      setShowNoteEdit(false);
       setMsg('연구노트를 수정했습니다.');
     } catch (e2) {
       setError(e2.message);
@@ -800,7 +802,11 @@ function ResearchNoteWorkspace({ id, mode }) {
             <h3 style={{ marginBottom: 0 }}>{note?.title || `연구노트 #${id}`}</h3>
           </div>
           <div className="pn-inline" style={{ margin: 0, flexWrap: 'wrap' }}>
-            <button className="pn-btn-secondary" type="button">⚙ 연구노트 수정</button>
+            {mode === 'detail' && (
+              <button className="pn-btn-secondary" onClick={() => setShowNoteEdit((prev) => !prev)} type="button">
+                {showNoteEdit ? '수정 취소' : '⚙ 연구노트 수정'}
+              </button>
+            )}
             {selectedFile && <a className="pn-side-list" href={`/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`}>연구노트 다운로드</a>}
           </div>
         </div>
@@ -809,13 +815,16 @@ function ResearchNoteWorkspace({ id, mode }) {
         </tbody></table>
       </section>
 
-      {mode === 'detail' && (
+      {mode === 'detail' && showNoteEdit && (
         <section className="pn-card">
-          <h3>업데이트 연구노트</h3>
+          <h3>연구노트 정보 수정</h3>
           <form className="pn-grid2" onSubmit={updateNote}>
             <div><label className="pn-sub">제목</label><input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-            <div><label className="pn-sub">요약</label><input value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></div>
-            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}><button type="submit">저장</button></div>
+            <div><label className="pn-sub">요약</label><textarea rows={3} value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} /></div>
+            <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+              <button className="pn-btn-secondary" onClick={() => setShowNoteEdit(false)} type="button">취소</button>
+              <button type="submit">저장</button>
+            </div>
           </form>
         </section>
       )}
