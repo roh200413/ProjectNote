@@ -737,9 +737,20 @@ def project_update_api(request, project_id: str):
     return JsonResponse(updated)
 
 
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST"])
 def project_cover_update_api(request, project_id: str):
     profile = effective_user_profile(request) or {}
+
+    if request.method == "GET":
+        if not project_repository.can_view_project(project_id, profile):
+            return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+        project_obj = Project.objects.filter(id=project_id).first()
+        if not project_obj:
+            return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+        project = project_repository.project_to_dict(project_obj)
+        manager_display = project.get("manager", "-")
+        return JsonResponse(_load_cover_data(project_obj, project, manager_display))
+
     if not project_repository.can_manage_project_members(project_id, profile):
         return JsonResponse({"detail": "권한이 없습니다."}, status=403)
     project = Project.objects.filter(id=project_id).first()

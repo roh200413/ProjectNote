@@ -51,6 +51,7 @@ export function HomePage() {
         <article className="pn-card"><div className="pn-sub">연구노트</div><h3>{summary?.notes ?? '-'}</h3></article>
         <article className="pn-card"><div className="pn-sub">내 프로젝트</div><h3>{projects.length}</h3></article>
       </section>
+
     </UserLayout>
   );
 }
@@ -176,19 +177,28 @@ export function ProjectDetailPage() {
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [form, setForm] = useState(null);
+  const [coverForm, setCoverForm] = useState(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
+  const [coverMsg, setCoverMsg] = useState('');
 
   useEffect(() => {
-    apiFetch('/api/v1/projects')
-      .then((rows) => {
+    async function load() {
+      try {
+        const rows = await apiFetch('/api/v1/projects');
         const found = Array.isArray(rows) ? rows.find((r) => String(r.id) === String(id)) : null;
         setProject(found || null);
         setForm(found || null);
         if (found) saveSelectedProject(found);
-      })
-      .catch((e) => setError(e.message));
+        if (!found) return;
+        const cover = await apiFetch(`/api/v1/projects/${id}/cover`);
+        setCoverForm(cover);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+    load();
   }, [id]);
 
   async function saveProject(e) {
@@ -211,6 +221,38 @@ export function ProjectDetailPage() {
     }
   }
 
+  async function onCoverFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const asDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('표지 파일을 읽지 못했습니다.'));
+      reader.readAsDataURL(file);
+    });
+    setCoverForm((prev) => ({ ...(prev || {}), cover_image_data_url: asDataUrl }));
+  }
+
+  async function saveCover(e) {
+    e.preventDefault();
+    setError('');
+    setCoverMsg('');
+    try {
+      const response = await apiFetch(`/api/v1/projects/${id}/cover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded(coverForm || {})
+      });
+      setCoverMsg(response?.message || '표지 설정을 저장했습니다.');
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
+  function printCoverPdf() {
+    window.location.href = `/api/v1/projects/${id}/cover/print`;
+  }
+
   return (
     <UserLayout title="프로젝트 상세">
       <ApiError error={error} />
@@ -230,6 +272,7 @@ export function ProjectDetailPage() {
               <tr><th>기간</th><td>{project.start_date || '-'} ~ {project.end_date || '-'}</td></tr>
             </tbody></table>
             <div className="pn-inline" style={{ justifyContent: 'flex-end' }}>
+              <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">표지 PDF 출력</button>
               <button onClick={() => setEditing(true)} type="button">수정하기</button>
             </div>
           </>
@@ -252,6 +295,42 @@ export function ProjectDetailPage() {
           </form>
         )}
       </section>
+
+      {project && coverForm && (
+        <section className="pn-card">
+          <details>
+            <summary>표지 설정</summary>
+            {coverMsg && <p className="pn-sub">{coverMsg}</p>}
+            <form className="pn-grid2" onSubmit={saveCover}>
+              <div><label className="pn-sub">제목</label><input value={coverForm.title || ''} onChange={(e) => setCoverForm({ ...coverForm, title: e.target.value })} /></div>
+              <div><label className="pn-sub">과제 번호</label><input value={coverForm.code || ''} onChange={(e) => setCoverForm({ ...coverForm, code: e.target.value })} /></div>
+              <div><label className="pn-sub">사업명</label><input value={coverForm.business_name || ''} onChange={(e) => setCoverForm({ ...coverForm, business_name: e.target.value })} /></div>
+              <div><label className="pn-sub">기관</label><input value={coverForm.organization || ''} onChange={(e) => setCoverForm({ ...coverForm, organization: e.target.value })} /></div>
+              <div><label className="pn-sub">책임자</label><input value={coverForm.manager || ''} onChange={(e) => setCoverForm({ ...coverForm, manager: e.target.value })} /></div>
+              <div><label className="pn-sub">시작일</label><input type="date" value={coverForm.start_date || ''} onChange={(e) => setCoverForm({ ...coverForm, start_date: e.target.value })} /></div>
+              <div><label className="pn-sub">종료일</label><input type="date" value={coverForm.end_date || ''} onChange={(e) => setCoverForm({ ...coverForm, end_date: e.target.value })} /></div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="pn-sub">표시 옵션</label>
+                <div className="pn-inline">
+                  <label><input type="checkbox" checked={!!coverForm.show_title} onChange={(e) => setCoverForm({ ...coverForm, show_title: e.target.checked })} /> 제목</label>
+                  <label><input type="checkbox" checked={!!coverForm.show_business_name} onChange={(e) => setCoverForm({ ...coverForm, show_business_name: e.target.checked })} /> 사업명</label>
+                  <label><input type="checkbox" checked={!!coverForm.show_code} onChange={(e) => setCoverForm({ ...coverForm, show_code: e.target.checked })} /> 과제 번호</label>
+                  <label><input type="checkbox" checked={!!coverForm.show_org} onChange={(e) => setCoverForm({ ...coverForm, show_org: e.target.checked })} /> 기관</label>
+                  <label><input type="checkbox" checked={!!coverForm.show_manager} onChange={(e) => setCoverForm({ ...coverForm, show_manager: e.target.checked })} /> 책임자</label>
+                  <label><input type="checkbox" checked={!!coverForm.show_period} onChange={(e) => setCoverForm({ ...coverForm, show_period: e.target.checked })} /> 기간</label>
+                </div>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label className="pn-sub">표지 이미지/PDF 파일</label>
+                <input type="file" accept="image/*,application/pdf" onChange={onCoverFileChange} />
+              </div>
+              <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+                <button type="submit">표지 저장</button>
+              </div>
+            </form>
+          </details>
+        </section>
+      )}
     </UserLayout>
   );
 }
