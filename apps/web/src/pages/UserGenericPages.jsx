@@ -613,48 +613,138 @@ function NotesTable({ endpoint }) {
 
 export function ProjectResearchNotesPage() {
   const { id } = useParams();
+  const nav = useNavigate();
   const [project, setProject] = useState(null);
   const [rows, setRows] = useState([]);
+  const [selectedNoteId, setSelectedNoteId] = useState('');
+  const [outputFormat, setOutputFormat] = useState('viewer');
+  const [uploadMeta, setUploadMeta] = useState({ title: '', summary: '', author: '' });
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  const selectedNote = useMemo(
+    () => rows.find((n) => String(n.id) === String(selectedNoteId)) || rows[0] || null,
+    [rows, selectedNoteId]
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const projects = await apiFetch('/api/v1/projects');
+      const found = Array.isArray(projects) ? projects.find((r) => String(r.id) === String(id)) : null;
+      setProject(found || null);
+      const notes = await apiFetch('/api/v1/research-notes');
+      const filtered = Array.isArray(notes)
+        ? notes.filter((n) => String(n.project_code || '') === String(found?.code || ''))
+        : [];
+      setRows(filtered);
+      setSelectedNoteId((prev) => prev || (filtered[0]?.id || ''));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    let canceled = false;
-    async function load() {
-      setLoading(true);
-      try {
-        const projects = await apiFetch('/api/v1/projects');
-        const found = Array.isArray(projects) ? projects.find((r) => String(r.id) === String(id)) : null;
-        if (!canceled) setProject(found || null);
-        const notes = await apiFetch('/api/v1/research-notes');
-        const filtered = Array.isArray(notes)
-          ? notes.filter((n) => String(n.project_code || '') === String(found?.code || ''))
-          : [];
-        if (!canceled) setRows(filtered);
-      } catch (e) {
-        if (!canceled) setError(e.message);
-      } finally {
-        if (!canceled) setLoading(false);
-      }
-    }
     load();
-    return () => { canceled = true; };
-  }, [id]);
+  }, [load]);
+
+  async function openNoteByFormat(noteId) {
+    if (!noteId) {
+      setError('먼저 연구노트를 선택해주세요.');
+      return;
+    }
+    setError('');
+    if (outputFormat === 'viewer') {
+      nav(`/research-notes/${noteId}/viewer`);
+      return;
+    }
+    if (outputFormat === 'cover') {
+      nav(`/research-notes/${noteId}/cover`);
+      return;
+    }
+    if (outputFormat === 'printable') {
+      nav(`/research-notes/${noteId}/printable`);
+      return;
+    }
+    try {
+      const files = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
+      const selectedFileId = Array.isArray(files) ? files[0]?.id : null;
+      if (!selectedFileId) {
+        setError('PDF로 만들 파일이 없습니다.');
+        return;
+      }
+      window.location.href = `/api/v1/research-notes/${noteId}/viewer-export-pdf?file=${selectedFileId}`;
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function uploadProjectNoteFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+    setUploading(true);
+    setError('');
+    setMsg('');
+
+    const allowed = ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic', 'pdf'];
+    const invalid = files.find((f) => !allowed.includes(String(f.name.split('.').pop() || '').toLowerCase()));
+    if (invalid) {
+      setUploading(false);
+      setError('PDF 또는 이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    try {
+      let latestNoteId = '';
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('research_note_file', file);
+        if (uploadMeta.title.trim()) fd.append('title', uploadMeta.title.trim());
+        if (uploadMeta.summary.trim()) fd.append('summary', uploadMeta.summary.trim());
+        if (uploadMeta.author.trim()) fd.append('author', uploadMeta.author.trim());
+        const res = await apiFetch(`/api/v1/projects/${id}/research-notes/upload`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: fd
+        });
+        latestNoteId = res?.note_id || latestNoteId;
+      }
+
+      setMsg(`${files.length}개 파일을 업로드해 연구노트를 생성했습니다.`);
+      await load();
+      if (latestNoteId) {
+        setSelectedNoteId(String(latestNoteId));
+        await openNoteByFormat(String(latestNoteId));
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <UserLayout title="연구노트 관리">
       <section className="pn-card">
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
-        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 연구노트 목록과 상세 기능으로 이동할 수 있습니다.</p>
+        <p className="pn-sub" style={{ margin: 0 }}>드래그앤드롭으로 PDF/이미지 업로드 후, 선택한 포맷으로 바로 연구노트를 열 수 있습니다.</p>
       </section>
+
       <section className="pn-card">
         <Loading loading={loading} />
         <ApiError error={error} />
+        {msg && <p className="pn-sub">{msg}</p>}
         <table className="pn-table">
           <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
           <tbody>
             {rows.map((n) => (
-              <tr key={n.id}>
+              <tr key={n.id} style={{ background: String(selectedNote?.id) === String(n.id) ? '#eff6ff' : undefined }}>
                 <td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
@@ -662,6 +752,7 @@ export function ProjectResearchNotesPage() {
                 <td>{n.files}</td>
                 <td>
                   <div className="pn-inline" style={{ margin: 0 }}>
+                    <button className="pn-btn-secondary" onClick={() => setSelectedNoteId(String(n.id))} type="button">선택</button>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/viewer`}>뷰어</Link>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/cover`}>커버</Link>
                     <Link className="pn-side-list" to={`/research-notes/${n.id}/printable`}>출력</Link>
@@ -669,9 +760,47 @@ export function ProjectResearchNotesPage() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다.</td></tr>}
+            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 아래 업로드로 바로 생성하세요.</td></tr>}
           </tbody>
         </table>
+      </section>
+
+      <section className="pn-card">
+        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
+          <div className="pn-inline" style={{ margin: 0 }}>
+            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
+              <option value="viewer">뷰어 포맷</option>
+              <option value="printable">출력 포맷</option>
+              <option value="cover">표지 포맷</option>
+              <option value="pdf">표준 PDF</option>
+            </select>
+            <button type="button" onClick={() => openNoteByFormat(selectedNote?.id)} disabled={!selectedNote}>선택 노트 열기</button>
+          </div>
+        </div>
+
+        <div className="pn-grid2" style={{ marginBottom: 10 }}>
+          <div><label className="pn-sub">제목(선택)</label><input value={uploadMeta.title} onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))} placeholder="업로드 파일명으로 자동 생성" /></div>
+          <div><label className="pn-sub">작성자(선택)</label><input value={uploadMeta.author} onChange={(e) => setUploadMeta((prev) => ({ ...prev, author: e.target.value }))} placeholder="로그인 사용자" /></div>
+          <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">요약(선택)</label><input value={uploadMeta.summary} onChange={(e) => setUploadMeta((prev) => ({ ...prev, summary: e.target.value }))} placeholder="업로드 시 연구노트 요약에 반영" /></div>
+        </div>
+
+        <input id="projectNoteUploadInput" type="file" accept=".pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => uploadProjectNoteFiles(e.target.files)} />
+        <div
+          className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
+          onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+          onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadProjectNoteFiles(e.dataTransfer.files); }}
+        >
+          마우스로 드래그해서 연구파일(PDF/이미지)을 추가해주세요.
+          <div className="pn-sub" style={{ marginTop: 8 }}>지원 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
+          <div className="pn-inline" style={{ justifyContent: 'center', marginBottom: 0 }}>
+            <label className="pn-side-list" htmlFor="projectNoteUploadInput" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? .6 : 1 }}>
+              {uploading ? '업로드 중...' : '파일 선택 업로드'}
+            </label>
+          </div>
+        </div>
       </section>
     </UserLayout>
   );
