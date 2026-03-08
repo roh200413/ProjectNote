@@ -14,6 +14,7 @@ import {
   GithubIntegrationsPage,
   HomePage,
   MyPage,
+  ProjectCreatePage,
   ProjectDetailPage,
   ProjectResearchNotesPage,
   ProjectResearchNotesPrintPage,
@@ -48,7 +49,7 @@ export default function App() {
 
       <Route element={<UserRoute><HomePage /></UserRoute>} path="/" />
       <Route element={<UserRoute><ProjectsPage /></UserRoute>} path="/projects" />
-      <Route element={<Navigate replace to="/projects" />} path="/projects/create" />
+      <Route element={<UserRoute><ProjectCreatePage /></UserRoute>} path="/projects/create" />
       <Route element={<UserRoute><ProjectDetailPage /></UserRoute>} path="/projects/:id" />
       <Route element={<UserRoute><ProjectResearchNotesPage /></UserRoute>} path="/projects/:id/research-notes" />
       <Route element={<UserRoute><ProjectResearchNotesPrintPage /></UserRoute>} path="/projects/:id/research-notes/print" />

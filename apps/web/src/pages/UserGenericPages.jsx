@@ -22,28 +22,33 @@ export function HomePage() {
     Promise.all([apiFetch('/api/v1/dashboard/summary'), apiFetch('/api/v1/projects')])
       .then(([s, p]) => {
         setSummary(s);
-        setProjects(Array.isArray(p) ? p.slice(0, 5) : []);
+        setProjects(Array.isArray(p) ? p : []);
       })
       .catch((e) => setError(e.message));
   }, []);
 
   return (
-    <UserLayout title="워크플로우 홈">
+    <UserLayout title="대시보드">
       <ApiError error={error} />
-      <section className="pn-grid3" style={{ marginBottom: 12 }}>
+      <section className="pn-card">
+        <h3>내가 관리중인 전체 프로젝트</h3>
+        <p className="pn-sub">프로젝트를 클릭하면 좌측 하단에 프로젝트 관련 메뉴가 열립니다.</p>
+        <table className="pn-table">
+          <thead><tr><th>프로젝트</th><th>상태</th><th>기관</th></tr></thead>
+          <tbody>
+            {projects.map((p) => <tr key={p.id}><td><Link className="pn-link" to={`/projects/${p.id}/research-notes`}>{p.name}</Link></td><td>{p.status}</td><td>{p.organization || '-'}</td></tr>)}
+            {projects.length === 0 && <tr><td colSpan={3} className="pn-sub">관리중인 프로젝트가 없습니다.</td></tr>}
+          </tbody>
+        </table>
+        <div className="pn-inline" style={{ justifyContent: 'flex-end', marginBottom: 0 }}>
+          <Link className="pn-side-list" to="/data-updates">활동내역</Link>
+          <Link className="pn-side-list active" to="/projects/create">프로젝트 생성</Link>
+        </div>
+      </section>
+      <section className="pn-grid3">
         <article className="pn-card"><div className="pn-sub">기관</div><h3>{summary?.teams ?? '-'}</h3></article>
         <article className="pn-card"><div className="pn-sub">프로젝트</div><h3>{summary?.projects ?? '-'}</h3></article>
         <article className="pn-card"><div className="pn-sub">연구노트</div><h3>{summary?.notes ?? '-'}</h3></article>
-      </section>
-      <section className="pn-card">
-        <h3 style={{ marginTop: 0 }}>최근 프로젝트</h3>
-        <table className="pn-table">
-          <thead><tr><th>이름</th><th>상태</th><th>기관</th></tr></thead>
-          <tbody>
-            {projects.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.status}</td><td>{p.organization || '-'}</td></tr>)}
-            {projects.length === 0 && <tr><td colSpan={3} className="pn-sub">데이터가 없습니다.</td></tr>}
-          </tbody>
-        </table>
       </section>
     </UserLayout>
   );
@@ -52,62 +57,14 @@ export function HomePage() {
 export function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
-  const [form, setForm] = useState({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
-
-  async function loadProjects() {
-    try {
-      const rows = await apiFetch('/api/v1/projects');
-      setProjects(Array.isArray(rows) ? rows : []);
-    } catch (e) {
-      setError(e.message);
-    }
-  }
 
   useEffect(() => {
-    loadProjects();
+    apiFetch('/api/v1/projects').then((rows) => setProjects(Array.isArray(rows) ? rows : [])).catch((e) => setError(e.message));
   }, []);
-
-  async function createProject(e) {
-    e.preventDefault();
-    setError('');
-    setMsg('');
-    try {
-      const created = await apiFetch('/api/v1/project-management', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: formEncoded(form)
-      });
-      setMsg(`프로젝트 생성 완료: ${created.name}`);
-      setForm({ name: '', manager: '', business_name: '', organization: '', code: '', description: '', status: 'draft' });
-      loadProjects();
-    } catch (e2) {
-      setError(e2.message);
-    }
-  }
 
   return (
     <UserLayout title="프로젝트 통합 관리">
       <ApiError error={error} />
-      {msg && <p className="pn-sub">{msg}</p>}
-      <section className="pn-card">
-        <h3>프로젝트 생성</h3>
-        <form className="pn-grid" onSubmit={createProject} style={{ gap: 8 }}>
-          <input placeholder="프로젝트명" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input placeholder="매니저(username)" value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} />
-          <input placeholder="사업명" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
-          <input placeholder="기관" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} />
-          <input placeholder="코드" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-          <input placeholder="설명" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-            <option value="draft">draft</option>
-            <option value="active">active</option>
-            <option value="completed">completed</option>
-          </select>
-          <button type="submit">프로젝트 생성</button>
-        </form>
-      </section>
-
       <section className="pn-card">
         <p className="pn-sub">프로젝트를 클릭하면 해당 프로젝트 연구노트 관리 화면으로 이동합니다.</p>
         <table className="pn-table">
@@ -128,7 +85,87 @@ export function ProjectsPage() {
 }
 
 export function ProjectCreatePage() {
-  return <ProjectsPage />;
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
+  const [members, setMembers] = useState([]);
+  const [draftMember, setDraftMember] = useState({ username: '', role: 'Member' });
+  const [form, setForm] = useState({
+    name: '',
+    manager: '',
+    business_name: '',
+    organization: '',
+    code: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    status: 'draft'
+  });
+
+  function addMember() {
+    if (!draftMember.username.trim()) return;
+    setMembers([...members, { ...draftMember, username: draftMember.username.trim() }]);
+    setDraftMember({ username: '', role: 'Member' });
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const created = await apiFetch('/api/v1/project-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: formEncoded({
+          ...form,
+          period: form.start_date && form.end_date ? `${form.start_date} ~ ${form.end_date}` : '',
+          members: members.length || undefined
+        })
+      });
+      setMsg(`프로젝트 생성 완료: ${created.name}`);
+    } catch (e2) {
+      setError(e2.message);
+    }
+  }
+
+  return (
+    <UserLayout title="Create Project">
+      <ApiError error={error} />
+      {msg && <p className="pn-sub">{msg}</p>}
+      <form onSubmit={submit}>
+        <section className="pn-card">
+          <h3>과제 정보</h3>
+          <p className="pn-sub">프로젝트 기본 정보를 입력하세요.</p>
+          <div className="pn-grid2">
+            <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">과제명</label><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div><label className="pn-sub">과제 책임자</label><input value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })} /></div>
+            <div><label className="pn-sub">사업명</label><input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></div>
+            <div><label className="pn-sub">수행 기관</label><input value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} /></div>
+            <div><label className="pn-sub">과제 번호</label><input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+            <div><label className="pn-sub">설명</label><input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+            <div><label className="pn-sub">시작일</label><input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+            <div><label className="pn-sub">종료일</label><input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
+            <div><label className="pn-sub">상태</label><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="draft">draft</option><option value="active">active</option><option value="completed">completed</option></select></div>
+          </div>
+        </section>
+
+        <section className="pn-card">
+          <h3>추가 설정 및 멤버 초대</h3>
+          <p className="pn-sub">선택한 사용자는 멤버로 생성됩니다.</p>
+          <div className="pn-inline">
+            <input placeholder="사용자 아이디" value={draftMember.username} onChange={(e) => setDraftMember({ ...draftMember, username: e.target.value })} />
+            <select value={draftMember.role} onChange={(e) => setDraftMember({ ...draftMember, role: e.target.value })}><option value="Member">Member</option><option value="Manager">Manager</option></select>
+            <button onClick={addMember} type="button">추가</button>
+          </div>
+          {members.length === 0 ? <p className="pn-sub">아직 추가된 멤버가 없습니다.</p> : <ul>{members.map((m, i) => <li key={`${m.username}-${i}`}>{m.username} ({m.role})</li>)}</ul>}
+        </section>
+
+        <div className="pn-inline" style={{ justifyContent: 'flex-end', marginBottom: 0 }}>
+          <Link className="pn-side-list" to="/projects">취소</Link>
+          <button type="submit">프로젝트 생성</button>
+        </div>
+      </form>
+    </UserLayout>
+  );
 }
 
 export function ProjectDetailPage() {
@@ -334,8 +371,6 @@ export function ProjectResearchNotesPage() {
   );
 }
 export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
-export function ResearchNotesListPage() { return <UserLayout title="연구노트 목록"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
-
 function ResearchNoteDetailCard({ id, title }) {
   const [note, setNote] = useState(null);
   const [error, setError] = useState('');

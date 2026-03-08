@@ -3,9 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/http';
 
 const nav = [
-  ['/', '🏠', '홈'],
-  ['/projects', '📁', '프로젝트 통합 관리'],
-  ['/researchers', '👥', '연구원 통합 관리']
+  ['/', '🏠', '대시보드'],
+  ['/researchers', '👥', '연구원 통합 관리'],
+  ['/integrations/github', '🔗', '지허브 통합 관리'],
+  ['/data-updates', '🤝', '협업 툴 통합 관리']
 ];
 
 export default function UserLayout({ title, children }) {
