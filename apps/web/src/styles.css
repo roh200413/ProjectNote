@@ -136,13 +136,22 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 .pn-note-left { position: sticky; top: 12px; }
 .pn-note-menu { display:grid; gap:6px; margin-top: 10px; }
 .pn-note-dropzone {
-  border: 1px dashed #93c5fd;
-  border-radius: 10px;
-  background: #eff6ff;
+  border: 1px dashed #7aa9ff;
+  border-radius: 12px;
+  background: #eef4ff;
   color: #1d4ed8;
   text-align: center;
-  padding: 28px 12px;
+  padding: 40px 16px;
   font-weight: 700;
+}
+.pn-folder-card {
+  border: 1px solid #e4e9f2;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  min-height: 110px;
+}
+.pn-folder-card strong {
+  color: #334155;
+  font-size: 16px;
 }
 
 @media (max-width: 1024px) {

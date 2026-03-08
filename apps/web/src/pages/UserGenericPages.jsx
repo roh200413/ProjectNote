@@ -678,6 +678,7 @@ export function ProjectResearchNotesPage() {
 }
 export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
 function ResearchNoteWorkspace({ id, mode }) {
+  const nav = useNavigate();
   const [note, setNote] = useState(null);
   const [files, setFiles] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -690,6 +691,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [search, setSearch] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [showNoteEdit, setShowNoteEdit] = useState(false);
+  const [outputFormat, setOutputFormat] = useState('pdf');
 
   const selectedFile = useMemo(() => files.find((f) => String(f.id) === String(selectedFileId)) || files[0] || null, [files, selectedFileId]);
   const filteredFiles = useMemo(() => files.filter((f) => `${f.name} ${f.author}`.toLowerCase().includes(search.toLowerCase())), [files, search]);
@@ -752,6 +754,28 @@ function ResearchNoteWorkspace({ id, mode }) {
     }
   }
 
+
+  function createFormattedResearchNote() {
+    if (!selectedFile) {
+      setError('연구노트로 만들 파일을 먼저 선택해주세요.');
+      return;
+    }
+    setError('');
+    if (outputFormat === 'pdf') {
+      window.location.href = `/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`;
+      return;
+    }
+    if (outputFormat === 'viewer') {
+      nav(`/research-notes/${id}/viewer?file=${selectedFile.id}`);
+      return;
+    }
+    if (outputFormat === 'printable') {
+      nav(`/research-notes/${id}/printable?file=${selectedFile.id}`);
+      return;
+    }
+    nav(`/research-notes/${id}/cover?file=${selectedFile.id}`);
+  }
+
   async function uploadFiles(fileList) {
     const filesToUpload = Array.from(fileList || []);
     if (filesToUpload.length === 0) return;
@@ -808,6 +832,13 @@ function ResearchNoteWorkspace({ id, mode }) {
               </button>
             )}
             {selectedFile && <a className="pn-side-list" href={`/api/v1/research-notes/${id}/viewer-export-pdf?file=${selectedFile.id}`}>연구노트 다운로드</a>}
+            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
+              <option value="pdf">표준 PDF</option>
+              <option value="viewer">뷰어 포맷</option>
+              <option value="printable">출력 포맷</option>
+              <option value="cover">표지 포맷</option>
+            </select>
+            <button type="button" onClick={createFormattedResearchNote}>연구노트 만들기</button>
           </div>
         </div>
         <table className="pn-table" style={{ marginTop: 10 }}><tbody>
@@ -864,7 +895,7 @@ function ResearchNoteWorkspace({ id, mode }) {
           </div>
           <div className="pn-grid3" style={{ marginTop: 10 }}>
             {folders.slice(0, 6).map((folder) => (
-              <article className="pn-card" key={folder.id} style={{ margin: 0 }}>
+              <article className="pn-card pn-folder-card" key={folder.id} style={{ margin: 0 }}>
                 <div className="pn-sub">📁 폴더</div>
                 <strong>{folder.name}</strong>
                 <div className="pn-sub" style={{ marginTop: 8 }}>Update</div>
@@ -890,8 +921,8 @@ function ResearchNoteWorkspace({ id, mode }) {
             onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
             onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadFiles(e.dataTransfer.files); }}
           >
-            마우스로 드래그 해서 연구파일을 추가해주세요.
-            <div className="pn-sub" style={{ marginTop: 8 }}>추가 가능 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
+            마우스로 드래그해서 PDF/이미지 연구파일을 업로드해주세요.
+            <div className="pn-sub" style={{ marginTop: 8 }}>추가 가능 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC · 업로드 후 선택한 포맷으로 연구노트를 생성할 수 있습니다</div>
           </div>
 
           <div className="pn-inline" style={{ marginTop: 12, marginBottom: 8 }}>
