@@ -51,3 +51,16 @@ python manage.py runserver 0.0.0.0:8000
 - 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
 
 기존 HTML은 `apps/web/src/legacy/client`로 복사해 두어 `client/` 폴더를 제거해도 React 쪽 렌더링이 유지됩니다.
+
+### 레거시 Django HTML fallback on/off
+
+기본값은 **OFF** 입니다. (React 구현 페이지가 아니면 안내 화면 표시)
+
+- 설정 위치: `apps/web/.env.local`
+- 임시 활성화 값:
+
+```bash
+echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
+```
+
+- dev 서버 재시작 후 반영됩니다.

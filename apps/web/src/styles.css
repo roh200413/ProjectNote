@@ -33,3 +33,5 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 .pn-table { width:100%; border-collapse: collapse; background:#fff; border:1px solid #dbe2ed; }
 .pn-table th,.pn-table td { border-bottom:1px solid #eaecf0; text-align:left; padding:10px; vertical-align: top; }
 .pn-table td button { margin-right:6px; margin-bottom:6px; }
+
+.pn-page code { background:#eef2ff; padding:2px 6px; border-radius:6px; }
