@@ -12,7 +12,7 @@ export default function AdminLayout({ active, title, children }) {
     <section className="pn-page">
       <div className="pn-headline">
         <h1>{title}</h1>
-        <p className="pn-sub">ADMIN 콘솔 · React</p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><p className="pn-sub" style={{ margin: 0 }}>ADMIN 콘솔 · React</p><Link className="pn-side-list" to="/logout">로그아웃</Link></div>
       </div>
       <div className="pn-admin-grid">
         <aside className="pn-card">

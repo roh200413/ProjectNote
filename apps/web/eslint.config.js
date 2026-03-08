@@ -23,7 +23,8 @@ export default [
         fetch: 'readonly',
         URLSearchParams: 'readonly',
         FormData: 'readonly',
-        setTimeout: 'readonly'
+        setTimeout: 'readonly',
+        localStorage: 'readonly'
       }
     },
     plugins: {

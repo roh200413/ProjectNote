@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { formEncoded, getCookie } from '../utils/http';
+import { setRole } from '../utils/auth';
 
 export default function AdminLoginPage() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin1234');
   const [error, setError] = useState('');
@@ -16,6 +18,7 @@ export default function AdminLoginPage() {
     try {
       await fetch('/admin/login', { credentials: 'include' });
       const csrf = getCookie('csrftoken');
+      const nextUrl = searchParams.get('next') || '/admin/dashboard';
       const res = await fetch('/admin/login', {
         method: 'POST',
         credentials: 'include',
@@ -27,7 +30,8 @@ export default function AdminLoginPage() {
       });
 
       if (!res.ok) throw new Error(`로그인 실패 (${res.status})`);
-      nav('/admin/dashboard');
+      setRole('admin');
+      nav(nextUrl, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -39,7 +43,7 @@ export default function AdminLoginPage() {
     <main className="pn-auth-wrap">
       <form className="pn-auth-card" onSubmit={handleSubmit}>
         <h1>관리자 로그인 (React)</h1>
-        <p className="pn-sub">Django 세션 기반 로그인</p>
+        <p className="pn-sub">관리자 화면은 별도 로그인으로 진입합니다.</p>
         {error && <p className="pn-err">{error}</p>}
         <label>아이디</label>
         <input onChange={(e) => setUsername(e.target.value)} value={username} />

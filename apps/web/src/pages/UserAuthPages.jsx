@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
+import { setRole } from '../utils/auth';
 
 export function LoginPage() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin1234');
   const [error, setError] = useState('');
@@ -13,6 +15,7 @@ export function LoginPage() {
     setError('');
     try {
       await fetch('/login', { credentials: 'include' });
+      const nextUrl = searchParams.get('next') || '/';
       const res = await fetch('/login', {
         method: 'POST',
         credentials: 'include',
@@ -23,7 +26,8 @@ export function LoginPage() {
         body: formEncoded({ username, password, next: '/frontend/workflows' })
       });
       if (!res.ok) throw new Error(`로그인 실패 (${res.status})`);
-      nav('/');
+      setRole('user');
+      nav(nextUrl, { replace: true });
     } catch (err) {
       setError(err.message);
     }
@@ -32,7 +36,9 @@ export function LoginPage() {
   return (
     <main className="pn-auth-wrap">
       <form className="pn-auth-card" onSubmit={submit}>
-        <h1>로그인 (React)</h1>
+        <h1>일반 사용자 로그인 (React)</h1>
+        <p className="pn-sub">관리자 로그인은 별도 경로를 사용하세요.</p>
+        <Link className="pn-side-list" to="/auth/admin-login">관리자 로그인으로 이동</Link>
         {error && <p className="pn-err">{error}</p>}
         <label>아이디</label>
         <input value={username} onChange={(e) => setUsername(e.target.value)} />
