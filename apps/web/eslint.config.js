@@ -19,7 +19,10 @@ export default [
       },
       globals: {
         document: 'readonly',
-        window: 'readonly'
+        window: 'readonly',
+        fetch: 'readonly',
+        URLSearchParams: 'readonly',
+        FormData: 'readonly'
       }
     },
     plugins: {
