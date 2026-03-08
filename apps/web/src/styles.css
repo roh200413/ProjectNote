@@ -35,3 +35,12 @@ button { background:#175cd3; color:#fff; border-color:#175cd3; cursor:pointer; }
 .pn-table td button { margin-right:6px; margin-bottom:6px; }
 
 .pn-page code { background:#eef2ff; padding:2px 6px; border-radius:6px; }
+
+.pn-headline { margin-bottom: 12px; }
+.pn-headline h1 { margin: 0; }
+.pn-admin-grid { display:grid; grid-template-columns:260px 1fr; gap:12px; align-items:start; }
+.pn-side-menu { display:grid; gap:6px; }
+.pn-side-list { display:block; padding:10px 12px; border:1px solid #dbe2ed; border-radius:9px; color:#334155; text-decoration:none; font-size:14px; }
+.pn-side-list.active,.pn-side-list:hover { border-color:#b9ccff; background:#ecf2ff; color:#1d4ed8; font-weight:700; }
+.pn-danger { background:#b42318; border-color:#b42318; }
+@media (max-width: 1024px) { .pn-admin-grid { grid-template-columns: 1fr; } }

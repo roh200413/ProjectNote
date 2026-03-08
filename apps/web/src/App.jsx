@@ -19,6 +19,7 @@ export default function App() {
       <Route element={<AdminUsersPage />} path="/admin/users" />
       <Route element={<AdminTeamsPage />} path="/admin/teams" />
       <Route element={<AdminTablesPage />} path="/admin/tables" />
+      <Route element={<Navigate replace to="/admin/dashboard" />} path="/admin" />
 
       {routeCatalog
         .filter((item) => !reactRoutes.has(item.path))
