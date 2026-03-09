@@ -742,43 +742,6 @@ export function ProjectResearchNotesPage() {
         </table>
       </section>
 
-      <section className="pn-card">
-        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
-          <div className="pn-inline" style={{ margin: 0 }}>
-            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
-              <option value="viewer">뷰어 포맷</option>
-              <option value="printable">출력 포맷</option>
-              <option value="cover">표지 포맷</option>
-              <option value="pdf">표준 PDF</option>
-            </select>
-            <button type="button" onClick={() => openNoteByFormat(selectedNote?.id)} disabled={!selectedNote}>선택 노트 열기</button>
-          </div>
-        </div>
-
-        <div className="pn-grid2" style={{ marginBottom: 10 }}>
-          <div><label className="pn-sub">제목(선택)</label><input value={uploadMeta.title} onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))} placeholder="업로드 파일명으로 자동 생성" /></div>
-          <div><label className="pn-sub">작성자(선택)</label><input value={uploadMeta.author} onChange={(e) => setUploadMeta((prev) => ({ ...prev, author: e.target.value }))} placeholder="로그인 사용자" /></div>
-          <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">요약(선택)</label><input value={uploadMeta.summary} onChange={(e) => setUploadMeta((prev) => ({ ...prev, summary: e.target.value }))} placeholder="업로드 시 연구노트 요약에 반영" /></div>
-        </div>
-
-        <input id="projectNoteUploadInput" type="file" accept=".pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => uploadProjectNoteFiles(e.target.files)} />
-        <div
-          className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
-          onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadProjectNoteFiles(e.dataTransfer.files); }}
-        >
-          마우스로 드래그해서 연구파일(PDF/이미지)을 추가해주세요.
-          <div className="pn-sub" style={{ marginTop: 8 }}>지원 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
-          <div className="pn-inline" style={{ justifyContent: 'center', marginBottom: 0 }}>
-            <label className="pn-side-list" htmlFor="projectNoteUploadInput" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? .6 : 1 }}>
-              {uploading ? '업로드 중...' : '파일 선택 업로드'}
-            </label>
-          </div>
-        </div>
-      </section>
     </UserLayout>
   );
 }
