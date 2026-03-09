@@ -742,43 +742,6 @@ export function ProjectResearchNotesPage() {
         </table>
       </section>
 
-      <section className="pn-card">
-        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
-          <div className="pn-inline" style={{ margin: 0 }}>
-            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
-              <option value="viewer">뷰어 포맷</option>
-              <option value="printable">출력 포맷</option>
-              <option value="cover">표지 포맷</option>
-              <option value="pdf">표준 PDF</option>
-            </select>
-            <button type="button" onClick={() => openNoteByFormat(selectedNote?.id)} disabled={!selectedNote}>선택 노트 열기</button>
-          </div>
-        </div>
-
-        <div className="pn-grid2" style={{ marginBottom: 10 }}>
-          <div><label className="pn-sub">제목(선택)</label><input value={uploadMeta.title} onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))} placeholder="업로드 파일명으로 자동 생성" /></div>
-          <div><label className="pn-sub">작성자(선택)</label><input value={uploadMeta.author} onChange={(e) => setUploadMeta((prev) => ({ ...prev, author: e.target.value }))} placeholder="로그인 사용자" /></div>
-          <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">요약(선택)</label><input value={uploadMeta.summary} onChange={(e) => setUploadMeta((prev) => ({ ...prev, summary: e.target.value }))} placeholder="업로드 시 연구노트 요약에 반영" /></div>
-        </div>
-
-        <input id="projectNoteUploadInput" type="file" accept=".pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => uploadProjectNoteFiles(e.target.files)} />
-        <div
-          className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
-          onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadProjectNoteFiles(e.dataTransfer.files); }}
-        >
-          마우스로 드래그해서 연구파일(PDF/이미지)을 추가해주세요.
-          <div className="pn-sub" style={{ marginTop: 8 }}>지원 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
-          <div className="pn-inline" style={{ justifyContent: 'center', marginBottom: 0 }}>
-            <label className="pn-side-list" htmlFor="projectNoteUploadInput" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? .6 : 1 }}>
-              {uploading ? '업로드 중...' : '파일 선택 업로드'}
-            </label>
-          </div>
-        </div>
-      </section>
     </UserLayout>
   );
 }
@@ -788,6 +751,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [note, setNote] = useState(null);
   const [files, setFiles] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [viewerContext, setViewerContext] = useState(null);
   const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
@@ -815,6 +779,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         const list = Array.isArray(fileRows) ? fileRows : [];
         setNote(detail);
         setFiles(list);
+        setViewerContext(null);
         setSelectedIndex(0);
       } catch (e) {
         if (!canceled) setError(e.message);
@@ -829,6 +794,29 @@ function ResearchNoteWorkspace({ id, mode }) {
   const selectedFile = files[selectedIndex] || null;
   const canPrev = selectedIndex > 0;
   const canNext = selectedIndex < files.length - 1;
+  const isImageFormat = useMemo(() => {
+    const format = String(selectedFile?.format || '').toLowerCase();
+    return ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic', 'gif', 'bmp'].includes(format);
+  }, [selectedFile?.format]);
+
+
+  useEffect(() => {
+    let canceled = false;
+    async function loadViewerContext() {
+      if (!selectedFile?.id) {
+        setViewerContext(null);
+        return;
+      }
+      try {
+        const context = await apiFetch(`/api/v1/research-notes/${id}/viewer-context?file=${encodeURIComponent(selectedFile.id)}`);
+        if (!canceled) setViewerContext(context);
+      } catch (_e) {
+        if (!canceled) setViewerContext(null);
+      }
+    }
+    loadViewerContext();
+    return () => { canceled = true; };
+  }, [id, selectedFile?.id]);
 
   useEffect(() => {
     let canceled = false;
@@ -866,7 +854,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
           <div>
             <h3 style={{ marginBottom: 0 }}>{note?.title || `연구노트 #${id}`}</h3>
-            <p className="pn-sub" style={{ marginBottom: 0 }}>연구노트 뷰어</p>
+            <p className="pn-sub" style={{ marginBottom: 0 }}>A4 형태 연구노트</p>
           </div>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
@@ -876,19 +864,49 @@ function ResearchNoteWorkspace({ id, mode }) {
         </div>
       </section>
 
-      <section className="pn-card" style={{ marginTop: 12, padding: 12 }}>
-        <h4>연구노트 뷰어</h4>
+      <section className="pn-card" style={{ marginTop: 12 }}>
         {selectedFile ? (
-          <>
-            <div className="pn-inline" style={{ marginTop: 0 }}>
-              <a className="pn-side-list" href={selectedFile.content_url} rel="noreferrer" target="_blank">새 탭에서 열기</a>
-              {selectedFile.download_url && <a className="pn-side-list" href={selectedFile.download_url}>다운로드</a>}
-            </div>
-            {previewError && <p className="pn-sub">{previewError}</p>}
-            {previewUrl
-              ? <iframe src={previewUrl} style={{ width: '100%', minHeight: 620, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`preview-${selectedFile.id}`} />
-              : !previewError && <p className="pn-sub">미리보기를 준비중입니다...</p>}
-          </>
+          <div className="pn-note-paper-wrap">
+            <article className="pn-note-paper">
+              <header className="pn-note-paper-header">
+                <h4>{note?.title || selectedFile.name}</h4>
+              </header>
+
+              <main className="pn-note-paper-content">
+                {previewError && <p className="pn-sub">{previewError}</p>}
+                {previewUrl && isImageFormat && <img alt={selectedFile.name} className="pn-note-paper-image" src={previewUrl} />}
+                {previewUrl && !isImageFormat && <iframe src={previewUrl} style={{ width: '100%', minHeight: 720, border: 0 }} title={`preview-${selectedFile.id}`} />}
+                {!previewUrl && !previewError && <p className="pn-sub">미리보기를 준비중입니다...</p>}
+              </main>
+
+              <footer className="pn-note-paper-footer">
+                <div className="pn-note-paper-meta">
+                  <span className="pn-sub">작성자</span>
+                  <strong>{viewerContext?.file?.author || selectedFile.author || note?.owner || '-'}</strong>
+                  <span className="pn-sub">작성 일자</span>
+                  <strong>{viewerContext?.author_date || selectedFile.created || '-'}</strong>
+                </div>
+                <div>
+                  <span className="pn-sub">사인</span>
+                  {viewerContext?.author_signature_data_url
+                    ? <img alt="작성자 사인" className="pn-note-signature" src={viewerContext.author_signature_data_url} />
+                    : <span className="pn-sub">사인 없음</span>}
+                </div>
+                <div className="pn-note-paper-meta">
+                  <span className="pn-sub">점검자</span>
+                  <strong>{viewerContext?.manager_name || '-'}</strong>
+                  <span className="pn-sub">점검 일자</span>
+                  <strong>{viewerContext?.reviewer_date || '-'}</strong>
+                </div>
+                <div>
+                  <span className="pn-sub">점검자 사인</span>
+                  {viewerContext?.manager_signature_data_url
+                    ? <img alt="점검자 사인" className="pn-note-signature" src={viewerContext.manager_signature_data_url} />
+                    : <span className="pn-sub">사인 없음</span>}
+                </div>
+              </footer>
+            </article>
+          </div>
         ) : <p className="pn-sub">표시할 연구파일이 없습니다.</p>}
       </section>
     </UserLayout>
