@@ -9,11 +9,6 @@ import adminUsers from '../legacy/client/admin/users.html?raw';
 import adminNavList from '../legacy/client/admin/partials/nav_list.html?raw';
 import base from '../legacy/client/base.html?raw';
 import baseAdmin from '../legacy/client/base_admin.html?raw';
-import rnCover from '../legacy/client/research_notes/cover.html?raw';
-import rnDetail from '../legacy/client/research_notes/detail.html?raw';
-import rnList from '../legacy/client/research_notes/list.html?raw';
-import rnPrintable from '../legacy/client/research_notes/printable.html?raw';
-import rnViewer from '../legacy/client/research_notes/viewer.html?raw';
 import wfCollab from '../legacy/client/workflow/collaboration_integrations.html?raw';
 import wfFinalDownload from '../legacy/client/workflow/final_download.html?raw';
 import wfGithub from '../legacy/client/workflow/github_integrations.html?raw';
@@ -21,8 +16,6 @@ import wfHome from '../legacy/client/workflow/home.html?raw';
 import wfMyPage from '../legacy/client/workflow/my_page.html?raw';
 import wfProjectCreate from '../legacy/client/workflow/project_create.html?raw';
 import wfProjectDetail from '../legacy/client/workflow/project_detail.html?raw';
-import wfProjectNotes from '../legacy/client/workflow/project_research_notes.html?raw';
-import wfProjectNotesPrint from '../legacy/client/workflow/project_research_notes_print.html?raw';
 import wfProjectResearchers from '../legacy/client/workflow/project_researchers.html?raw';
 import wfProjects from '../legacy/client/workflow/projects.html?raw';
 import wfResearchers from '../legacy/client/workflow/researchers.html?raw';
@@ -39,11 +32,6 @@ export const templateSources = {
   'legacy/client/admin/users.html': adminUsers,
   'legacy/client/base.html': base,
   'legacy/client/base_admin.html': baseAdmin,
-  'legacy/client/research_notes/cover.html': rnCover,
-  'legacy/client/research_notes/detail.html': rnDetail,
-  'legacy/client/research_notes/list.html': rnList,
-  'legacy/client/research_notes/printable.html': rnPrintable,
-  'legacy/client/research_notes/viewer.html': rnViewer,
   'legacy/client/workflow/collaboration_integrations.html': wfCollab,
   'legacy/client/workflow/final_download.html': wfFinalDownload,
   'legacy/client/workflow/github_integrations.html': wfGithub,
@@ -51,8 +39,6 @@ export const templateSources = {
   'legacy/client/workflow/my_page.html': wfMyPage,
   'legacy/client/workflow/project_create.html': wfProjectCreate,
   'legacy/client/workflow/project_detail.html': wfProjectDetail,
-  'legacy/client/workflow/project_research_notes.html': wfProjectNotes,
-  'legacy/client/workflow/project_research_notes_print.html': wfProjectNotesPrint,
   'legacy/client/workflow/project_researchers.html': wfProjectResearchers,
   'legacy/client/workflow/projects.html': wfProjects,
   'legacy/client/workflow/researchers.html': wfResearchers,

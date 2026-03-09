@@ -5,9 +5,7 @@ import AdminTablesPage from './pages/AdminTablesPage';
 import AdminTeamsPage from './pages/AdminTeamsPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import { AdminRoute, UserRoute } from './components/RouteGuards';
-import LegacyTemplatePage from './pages/LegacyTemplatePage';
 import LogoutPage from './pages/LogoutPage';
-import NotImplementedPage from './pages/NotImplementedPage';
 import { LoginPage, SignupPage } from './pages/UserAuthPages';
 import {
   DataUpdatesPage,
@@ -26,18 +24,6 @@ import {
   ResearchNoteViewerPage,
   ResearchersPage
 } from './pages/UserGenericPages';
-import { routeCatalog } from './pages/routeCatalog';
-
-const legacyEnabled = import.meta.env.VITE_ENABLE_LEGACY_PAGES === 'true';
-const implementedRoutes = new Set([
-  '/', '/auth/login', '/auth/signup', '/logout',
-  '/projects', '/projects/create', '/projects/:id',
-  '/projects/:id/research-notes', '/projects/:id/research-notes/print',
-  '/researchers', '/projects/:id/researchers',
-  '/research-notes', '/research-notes/:id', '/research-notes/:id/viewer', '/research-notes/:id/cover', '/research-notes/:id/printable',
-  '/my-page', '/data-updates', '/integrations/github', '/signatures',
-  '/auth/admin-login', '/admin/dashboard', '/admin/users', '/admin/teams', '/admin/tables', '/admin'
-]);
 
 export default function App() {
   return (
@@ -71,16 +57,6 @@ export default function App() {
       <Route element={<AdminRoute><AdminTeamsPage /></AdminRoute>} path="/admin/teams" />
       <Route element={<AdminRoute><AdminTablesPage /></AdminRoute>} path="/admin/tables" />
       <Route element={<Navigate replace to="/admin/dashboard" />} path="/admin" />
-
-      {routeCatalog
-        .filter((item) => !implementedRoutes.has(item.path))
-        .map((item) => (
-          <Route
-            key={item.path}
-            element={legacyEnabled ? <LegacyTemplatePage source={item.source} /> : <NotImplementedPage legacyEnabled={legacyEnabled} path={item.path} />}
-            path={item.path}
-          />
-        ))}
 
       <Route element={<Navigate replace to="/auth/login" />} path="*" />
     </Routes>
