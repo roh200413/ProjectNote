@@ -13,7 +13,10 @@ export function AdminRoute({ children }) {
 export function UserRoute({ children }) {
   const location = useLocation();
   const role = getRole();
-  if (role !== 'user') {
+
+  // Storage/role hydration failure should not lock out user pages.
+  // Only force login when an explicit non-user role is known.
+  if (role && role !== 'user') {
     return <Navigate replace to={`/auth/login?next=${encodeURIComponent(location.pathname)}`} />;
   }
   return children;

@@ -35,17 +35,25 @@ export function LoginPage() {
 
   return (
     <main className="pn-auth-wrap">
-      <form className="pn-auth-card" onSubmit={submit}>
+      <form className="pn-auth-card" onSubmit={submit} style={{ position: 'relative' }}>
+        <Link
+          to="/auth/admin-login"
+          style={{ position: 'absolute', top: 12, right: 12, fontSize: 12, color: '#1d4ed8', textDecoration: 'none' }}
+        >
+          관리자 로그인
+        </Link>
         <h1>일반 사용자 로그인 (React)</h1>
-        <p className="pn-sub">관리자 로그인은 별도 경로를 사용하세요.</p>
-        <Link className="pn-side-list" to="/auth/admin-login">관리자 로그인으로 이동</Link>
-        <Link className="pn-side-list" to="/auth/signup">회원가입 하러가기</Link>
+        <p className="pn-sub">일반 사용자 계정으로 로그인하세요.</p>
         {error && <p className="pn-err">{error}</p>}
         <label>아이디</label>
         <input value={username} onChange={(e) => setUsername(e.target.value)} />
         <label>비밀번호</label>
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         <button type="submit">로그인</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 6 }}>
+          <Link to="/auth/signup" style={{ color: '#475467', textDecoration: 'none' }}>회원가입</Link>
+          <Link to="/auth/admin-login" style={{ color: '#475467', textDecoration: 'none' }}>관리자 로그인</Link>
+        </div>
       </form>
     </main>
   );
