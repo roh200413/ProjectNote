@@ -7,11 +7,20 @@ export function saveSelectedProject(project) {
     name: project.name || `프로젝트 #${project.id}`,
     code: project.code || '-'
   };
-  globalThis.sessionStorage?.setItem(STORAGE_KEY, JSON.stringify(payload));
+  try {
+    globalThis.sessionStorage?.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (_error) {
+    // ignore storage failures (private mode / blocked storage)
+  }
 }
 
 export function readSelectedProject() {
-  const raw = globalThis.sessionStorage?.getItem(STORAGE_KEY);
+  let raw = null;
+  try {
+    raw = globalThis.sessionStorage?.getItem(STORAGE_KEY);
+  } catch (_error) {
+    return null;
+  }
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -23,5 +32,9 @@ export function readSelectedProject() {
 }
 
 export function clearSelectedProject() {
-  globalThis.sessionStorage?.removeItem(STORAGE_KEY);
+  try {
+    globalThis.sessionStorage?.removeItem(STORAGE_KEY);
+  } catch (_error) {
+    // ignore storage failures
+  }
 }
