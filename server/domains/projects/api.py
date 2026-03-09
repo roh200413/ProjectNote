@@ -635,20 +635,24 @@ def project_upload_research_note_api(request, project_id: str):
     except Project.DoesNotExist:
         return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
 
-    upload = request.FILES.get("research_note_file")
-    if not upload:
+    uploads = request.FILES.getlist("research_note_file")
+    if not uploads:
+        single = request.FILES.get("research_note_file")
+        if single:
+            uploads = [single]
+    if not uploads:
         return JsonResponse({"message": "업로드할 파일이 없습니다."}, status=400)
 
-    safe_name = Path(upload.name).name
-    extension = Path(safe_name).suffix.lstrip(".").lower()
     allowed_extensions = {
         "jpeg", "jpg", "png", "svg", "tiff", "webp", "heif", "heic", "doc", "docx", "pptx", "ppt", "xls", "xlsx", "pdf"
     }
-    if extension not in allowed_extensions:
-        return JsonResponse({"message": "지원하지 않는 파일 형식입니다."}, status=400)
+    for upload in uploads:
+        ext = Path(Path(upload.name).name).suffix.lstrip(".").lower()
+        if ext not in allowed_extensions:
+            return JsonResponse({"message": "지원하지 않는 파일 형식입니다."}, status=400)
 
     owner_name = str(profile.get("name") or profile.get("username") or "미지정").strip() or "미지정"
-    title = str(request.POST.get("title", "")).strip() or safe_name
+    title = str(request.POST.get("title", "")).strip()
     summary = str(request.POST.get("summary", "")).strip()
     author = str(request.POST.get("author", owner_name)).strip() or owner_name
 
@@ -667,36 +671,91 @@ def project_upload_research_note_api(request, project_id: str):
     created_text = _display_datetime(request.POST.get("created_at"))
     updated_text = _display_datetime(request.POST.get("updated_at"))
 
-    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
+    note_title = title or Path(Path(uploads[0].name).name).name
     note = ResearchNote.objects.create(
         project=project,
-        title=title,
+        title=note_title,
         owner=owner_name,
         project_code=project.code,
         period=updated_text,
-        files=1,
+        files=0,
         members=1,
         summary=summary,
     )
 
     username = str(profile.get("username") or "anonymous").strip() or "anonymous"
+    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
     note_folder = storage_root / username / str(note.id)
     note_folder.mkdir(parents=True, exist_ok=True)
-    target_path = note_folder / safe_name
-    with target_path.open("wb") as destination:
-        for chunk in upload.chunks():
-            destination.write(chunk)
-
-    ResearchNoteFile.objects.create(
-        note=note,
-        name=safe_name,
-        author=author,
-        format=extension,
-        created=created_text,
-    )
     ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
 
-    return JsonResponse({"message": "연구파일이 등록되었습니다.", "note_id": str(note.id)}, status=201)
+    created_count = 0
+    for upload in uploads:
+        safe_name = Path(upload.name).name
+        stem = Path(safe_name).stem
+        extension = Path(safe_name).suffix.lstrip(".").lower()
+
+        if extension == "pdf":
+            pdf_bytes = upload.read()
+            split_success = False
+            try:
+                reader = PdfReader(BytesIO(pdf_bytes))
+                for page_index, page in enumerate(reader.pages, start=1):
+                    page_name = f"{stem}_p{page_index:03d}.pdf"
+                    page_path = note_folder / page_name
+                    writer = PdfWriter()
+                    writer.add_page(page)
+                    with page_path.open("wb") as destination:
+                        writer.write(destination)
+                    ResearchNoteFile.objects.create(
+                        note=note,
+                        name=page_name,
+                        author=author,
+                        format="pdf",
+                        created=created_text,
+                    )
+                    created_count += 1
+                split_success = len(reader.pages) > 0
+            except Exception:
+                split_success = False
+
+            if split_success:
+                continue
+
+            fallback_path = note_folder / safe_name
+            with fallback_path.open("wb") as destination:
+                destination.write(pdf_bytes)
+            ResearchNoteFile.objects.create(
+                note=note,
+                name=safe_name,
+                author=author,
+                format=extension,
+                created=created_text,
+            )
+            created_count += 1
+            continue
+
+        target_path = note_folder / safe_name
+        with target_path.open("wb") as destination:
+            for chunk in upload.chunks():
+                destination.write(chunk)
+        ResearchNoteFile.objects.create(
+            note=note,
+            name=safe_name,
+            author=author,
+            format=extension,
+            created=created_text,
+        )
+        created_count += 1
+
+    note.files = created_count
+    note.save(update_fields=["files", "period", "summary", "updated_at", "last_updated_at"])
+
+    return JsonResponse({
+        "message": "연구파일이 등록되었습니다.",
+        "note_id": str(note.id),
+        "created_files": created_count,
+    }, status=201)
 
 
 @require_GET
