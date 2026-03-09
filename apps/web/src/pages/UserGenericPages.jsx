@@ -751,7 +751,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [note, setNote] = useState(null);
   const [files, setFiles] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [signature, setSignature] = useState(null);
+  const [viewerContext, setViewerContext] = useState(null);
   const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
@@ -780,7 +780,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         const list = Array.isArray(fileRows) ? fileRows : [];
         setNote(detail);
         setFiles(list);
-        setSignature(sign);
+        setViewerContext(null);
         setSelectedIndex(0);
       } catch (e) {
         if (!canceled) setError(e.message);
@@ -799,6 +799,25 @@ function ResearchNoteWorkspace({ id, mode }) {
     const format = String(selectedFile?.format || '').toLowerCase();
     return ['jpeg', 'jpg', 'png', 'svg', 'tiff', 'webp', 'heif', 'heic', 'gif', 'bmp'].includes(format);
   }, [selectedFile?.format]);
+
+
+  useEffect(() => {
+    let canceled = false;
+    async function loadViewerContext() {
+      if (!selectedFile?.id) {
+        setViewerContext(null);
+        return;
+      }
+      try {
+        const context = await apiFetch(`/api/v1/research-notes/${id}/viewer-context?file=${encodeURIComponent(selectedFile.id)}`);
+        if (!canceled) setViewerContext(context);
+      } catch (_e) {
+        if (!canceled) setViewerContext(null);
+      }
+    }
+    loadViewerContext();
+    return () => { canceled = true; };
+  }, [id, selectedFile?.id]);
 
   useEffect(() => {
     let canceled = false;
@@ -862,19 +881,29 @@ function ResearchNoteWorkspace({ id, mode }) {
               </main>
 
               <footer className="pn-note-paper-footer">
-                <div>
+                <div className="pn-note-paper-meta">
                   <span className="pn-sub">작성자</span>
-                  <strong>{selectedFile.author || note?.owner || '-'}</strong>
+                  <strong>{viewerContext?.file?.author || selectedFile.author || note?.owner || '-'}</strong>
+                  <span className="pn-sub">작성 일자</span>
+                  <strong>{viewerContext?.author_date || selectedFile.created || '-'}</strong>
                 </div>
                 <div>
                   <span className="pn-sub">사인</span>
-                  {signature?.signature_data_url
-                    ? <img alt="사인" className="pn-note-signature" src={signature.signature_data_url} />
+                  {viewerContext?.author_signature_data_url
+                    ? <img alt="작성자 사인" className="pn-note-signature" src={viewerContext.author_signature_data_url} />
                     : <span className="pn-sub">사인 없음</span>}
                 </div>
+                <div className="pn-note-paper-meta">
+                  <span className="pn-sub">점검자</span>
+                  <strong>{viewerContext?.manager_name || '-'}</strong>
+                  <span className="pn-sub">점검 일자</span>
+                  <strong>{viewerContext?.reviewer_date || '-'}</strong>
+                </div>
                 <div>
-                  <span className="pn-sub">작성 일자</span>
-                  <strong>{selectedFile.created || '-'}</strong>
+                  <span className="pn-sub">점검자 사인</span>
+                  {viewerContext?.manager_signature_data_url
+                    ? <img alt="점검자 사인" className="pn-note-signature" src={viewerContext.manager_signature_data_url} />
+                    : <span className="pn-sub">사인 없음</span>}
                 </div>
               </footer>
             </article>
