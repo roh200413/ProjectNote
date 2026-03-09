@@ -70,7 +70,6 @@ urlpatterns = [
     path("frontend/research-notes/<str:note_id>", research_notes_api.research_note_detail_page),
     path("frontend/research-notes/<str:note_id>/cover", research_notes_api.research_note_cover_page),
     path("frontend/research-notes/<str:note_id>/viewer", research_notes_api.research_note_viewer_page),
-    path("frontend/research-notes/<str:note_id>/cover", research_notes_api.research_note_cover_page),
     path("frontend/research-notes/<str:note_id>/printable", research_notes_api.research_note_printable_page),
     path("frontend/research-notes/<str:note_id>/files/<str:file_id>/content", research_notes_api.research_note_file_content_page),
 ]
