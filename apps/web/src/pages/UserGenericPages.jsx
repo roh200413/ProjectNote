@@ -711,7 +711,7 @@ export function ProjectResearchNotesPage() {
       await load();
       if (latestNoteId) {
         setSelectedNoteId(String(latestNoteId));
-        nav(`/research-notes/${latestNoteId}`);
+        nav(`/research-notes/${latestNoteId}/viewer`);
       }
     } catch (e) {
       setError(e.message);
@@ -724,7 +724,45 @@ export function ProjectResearchNotesPage() {
     <UserLayout title="연구노트 관리">
       <section className="pn-card">
         <h3>{project?.name || `프로젝트 #${id}`}</h3>
-        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 연구노트 목록입니다. 편집은 노트를 클릭해 상세 화면에서 진행하세요.</p>
+        <p className="pn-sub" style={{ margin: 0 }}>프로젝트 연구노트 목록입니다. 노트를 클릭하면 PDF 편집기로 이동합니다.</p>
+      </section>
+
+      <section className="pn-card">
+        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
+          <div className="pn-inline" style={{ margin: 0 }}>
+            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
+              <option value="viewer">뷰어 포맷</option>
+              <option value="printable">출력 포맷</option>
+              <option value="cover">표지 포맷</option>
+              <option value="pdf">표준 PDF</option>
+            </select>
+            <button type="button" onClick={() => openNoteByFormat(selectedNote?.id)} disabled={!selectedNote}>선택 노트 열기</button>
+          </div>
+        </div>
+
+        <div className="pn-grid2" style={{ marginBottom: 10 }}>
+          <div><label className="pn-sub">제목(선택)</label><input value={uploadMeta.title} onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))} placeholder="업로드 파일명으로 자동 생성" /></div>
+          <div><label className="pn-sub">작성자(선택)</label><input value={uploadMeta.author} onChange={(e) => setUploadMeta((prev) => ({ ...prev, author: e.target.value }))} placeholder="로그인 사용자" /></div>
+          <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">요약(선택)</label><input value={uploadMeta.summary} onChange={(e) => setUploadMeta((prev) => ({ ...prev, summary: e.target.value }))} placeholder="업로드 시 연구노트 요약에 반영" /></div>
+        </div>
+
+        <input id="projectNoteUploadInput" type="file" accept=".pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => uploadProjectNoteFiles(e.target.files)} />
+        <div
+          className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
+          onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
+          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+          onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadProjectNoteFiles(e.dataTransfer.files); }}
+        >
+          마우스로 드래그해서 연구파일(PDF/이미지)을 추가해주세요.
+          <div className="pn-sub" style={{ marginTop: 8 }}>지원 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
+          <div className="pn-inline" style={{ justifyContent: 'center', marginBottom: 0 }}>
+            <label className="pn-side-list" htmlFor="projectNoteUploadInput" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? .6 : 1 }}>
+              {uploading ? '업로드 중...' : '파일 선택 업로드'}
+            </label>
+          </div>
+        </div>
       </section>
 
       <section className="pn-card">
@@ -736,7 +774,9 @@ export function ProjectResearchNotesPage() {
           <tbody>
             {rows.map((n) => (
               <tr key={n.id} style={{ background: String(selectedNote?.id) === String(n.id) ? '#eff6ff' : undefined }}>
-                <td><Link className="pn-link" to={`/research-notes/${n.id}`}>{n.title}</Link></td>
+                <td>
+                  <Link className="pn-link" onClick={() => setSelectedNoteId(String(n.id))} to={`/research-notes/${n.id}/viewer`}>{n.title}</Link>
+                </td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
                 <td>{n.period}</td>
@@ -744,12 +784,12 @@ export function ProjectResearchNotesPage() {
                 <td>
                   <div className="pn-inline" style={{ margin: 0 }}>
                     <button className="pn-btn-secondary" onClick={() => setSelectedNoteId(String(n.id))} type="button">선택</button>
-                    <button type="button" onClick={() => openNoteByFormat(n.id)}>열기</button>
+                    <button type="button" onClick={() => nav(`/research-notes/${n.id}/viewer`)}>PDF 편집기</button>
                   </div>
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 아래 업로드로 생성하세요.</td></tr>}
+            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 위 업로드로 생성하세요.</td></tr>}
           </tbody>
         </table>
       </section>
