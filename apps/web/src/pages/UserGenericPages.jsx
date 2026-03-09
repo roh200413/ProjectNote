@@ -771,9 +771,10 @@ function ResearchNoteWorkspace({ id, mode }) {
       setLoading(true);
       setError('');
       try {
-        const [detail, fileRows] = await Promise.all([
+        const [detail, fileRows, sign] = await Promise.all([
           apiFetch(`/api/v1/research-notes/${id}`),
-          apiFetch(`/api/v1/research-notes/${id}/files`)
+          apiFetch(`/api/v1/research-notes/${id}/files`),
+          apiFetch('/api/v1/signatures').catch(() => null)
         ]);
         if (canceled) return;
         const list = Array.isArray(fileRows) ? fileRows : [];
