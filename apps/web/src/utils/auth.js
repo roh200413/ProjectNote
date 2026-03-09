@@ -9,6 +9,14 @@ function readRoleFromStorage() {
   }
 }
 
+export function hasAuthSession() {
+  try {
+    return String(globalThis.document?.cookie || '').includes('sessionid=');
+  } catch (_error) {
+    return false;
+  }
+}
+
 export function getRole() {
   return readRoleFromStorage() || memoryRole;
 }

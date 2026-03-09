@@ -789,6 +789,8 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [files, setFiles] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [error, setError] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewError, setPreviewError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const modeTitle = mode === 'viewer'
@@ -828,6 +830,33 @@ function ResearchNoteWorkspace({ id, mode }) {
   const canPrev = selectedIndex > 0;
   const canNext = selectedIndex < files.length - 1;
 
+  useEffect(() => {
+    let canceled = false;
+    let objectUrl = '';
+
+    async function loadPreview() {
+      setPreviewError('');
+      setPreviewUrl('');
+      if (!selectedFile?.content_url) return;
+      try {
+        const res = await fetch(selectedFile.content_url, { credentials: 'include' });
+        if (!res.ok) throw new Error(`미리보기 로드 실패 (${res.status})`);
+        const blob = await res.blob();
+        if (canceled) return;
+        objectUrl = window.URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      } catch (_e) {
+        if (!canceled) setPreviewError('브라우저 미리보기를 불러오지 못했습니다. 새 탭에서 열어주세요.');
+      }
+    }
+
+    loadPreview();
+    return () => {
+      canceled = true;
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedFile?.id, selectedFile?.content_url]);
+
   return (
     <UserLayout title={modeTitle}>
       <Loading loading={loading} />
@@ -849,9 +878,18 @@ function ResearchNoteWorkspace({ id, mode }) {
 
       <section className="pn-card" style={{ marginTop: 12, padding: 12 }}>
         <h4>연구노트 뷰어</h4>
-        {selectedFile
-          ? <iframe src={selectedFile.content_url} style={{ width: '100%', minHeight: 620, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`preview-${selectedFile.id}`} />
-          : <p className="pn-sub">표시할 연구파일이 없습니다.</p>}
+        {selectedFile ? (
+          <>
+            <div className="pn-inline" style={{ marginTop: 0 }}>
+              <a className="pn-side-list" href={selectedFile.content_url} rel="noreferrer" target="_blank">새 탭에서 열기</a>
+              {selectedFile.download_url && <a className="pn-side-list" href={selectedFile.download_url}>다운로드</a>}
+            </div>
+            {previewError && <p className="pn-sub">{previewError}</p>}
+            {previewUrl
+              ? <iframe src={previewUrl} style={{ width: '100%', minHeight: 620, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`preview-${selectedFile.id}`} />
+              : !previewError && <p className="pn-sub">미리보기를 준비중입니다...</p>}
+          </>
+        ) : <p className="pn-sub">표시할 연구파일이 없습니다.</p>}
       </section>
     </UserLayout>
   );
