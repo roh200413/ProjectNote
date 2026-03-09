@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+from io import BytesIO
 
 import pytest
 from pathlib import Path
@@ -13,6 +14,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import Client, override_settings
+from pypdf import PdfWriter
 
 
 django.setup()
@@ -1673,3 +1675,56 @@ def test_super_admin_can_approve_grant_and_expel_user() -> None:
     expel = admin_client.post("/api/v1/admin/users", {"action": "expel", "user_id": str(user.id)})
     assert expel.status_code == 200
     assert not UserAccount.objects.filter(id=user.id).exists()
+
+
+def test_project_research_note_upload_splits_pdf_pages() -> None:
+    reset_db()
+    team = Team.objects.create(name="업로드팀", description="업로드", join_code="898989")
+    UserAccount.objects.create(
+        username="project-uploader",
+        display_name="업로더",
+        email="project-uploader@example.com",
+        password="secret123",
+        role=UserAccount.Role.MEMBER,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(
+        name="업로드 프로젝트",
+        manager="업로더",
+        organization="업로드팀",
+        code="UP-001",
+        status="active",
+    )
+    project_user = UserAccount.objects.get(username="project-uploader")
+    ProjectMember.objects.create(project=project, user=project_user, role="member")
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=300, height=300)
+    writer.add_blank_page(width=300, height=300)
+    buffer = BytesIO()
+    writer.write(buffer)
+    pdf_bytes = buffer.getvalue()
+
+    local_client = Client()
+    assert local_client.post('/login', {'username': 'project-uploader', 'password': 'secret123'}).status_code == 302
+
+    upload = SimpleUploadedFile('multi-page.pdf', pdf_bytes, content_type='application/pdf')
+    response = local_client.post(
+        f'/api/v1/projects/{project.id}/research-notes/upload',
+        {'research_note_file': upload, 'title': '분할 테스트 노트'},
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    note_id = payload['note_id']
+    assert payload['created_files'] == 2
+
+    note = ResearchNote.objects.get(id=note_id)
+    assert note.files == 2
+    saved_files = list(ResearchNoteFile.objects.filter(note=note).order_by('id'))
+    assert len(saved_files) == 2
+    assert all(item.format == 'pdf' for item in saved_files)
+    assert saved_files[0].name.endswith('_p001.pdf')
+    assert saved_files[1].name.endswith('_p002.pdf')
+
