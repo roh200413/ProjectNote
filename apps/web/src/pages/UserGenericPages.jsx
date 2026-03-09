@@ -884,7 +884,7 @@ function ResearchNoteWorkspace({ id, mode }) {
                 <div className="pn-note-paper-meta">
                   <span className="pn-sub">작성자</span>
                   <strong>{viewerContext?.file?.author || selectedFile.author || note?.owner || '-'}</strong>
-                  <span className="pn-sub">작성 일자</span>
+                  <span className="pn-sub">작성일자</span>
                   <strong>{viewerContext?.author_date || selectedFile.created || '-'}</strong>
                 </div>
                 <div>
