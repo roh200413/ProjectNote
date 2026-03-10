@@ -12,7 +12,7 @@
     .btn.ghost { background:#fff; color:#1f2937; border:1px solid #cbd5e1; }
     .sheet-wrap { padding:16px; }
     .sheet { background:#fff; width:210mm; min-height:297mm; max-width:100%; margin:0 auto 16px; box-sizing:border-box; padding:12mm; border:1px solid #cbd5e1; border-radius:8px; display:flex; flex-direction:column; gap:10px; }
-    .title { border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin:0; }
+    .title { border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin:0; font-size:20px; font-weight:500; line-height:1.25; }
     .content { border:1px solid #e5e7eb; border-radius:8px; padding:8px; min-height:220mm; background:#fff; }
     .content iframe { width:100%; height:210mm; border:0; }
     .content img, .cover-content img { max-width:100%; max-height:210mm; object-fit:contain; display:block; margin:0 auto; }
@@ -27,7 +27,7 @@
     .split > div { padding:6px; }
     .split > div + div { border-top:1px solid #d1d5db; }
     .label { font-size:11px; color:#64748b; }
-    .value { display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; min-height:22px; }
+    .value { display:flex; align-items:center; justify-content:center; text-align:center; font-size:12px; min-height:20px; font-weight:400; }
     .sig { padding:6px; display:flex; flex-direction:column; gap:6px; }
     .sig img { height:12mm; }
     .empty { padding:24px; border:1px dashed #94a3b8; border-radius:10px; text-align:center; color:#64748b; }
@@ -43,19 +43,19 @@
 <body>
   <div class="tools">
     <a class="btn ghost" href="/frontend/projects/{{ project.id }}/research-notes">목록으로</a>
-    <a class="btn" href="/api/v1/projects/{{ project.id }}/research-notes/export-pdf">PDF 병합 출력</a>
-    <button class="btn ghost" type="button" onclick="window.print()">인쇄 / PDF 저장</button>
+    <button class="btn" type="button" onclick="window.print()">웹화면 그대로 인쇄/PDF 저장</button>
+    <button class="btn ghost" type="button" onclick="window.print()">인쇄 미리보기</button>
   </div>
 
   <div class="sheet-wrap">
     <section class="sheet">
-      <h3 class="title">표지</h3>
+      <h3 class="title">프로젝트 정보</h3>
       <div class="cover-content">
         {% if cover_data.cover_image_data_url %}
           {% if 'data:application/pdf' in cover_data.cover_image_data_url %}
             <embed src="{{ cover_data.cover_image_data_url }}" type="application/pdf" style="width:100%;height:230mm;border:none" />
           {% else %}
-            <img src="{{ cover_data.cover_image_data_url }}" alt="표지 이미지" style="max-height:230mm" />
+            <img src="{{ cover_data.cover_image_data_url }}" alt="프로젝트 이미지" style="max-height:230mm" />
           {% endif %}
         {% else %}
           <div style="text-align:center;color:#2563eb;font-size:18px;font-weight:700">Electronic Lab Notebook</div>
@@ -108,7 +108,7 @@
               <div class="value">{{ file.author|default:'-' }}</div>
             </div>
             <div>
-              <div class="label">작성 일자</div>
+              <div class="label">작성일자</div>
               <div class="value">{{ file.created|default:'-' }}</div>
             </div>
           </div>

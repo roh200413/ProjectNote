@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { apiFetch } from '../utils/http';
-import { clearSelectedProject, readSelectedProject, saveSelectedProject } from '../utils/projectContext';
+import { readSelectedProject, saveSelectedProject } from '../utils/projectContext';
 
 const nav = [
   ['/', '🏠', '대시보드'],
@@ -76,7 +76,6 @@ export default function UserLayout({ title, children }) {
               <span aria-hidden="true">{projectMenuOpen ? '▾' : '▸'}</span>
             </button>
             <div className="pn-project-context-name">{activeProject.name}</div>
-            <div className="pn-sub" style={{ margin: 0 }}>코드: {activeProject.code || '-'}</div>
             {projectMenuOpen && (
               <div className="pn-project-context-menu">
                 <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}` ? 'active' : ''}`} to={`/projects/${activeProject.id}`}>
@@ -88,9 +87,6 @@ export default function UserLayout({ title, children }) {
                 <Link className={`pn-side-list ${location.pathname === `/projects/${activeProject.id}/researchers` ? 'active' : ''}`} to={`/projects/${activeProject.id}/researchers`}>
                   참여 연구원 관리
                 </Link>
-                <button className="pn-side-list-btn" onClick={() => { clearSelectedProject(); setActiveProject(null); }} type="button">
-                  프로젝트 메뉴 닫기
-                </button>
               </div>
             )}
           </section>
