@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/v1/research-notes/<str:note_id>", api.research_note_detail_api),
     path("api/v1/research-notes/<str:note_id>/update", api.research_note_update_api),
     path("api/v1/research-notes/<str:note_id>/files", research_notes_api.research_note_files_api),
+    path("api/v1/research-notes/<str:note_id>/viewer-context", research_notes_api.research_note_viewer_context_api),
     path("api/v1/research-notes/<str:note_id>/folders", research_notes_api.research_note_folders_api),
     path("api/v1/research-notes/<str:note_id>/files/upload", research_notes_api.research_note_file_upload_api),
     path("api/v1/research-notes/<str:note_id>/viewer-export-pdf", research_notes_api.research_note_viewer_export_pdf_api),
