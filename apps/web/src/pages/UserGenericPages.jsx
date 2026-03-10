@@ -918,43 +918,142 @@ export function ProjectResearchNotesPrintPage() {
 }
 function ResearchNoteWorkspace({ id, mode }) {
   const nav = useNavigate();
+  const [ctx, setCtx] = useState(null);
+  const [selectedFileId, setSelectedFileId] = useState('');
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [created, setCreated] = useState('');
+  const [summary, setSummary] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
 
-  const modeTitle = mode === 'viewer'
-    ? '연구노트 뷰어'
-    : mode === 'cover'
-      ? '연구노트 표지'
-      : mode === 'printable'
-        ? '연구노트 출력'
-        : '연구노트 상세';
+  const modeTitle = mode === 'viewer' ? '연구노트 뷰어' : mode === 'cover' ? '연구노트 표지' : mode === 'printable' ? '연구노트 출력' : '연구노트 상세';
 
-  const modulePath = mode === 'viewer'
-    ? `/frontend/research-notes/${id}/viewer`
-    : mode === 'cover'
-      ? `/frontend/research-notes/${id}/cover`
-      : mode === 'printable'
-        ? `/frontend/research-notes/${id}/printable`
-        : `/frontend/research-notes/${id}`;
+  const load = useCallback(async (fileId = '') => {
+    setLoading(true);
+    setError('');
+    try {
+      const query = fileId ? `?file=${encodeURIComponent(fileId)}` : '';
+      const res = await apiFetch(`/api/v1/research-notes/${id}/viewer-context${query}`);
+      setCtx(res);
+      const selected = res?.selected_file?.id ? String(res.selected_file.id) : '';
+      setSelectedFileId(selected);
+      setTitle(res?.note?.title || '');
+      setSummary(res?.note?.summary || '');
+      setAuthor(res?.file?.author || '');
+      setCreated(res?.file?.created || '');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function saveMeta() {
+    if (!ctx?.note?.id || !ctx?.file?.id) return;
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      await Promise.all([
+        apiFetch(`/api/v1/research-notes/${ctx.note.id}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+          body: formEncoded({ title, summary })
+        }),
+        apiFetch(`/api/v1/research-notes/${ctx.note.id}/files/${ctx.file.id}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+          body: formEncoded({ author, created })
+        })
+      ]);
+      setMsg('저장되었습니다.');
+      await load(String(ctx.file.id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const file = ctx?.file;
+  const fileFmt = String(file?.format || '').toLowerCase();
+  const isPdf = fileFmt === 'pdf';
+  const isImage = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'heic', 'heif'].includes(fileFmt);
 
   return (
     <UserLayout title={modeTitle}>
       <section className="pn-card">
         <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
-          <div>
-            <h3 style={{ marginBottom: 0 }}>{modeTitle}</h3>
-            <p className="pn-sub" style={{ marginBottom: 0 }}>기존 표지/연구노트 모듈 화면을 그대로 사용합니다.</p>
-          </div>
+          <h3 style={{ margin: 0 }}>{modeTitle}</h3>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
+            {ctx?.note?.id && file?.id && <button onClick={() => window.open(`/api/v1/research-notes/${ctx.note.id}/viewer-export-pdf?file=${file.id}`, '_self')} type="button">PDF 저장</button>}
+            {mode === 'printable' && <button onClick={() => window.print()} type="button">인쇄</button>}
           </div>
         </div>
       </section>
 
-      <section className="pn-card" style={{ marginTop: 12, padding: 0, overflow: 'hidden' }}>
-        <iframe
-          src={modulePath}
-          style={{ width: '100%', minHeight: 'calc(100vh - 230px)', border: 0, background: '#fff' }}
-          title={`research-note-module-${mode}-${id}`}
-        />
+      <section className="pn-card" style={{ marginTop: 12 }}>
+        <Loading loading={loading} />
+        <ApiError error={error} />
+        {msg && <p className="pn-sub">{msg}</p>}
+
+        {!loading && ctx && (
+          <>
+            {mode !== 'cover' && (
+              <div className="pn-inline" style={{ justifyContent: 'space-between' }}>
+                <select onChange={(e) => load(e.target.value)} value={selectedFileId || ''}>
+                  {(ctx.files || []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+                {ctx?.selected_file_url && <a className="pn-side-list" href={`${ctx.selected_file_url}?download=1`}>원본 다운로드</a>}
+              </div>
+            )}
+
+            {mode === 'cover' && (
+              <table className="pn-table">
+                <tbody>
+                  <tr><th>제목</th><td>{ctx?.note?.title || '-'}</td></tr>
+                  <tr><th>프로젝트 코드</th><td>{ctx?.note?.project_code || '-'}</td></tr>
+                  <tr><th>기간</th><td>{ctx?.note?.period || '-'}</td></tr>
+                  <tr><th>작성자</th><td>{ctx?.file?.author || '-'}</td></tr>
+                </tbody>
+              </table>
+            )}
+
+            {mode !== 'cover' && (
+              <div className="pn-grid" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : '1fr 340px', marginTop: 10 }}>
+                <article className="pn-card" style={{ margin: 0 }}>
+                  <h3 style={{ marginTop: 0 }}>{ctx?.note?.title || '-'}</h3>
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 360 }}>
+                    {isPdf && <iframe src={`${ctx.selected_file_url}#page=1`} style={{ width: '100%', minHeight: 500, border: 0 }} title={String(file?.id || 'file')} />}
+                    {isImage && <img src={ctx.selected_file_url} alt={file?.name || 'note-file'} style={{ width: '100%', maxHeight: 620, objectFit: 'contain' }} />}
+                    {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
+                  </div>
+                </article>
+
+                {mode !== 'printable' && (
+                  <article className="pn-card" style={{ margin: 0 }}>
+                    <h3 style={{ marginTop: 0 }}>연구노트 정보 편집</h3>
+                    <div className="pn-grid" style={{ gap: 8 }}>
+                      <div><label className="pn-sub">제목</label><input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+                      <div><label className="pn-sub">작성자</label><input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
+                      <div><label className="pn-sub">작성일</label><input value={created} onChange={(e) => setCreated(e.target.value)} /></div>
+                      <div><label className="pn-sub">메모</label><textarea rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} /></div>
+                      <button disabled={saving} onClick={saveMeta} type="button">{saving ? '저장 중...' : '저장'}</button>
+                    </div>
+                  </article>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </section>
     </UserLayout>
   );
