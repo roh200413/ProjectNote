@@ -227,7 +227,7 @@ export function ProjectDetailPage() {
     const asDataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(new Error('표지 파일을 읽지 못했습니다.'));
+      reader.onerror = () => reject(new Error('커버 파일을 읽지 못했습니다.'));
       reader.readAsDataURL(file);
     });
     setCoverForm((prev) => ({ ...(prev || {}), cover_image_data_url: asDataUrl }));
@@ -243,7 +243,7 @@ export function ProjectDetailPage() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
         body: formEncoded(coverForm || {})
       });
-      setCoverMsg(response?.message || '표지 설정을 저장했습니다.');
+      setCoverMsg(response?.message || '커버 설정을 저장했습니다.');
     } catch (e2) {
       setError(e2.message);
     }
@@ -276,7 +276,7 @@ export function ProjectDetailPage() {
               <tr><th>기간</th><td>{project.start_date || '-'} ~ {project.end_date || '-'}</td></tr>
             </tbody></table>
             <div className="pn-inline" style={{ justifyContent: 'flex-end' }}>
-              <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">표지 PDF 출력</button>
+              <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">PDF 출력</button>
               <button onClick={() => setEditing(true)} type="button">수정하기</button>
             </div>
           </>
@@ -303,7 +303,7 @@ export function ProjectDetailPage() {
       {project && coverForm && (
         <section className="pn-card">
           <details open>
-            <summary>표지 설정</summary>
+            <summary>커버 설정</summary>
             {coverMsg && <p className="pn-sub">{coverMsg}</p>}
             <div className="pn-cover-layout">
               <form className="pn-grid2" onSubmit={saveCover}>
@@ -326,13 +326,13 @@ export function ProjectDetailPage() {
                   </div>
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="pn-sub">표지 원본 업로드 (이미지/PDF)</label>
+                  <label className="pn-sub">커버 원본 업로드 (이미지/PDF)</label>
                   <input type="file" accept="image/*,application/pdf" onChange={onCoverFileChange} />
                   {hasPdfAsset && <p className="pn-sub" style={{ marginTop: 6 }}>PDF 원본이 업로드되어 있습니다. 미리보기는 PDF 출력에서 확인할 수 있습니다.</p>}
                 </div>
                 <div className="pn-inline" style={{ gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
-                  <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">표지 PDF 출력</button>
-                  <button type="submit">표지 저장</button>
+                  <button className="pn-btn-secondary" onClick={printCoverPdf} type="button">PDF 출력</button>
+                  <button type="submit">커버 저장</button>
                 </div>
               </form>
 
@@ -866,7 +866,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const modeTitle = mode === 'viewer'
     ? '연구노트 뷰어'
     : mode === 'cover'
-      ? '연구노트 표지'
+      ? '연구노트 커버'
       : mode === 'printable'
         ? '연구노트 출력'
         : '연구노트 상세';
@@ -885,7 +885,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
           <div>
             <h3 style={{ marginBottom: 0 }}>{modeTitle}</h3>
-            <p className="pn-sub" style={{ marginBottom: 0 }}>기존 표지/연구노트 모듈 화면을 그대로 사용합니다.</p>
+            <p className="pn-sub" style={{ marginBottom: 0 }}>기존 커버/연구노트 모듈 화면을 그대로 사용합니다.</p>
           </div>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
