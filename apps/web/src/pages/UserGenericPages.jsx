@@ -624,6 +624,7 @@ export function ProjectResearchNotesPage() {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+  const [selectModalOpen, setSelectModalOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const load = useCallback(async () => {
@@ -648,6 +649,13 @@ export function ProjectResearchNotesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setSelectedNoteIds((prev) => {
+      const valid = new Set(rows.map((n) => String(n.id)));
+      return prev.filter((idValue) => valid.has(idValue));
+    });
+  }, [rows]);
 
   async function uploadProjectNoteFiles(fileList) {
     const files = Array.from(fileList || []);
@@ -705,12 +713,23 @@ export function ProjectResearchNotesPage() {
     setSelectedNoteIds(rows.map((n) => String(n.id)));
   }
 
+  function openPrintSelector() {
+    if (rows.length === 0) {
+      setMsg('출력할 연구노트가 없습니다.');
+      return;
+    }
+    setError('');
+    setMsg('');
+    setSelectedNoteIds(rows.map((n) => String(n.id)));
+    setSelectModalOpen(true);
+  }
+
   async function exportSelectedNotesWithCover() {
     setError('');
     setMsg('');
-    const targetNoteIds = selectedNoteIds.length ? selectedNoteIds : rows.map((n) => String(n.id));
+    const targetNoteIds = selectedNoteIds;
     if (targetNoteIds.length === 0) {
-      setMsg('출력할 연구노트가 없습니다.');
+      setError('최종 다운로드할 연구노트를 1개 이상 선택해주세요.');
       return;
     }
 
@@ -726,8 +745,13 @@ export function ProjectResearchNotesPage() {
       }
 
       const query = params.toString();
-      window.location.href = `/frontend/projects/${id}/research-notes/print${query ? `?${query}` : ''}`;
-      setMsg('선택 연구노트 출력 페이지로 이동합니다. 화면에서 인쇄/PDF 저장을 진행하세요.');
+      if (!query) {
+        setError('선택한 연구노트에 다운로드 가능한 파일이 없습니다.');
+        return;
+      }
+      window.location.href = `/api/v1/projects/${id}/research-notes/export-pdf?${query}`;
+      setMsg('선택한 연구노트 통합 PDF 다운로드를 시작합니다.');
+      setSelectModalOpen(false);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -773,15 +797,14 @@ export function ProjectResearchNotesPage() {
         <ApiError error={error} />
         {msg && <p className="pn-sub">{msg}</p>}
         <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0 }}>
-          <p className="pn-sub" style={{ margin: 0 }}>여러 연구노트를 선택해 표지+연구노트 통합 PDF로 출력할 수 있습니다.</p>
-          <button className="pn-btn-secondary" disabled={exportingPdf || rows.length === 0} onClick={exportSelectedNotesWithCover} type="button">{exportingPdf ? 'PDF 생성 중...' : '선택 연구노트 표지+출력'}</button>
+          <p className="pn-sub" style={{ margin: 0 }}>연구노트 출력하기를 누르면 출력할 노트를 선택한 뒤 최종 다운로드할 수 있습니다.</p>
+          <button className="pn-btn-secondary" disabled={exportingPdf || rows.length === 0} onClick={openPrintSelector} type="button">연구노트 출력하기</button>
         </div>
         <table className="pn-table">
-          <thead><tr><th style={{ width: 42 }}><input checked={rows.length > 0 && selectedNoteIds.length === rows.length} onChange={(e) => toggleAllNotes(e.target.checked)} type="checkbox" /></th><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
+          <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
           <tbody>
             {rows.map((n) => (
               <tr key={n.id}>
-                <td><input checked={selectedNoteIds.includes(String(n.id))} onChange={(e) => toggleNoteSelection(n.id, e.target.checked)} type="checkbox" /></td>
                 <td><Link className="pn-link" to={`/research-notes/${n.id}/viewer`}>{n.title}</Link></td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
@@ -790,10 +813,48 @@ export function ProjectResearchNotesPage() {
                 <td><button type="button" onClick={() => nav(`/research-notes/${n.id}/viewer`)}>PDF 편집기</button></td>
               </tr>
             ))}
-            {rows.length === 0 && !loading && <tr><td colSpan={7} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 위 업로드로 생성하세요.</td></tr>}
+            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 위 업로드로 생성하세요.</td></tr>}
           </tbody>
         </table>
       </section>
+
+      {selectModalOpen && (
+        <div className="pn-modal-backdrop" role="presentation">
+          <section aria-label="연구노트 선택" className="pn-modal-card">
+            <h3 style={{ marginTop: 0 }}>출력 연구노트 선택</h3>
+            <p className="pn-sub">최종 다운로드에 포함할 연구노트를 선택하세요.</p>
+            <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 8 }}>
+              <label style={{ fontSize: 14 }}>
+                <input
+                  checked={rows.length > 0 && selectedNoteIds.length === rows.length}
+                  onChange={(e) => toggleAllNotes(e.target.checked)}
+                  type="checkbox"
+                />
+                {' '}전체 선택
+              </label>
+              <span className="pn-sub" style={{ margin: 0 }}>선택 {selectedNoteIds.length} / {rows.length}</span>
+            </div>
+
+            <div className="pn-modal-list">
+              {rows.map((n) => (
+                <label className="pn-modal-list-item" key={n.id}>
+                  <input
+                    checked={selectedNoteIds.includes(String(n.id))}
+                    onChange={(e) => toggleNoteSelection(n.id, e.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>{n.title}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="pn-inline" style={{ justifyContent: 'flex-end', marginBottom: 0 }}>
+              <button className="pn-btn-secondary" onClick={() => setSelectModalOpen(false)} type="button">취소</button>
+              <button disabled={exportingPdf} onClick={exportSelectedNotesWithCover} type="button">{exportingPdf ? '다운로드 준비 중...' : '최종 다운로드'}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
     </UserLayout>
   );
