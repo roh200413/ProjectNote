@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
 import { saveSelectedProject } from '../utils/projectContext';
@@ -726,7 +726,7 @@ export function ProjectResearchNotesPage() {
       }
 
       const query = params.toString();
-      window.location.href = `/frontend/projects/${id}/research-notes/print${query ? `?${query}` : ''}`;
+      nav(`/projects/${id}/research-notes/print${query ? `?${query}` : ''}`);
       setMsg('선택 연구노트 출력 페이지로 이동합니다. 화면에서 인쇄/PDF 저장을 진행하세요.');
     } catch (e) {
       setError(e.message);
@@ -798,7 +798,124 @@ export function ProjectResearchNotesPage() {
     </UserLayout>
   );
 }
-export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
+export function ProjectResearchNotesPrintPage() {
+  const { id } = useParams();
+  const location = useLocation();
+  const nav = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [project, setProject] = useState(null);
+  const [cover, setCover] = useState(null);
+  const [files, setFiles] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadPrintData() {
+      setLoading(true);
+      setError('');
+      try {
+        const [projectRow, coverRow, notesRows] = await Promise.all([
+          apiFetch(`/api/v1/projects/${id}`),
+          apiFetch(`/api/v1/projects/${id}/cover`),
+          apiFetch(`/api/v1/projects/${id}/research-notes`),
+        ]);
+
+        const rows = Array.isArray(notesRows) ? notesRows : [];
+        const params = new URLSearchParams(location.search);
+        const selectedSet = new Set(params.getAll('selected_file').map((v) => String(v)));
+        const hasSelection = selectedSet.size > 0;
+
+        const printFiles = [];
+        for (const note of rows) {
+          const noteId = String(note?.id || '');
+          if (!noteId) continue;
+          const fileRows = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
+          const noteFiles = Array.isArray(fileRows) ? fileRows : [];
+          for (const file of noteFiles) {
+            const key = `${noteId}:${file.id}`;
+            if (hasSelection && !selectedSet.has(key)) continue;
+            printFiles.push({ ...file, note_title: note.title || '연구노트' });
+          }
+        }
+
+        if (!alive) return;
+        setProject(projectRow || null);
+        setCover(coverRow || null);
+        setFiles(printFiles);
+      } catch (e) {
+        if (alive) setError(e.message);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    loadPrintData();
+    return () => { alive = false; };
+  }, [id, location.search]);
+
+  const periodText = [cover?.start_date || '', cover?.end_date || ''].filter(Boolean).join(' ~ ') || '-';
+  const coverImage = String(cover?.cover_image_data_url || '');
+  const isPdfCover = coverImage.startsWith('data:application/pdf');
+  const isImageCover = coverImage.startsWith('data:image/');
+
+  return (
+    <UserLayout title="프로젝트 연구노트 인쇄">
+      <section className="pn-card">
+        <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0 }}>
+          <p className="pn-sub" style={{ margin: 0 }}>페이지 내에서 선택한 연구노트로 인쇄/PDF 저장을 진행하세요.</p>
+          <div className="pn-inline" style={{ margin: 0 }}>
+            <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
+            <button onClick={() => window.print()} type="button">인쇄 / PDF 저장</button>
+          </div>
+        </div>
+      </section>
+
+      <section className="pn-card">
+        <Loading loading={loading} />
+        <ApiError error={error} />
+        {!loading && !error && (
+          <div style={{ display: 'grid', gap: 14 }}>
+            <article style={{ border: '1px solid #d1d5db', borderRadius: 10, padding: 14, background: '#fff' }}>
+              <h3 style={{ marginTop: 0 }}>프로젝트 정보</h3>
+              {isPdfCover && <embed src={coverImage} type="application/pdf" style={{ width: '100%', minHeight: 420, border: '1px solid #e5e7eb' }} />}
+              {isImageCover && <img alt="cover" src={coverImage} style={{ width: '100%', maxHeight: 420, objectFit: 'contain', border: '1px solid #e5e7eb' }} />}
+              {!isPdfCover && (
+                <table className="pn-table" style={{ marginTop: 10 }}>
+                  <tbody>
+                    <tr><th>제목</th><td>{cover?.title || project?.name || '-'}</td></tr>
+                    <tr><th>사업명</th><td>{cover?.business_name || '-'}</td></tr>
+                    <tr><th>과제 번호</th><td>{cover?.code || project?.code || '-'}</td></tr>
+                    <tr><th>기관</th><td>{cover?.organization || project?.organization || '-'}</td></tr>
+                    <tr><th>책임자</th><td>{cover?.manager || project?.manager || '-'}</td></tr>
+                    <tr><th>기간</th><td>{periodText}</td></tr>
+                  </tbody>
+                </table>
+              )}
+            </article>
+
+            {files.map((file) => {
+              const fmt = String(file?.format || '').toLowerCase();
+              const isPdf = fmt === 'pdf';
+              const isImage = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'heic', 'heif'].includes(fmt);
+              return (
+                <article key={`${file.note_title}-${file.id}`} style={{ border: '1px solid #d1d5db', borderRadius: 10, padding: 14, background: '#fff' }}>
+                  <h3 style={{ marginTop: 0 }}>[{file.note_title}] {file.name}</h3>
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 240 }}>
+                    {isPdf && <iframe src={`${file.content_url}#page=1`} style={{ width: '100%', minHeight: 420, border: 0 }} title={String(file.id)} />}
+                    {isImage && <img alt={file.name} src={file.content_url} style={{ width: '100%', maxHeight: 420, objectFit: 'contain' }} />}
+                    {!isPdf && !isImage && <p className="pn-sub">해당 형식({fmt || '-'})은 미리보기를 지원하지 않습니다.</p>}
+                  </div>
+                </article>
+              );
+            })}
+
+            {files.length === 0 && <p className="pn-sub">출력할 연구파일이 없습니다.</p>}
+          </div>
+        )}
+      </section>
+    </UserLayout>
+  );
+}
 function ResearchNoteWorkspace({ id, mode }) {
   const nav = useNavigate();
 
