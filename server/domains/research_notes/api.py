@@ -423,16 +423,38 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
             _set_pdf_font(pdf, 8 if compact else 9)
             pdf.drawCentredString(x4 + col / 2, bottom + (box_h / 2) - 2, "사인 없음")
 
-    def _overlay_signature_on_pdf_page(page):
-        pw = float(page.mediabox.width)
-        ph = float(page.mediabox.height)
+    def _sheet_layout():
+        return {
+            "sheet_left": 34,
+            "sheet_bottom": 42,
+            "sheet_width": pw - 68,
+            "sheet_height": ph - 84,
+            "content_bottom": 134,
+            "content_top": ph - 84,
+        }
+
+    def _build_sheet_overlay_pdf() -> PdfReader:
+        layout = _sheet_layout()
         overlay_buffer = BytesIO()
-        pdf = canvas.Canvas(overlay_buffer, pagesize=(pw, ph))
-        _draw_signature_panel(pdf, left=24, bottom=32, width=pw - 48, compact=True)
+        pdf = canvas.Canvas(overlay_buffer, pagesize=A4)
+
+        pdf.roundRect(layout["sheet_left"], layout["sheet_bottom"], layout["sheet_width"], layout["sheet_height"], 8, stroke=1, fill=0)
+
+        header_top = layout["sheet_bottom"] + layout["sheet_height"] - 28
+        _set_pdf_font(pdf, 13, bold=True)
+        pdf.drawString(layout["sheet_left"] + 16, header_top, str(note.get("title") or "연구노트"))
+        pdf.line(layout["sheet_left"] + 16, header_top - 6, layout["sheet_left"] + layout["sheet_width"] - 16, header_top - 6)
+
+        content_left = layout["sheet_left"] + 16
+        content_bottom = layout["content_bottom"]
+        content_width = layout["sheet_width"] - 32
+        content_height = layout["content_top"] - layout["content_bottom"]
+        pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
+
+        _draw_signature_panel(pdf, left=content_left, bottom=layout["sheet_bottom"] + 24, width=content_width, compact=True)
         pdf.save()
         overlay_buffer.seek(0)
-        overlay = PdfReader(overlay_buffer, strict=False)
-        page.merge_page(overlay.pages[0])
+        return PdfReader(overlay_buffer, strict=False)
 
     writer = PdfWriter()
     fmt = str(selected_file.get("format", "")).lower()
@@ -447,60 +469,70 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
                 except Exception:
                     pass
 
-            for idx, page in enumerate(reader.pages):
+            if reader.pages:
+                page = reader.pages[0]
                 src_w = float(page.mediabox.width)
                 src_h = float(page.mediabox.height)
-                if src_w <= 0 or src_h <= 0:
-                    continue
+                if src_w > 0 and src_h > 0:
+                    layout = _sheet_layout()
+                    content_left = layout["sheet_left"] + 16
+                    content_bottom = layout["content_bottom"]
+                    content_width = layout["sheet_width"] - 32
+                    content_height = layout["content_top"] - layout["content_bottom"]
 
-                scale = min(pw / src_w, ph / src_h)
-                tx = (pw - (src_w * scale)) / 2
-                ty = (ph - (src_h * scale)) / 2
+                    scale = min(content_width / src_w, content_height / src_h)
+                    tx = content_left + (content_width - (src_w * scale)) / 2
+                    ty = content_bottom + (content_height - (src_h * scale)) / 2
 
-                rebuilt = PageObject.create_blank_page(width=pw, height=ph)
-                rebuilt.merge_transformed_page(page, Transformation().scale(scale, scale).translate(tx, ty))
-
-                if idx == len(reader.pages) - 1:
-                    _overlay_signature_on_pdf_page(rebuilt)
-                writer.add_page(rebuilt)
+                    rebuilt = PageObject.create_blank_page(width=pw, height=ph)
+                    rebuilt.merge_transformed_page(page, Transformation().scale(scale, scale).translate(tx, ty))
+                    rebuilt.merge_page(_build_sheet_overlay_pdf().pages[0])
+                    writer.add_page(rebuilt)
     else:
         page_buffer = BytesIO()
         pdf = canvas.Canvas(page_buffer, pagesize=A4)
 
+        layout = _sheet_layout()
+        sheet_left = layout["sheet_left"]
+        sheet_bottom = layout["sheet_bottom"]
+        sheet_width = layout["sheet_width"]
+        sheet_height = layout["sheet_height"]
+        content_left = sheet_left + 16
+        content_bottom = layout["content_bottom"]
+        content_width = sheet_width - 32
+        content_height = layout["content_top"] - layout["content_bottom"]
+
+        pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
+
+        header_top = sheet_bottom + sheet_height - 28
+        _set_pdf_font(pdf, 13, bold=True)
+        pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
+        pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
+        pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
+
         image_exts = {"png", "jpg", "jpeg", "webp", "svg", "heic", "heif"}
         if fmt in image_exts:
             try:
-                # 이미지 기반 연구노트는 A4 전체를 채우도록 렌더링
-                pdf.drawImage(str(source), 0, 0, width=pw, height=ph, preserveAspectRatio=False)
+                pdf.drawImage(
+                    str(source),
+                    content_left,
+                    content_bottom,
+                    width=content_width,
+                    height=content_height,
+                    preserveAspectRatio=True,
+                    anchor="c",
+                )
             except Exception:
                 _set_pdf_font(pdf, 10)
-                pdf.drawString(40, ph - 40, "이미지를 불러오지 못했습니다. 원본파일을 확인해주세요.")
-            _draw_signature_panel(pdf, left=24, bottom=32, width=pw - 48, compact=True)
+                pdf.drawString(content_left + 12, content_bottom + content_height - 24, "이미지를 불러오지 못했습니다. 원본파일을 확인해주세요.")
         else:
-            sheet_left = 34
-            sheet_bottom = 42
-            sheet_width = pw - 68
-            sheet_height = ph - 84
-            pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
-
-            header_top = sheet_bottom + sheet_height - 28
-            _set_pdf_font(pdf, 13, bold=True)
-            pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
-            pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
-
-            content_left = sheet_left + 16
-            content_bottom = sheet_bottom + 92
-            content_width = sheet_width - 32
-            content_height = sheet_height - 160
-            pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
-
             _set_pdf_font(pdf, 11)
             pdf.drawString(content_left + 12, content_bottom + content_height - 24, f"파일명: {selected_file.get('name', '-')}")
             _set_pdf_font(pdf, 10)
             pdf.drawString(content_left + 12, content_bottom + content_height - 42, f"형식: {fmt.upper() if fmt else '-'}")
             pdf.drawString(content_left + 12, content_bottom + content_height - 60, "해당 파일 형식은 미리보기를 지원하지 않습니다.")
 
-            _draw_signature_panel(pdf, left=content_left, bottom=sheet_bottom + 24, width=content_width)
+        _draw_signature_panel(pdf, left=content_left, bottom=sheet_bottom + 24, width=content_width, compact=True)
 
         pdf.showPage()
         pdf.save()

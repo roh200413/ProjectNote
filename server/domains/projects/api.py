@@ -194,40 +194,41 @@ def _build_project_cover_pdf_bytes(profile: dict, project_id: str, cover_data: d
         except Exception:
             drew_cover_image = False
 
+    _set_pdf_font(c, 16, bold=True)
+    c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
     if not drew_cover_image:
-        _set_pdf_font(c, 16, bold=True)
-        c.drawCentredString(w / 2, h - 80, "Electronic Lab Notebook")
         _set_pdf_font(c, 26, bold=True)
         c.drawCentredString(w / 2, h - 130, "연구노트")
-        if cover_data.get("show_title"):
-            _set_pdf_font(c, 22, bold=True)
-            c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
+    if cover_data.get("show_title"):
+        _set_pdf_font(c, 22, bold=True)
+        c.drawCentredString(w / 2, h - 170, str(cover_data.get("title") or ""))
 
-        lines = []
-        if cover_data.get("show_business_name"):
-            lines.append(("사업명", str(cover_data.get("business_name") or "-")))
-        if cover_data.get("show_code"):
-            lines.append(("과제 번호", str(cover_data.get("code") or "-")))
-        if cover_data.get("show_org"):
-            lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
-        if cover_data.get("show_manager"):
-            lines.append(("작업자", str(cover_data.get("manager") or "-")))
-        if cover_data.get("show_period"):
-            start_text = str(cover_data.get("start_date") or "").strip()
-            end_text = str(cover_data.get("end_date") or "").strip()
-            period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
-            lines.append(("기간", period))
+    lines = []
+    if cover_data.get("show_business_name"):
+        lines.append(("사업명", str(cover_data.get("business_name") or "-")))
+    if cover_data.get("show_code"):
+        lines.append(("과제 번호", str(cover_data.get("code") or "-")))
+    if cover_data.get("show_org"):
+        lines.append(("담당 기관", str(cover_data.get("organization") or "-")))
+    if cover_data.get("show_manager"):
+        lines.append(("작업자", str(cover_data.get("manager") or "-")))
+    if cover_data.get("show_period"):
+        start_text = str(cover_data.get("start_date") or "").strip()
+        end_text = str(cover_data.get("end_date") or "").strip()
+        period = f"{start_text} ~ {end_text}" if start_text and end_text else (start_text or end_text or "-")
+        lines.append(("기간", period))
 
-        y = h - 240
-        _set_pdf_font(c, 12)
-        for label, value in lines:
-            c.drawString(70, y, f"{label}:")
-            c.drawString(150, y, value)
-            y -= 24
+    # 편집기 미리보기와 동일하게 표지 이미지를 사용해도 메타 정보를 함께 출력한다.
+    y = h - 240
+    _set_pdf_font(c, 12)
+    for label, value in lines:
+        c.drawString(70, y, f"{label}:")
+        c.drawString(150, y, value)
+        y -= 24
 
-        footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
-        _set_pdf_font(c, 11)
-        c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
+    footer_company = str((profile.get("team") or profile.get("organization") or "미지정"))
+    _set_pdf_font(c, 11)
+    c.drawCentredString(w / 2, 60, f"ProjectNote - {footer_company}")
 
     c.showPage()
     c.save()
