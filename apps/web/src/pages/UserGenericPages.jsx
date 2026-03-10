@@ -726,8 +726,8 @@ export function ProjectResearchNotesPage() {
       }
 
       const query = params.toString();
-      window.location.href = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
-      setMsg('표지 + 선택 연구노트 PDF를 생성합니다. 다운로드를 확인하세요.');
+      window.location.href = `/frontend/projects/${id}/research-notes/print${query ? `?${query}` : ''}`;
+      setMsg('선택 연구노트 출력 페이지로 이동합니다. 화면에서 인쇄/PDF 저장을 진행하세요.');
     } catch (e) {
       setError(e.message);
     } finally {

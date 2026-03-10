@@ -527,6 +527,7 @@ def project_research_notes_print_page(request, project_id: str):
                 "cover_data": cover_data,
                 "period_text": _period_text(),
                 "printable_files": printable_files,
+                "selected_query_string": request.GET.urlencode(),
             },
         ),
     )
