@@ -623,6 +623,8 @@ export function ProjectResearchNotesPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -687,6 +689,50 @@ export function ProjectResearchNotesPage() {
     }
   }
 
+  function toggleNoteSelection(noteId, checked) {
+    const key = String(noteId);
+    setSelectedNoteIds((prev) => {
+      if (checked) return Array.from(new Set([...prev, key]));
+      return prev.filter((item) => item !== key);
+    });
+  }
+
+  function toggleAllNotes(checked) {
+    if (!checked) {
+      setSelectedNoteIds([]);
+      return;
+    }
+    setSelectedNoteIds(rows.map((n) => String(n.id)));
+  }
+
+  async function exportSelectedNotesWithCover() {
+    setError('');
+    setMsg('');
+    const targetNoteIds = selectedNoteIds.length ? selectedNoteIds : rows.map((n) => String(n.id));
+    if (targetNoteIds.length === 0) {
+      setMsg('출력할 연구노트가 없습니다.');
+      return;
+    }
+
+    setExportingPdf(true);
+    try {
+      const params = new URLSearchParams();
+      for (const noteId of targetNoteIds) {
+        const fileRows = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
+        const files = Array.isArray(fileRows) ? fileRows : [];
+        files.forEach((f) => {
+          if (f?.id) params.append('selected_file', `${noteId}:${f.id}`);
+        });
+      }
+      const query = params.toString();
+      window.location.href = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
   return (
     <UserLayout title="연구노트 관리">
       <section className="pn-card">
@@ -724,11 +770,16 @@ export function ProjectResearchNotesPage() {
         <Loading loading={loading} />
         <ApiError error={error} />
         {msg && <p className="pn-sub">{msg}</p>}
+        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0 }}>
+          <p className="pn-sub" style={{ margin: 0 }}>여러 연구노트를 선택해 표지+연구노트 통합 PDF로 출력할 수 있습니다.</p>
+          <button className="pn-btn-secondary" disabled={exportingPdf || rows.length === 0} onClick={exportSelectedNotesWithCover} type="button">{exportingPdf ? 'PDF 생성 중...' : '선택 연구노트 표지+출력'}</button>
+        </div>
         <table className="pn-table">
-          <thead><tr><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
+          <thead><tr><th style={{ width: 42 }}><input checked={rows.length > 0 && selectedNoteIds.length === rows.length} onChange={(e) => toggleAllNotes(e.target.checked)} type="checkbox" /></th><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
           <tbody>
             {rows.map((n) => (
               <tr key={n.id}>
+                <td><input checked={selectedNoteIds.includes(String(n.id))} onChange={(e) => toggleNoteSelection(n.id, e.target.checked)} type="checkbox" /></td>
                 <td><Link className="pn-link" to={`/research-notes/${n.id}/viewer`}>{n.title}</Link></td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
@@ -737,7 +788,7 @@ export function ProjectResearchNotesPage() {
                 <td><button type="button" onClick={() => nav(`/research-notes/${n.id}/viewer`)}>PDF 편집기</button></td>
               </tr>
             ))}
-            {rows.length === 0 && !loading && <tr><td colSpan={6} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 위 업로드로 생성하세요.</td></tr>}
+            {rows.length === 0 && !loading && <tr><td colSpan={7} className="pn-sub">해당 프로젝트 연구노트가 없습니다. 위 업로드로 생성하세요.</td></tr>}
           </tbody>
         </table>
       </section>

@@ -16,7 +16,7 @@
       <section class="pn-card" style="background:#ffffff;width:210mm;min-height:297mm;max-width:100%;margin:0 auto;padding:12mm;box-sizing:border-box;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
           <div style="width:100%;border-bottom:1px solid #cbd5e1;padding-bottom:6px">
-            <h3 style="margin:0">{{ note.title }}</h3>
+            <h3 style="margin:0;font-size:24px;font-weight:500;line-height:1.25">{{ note.title }}</h3>
           </div>
         </div>
 
@@ -37,11 +37,11 @@
           <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
             <div style="padding:6px;display:flex;flex-direction:column">
               <div class="pn-sub" style="font-size:11px">작성자</div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ file.author|default:'-' }}</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12px">{{ file.author|default:'-' }}</div>
             </div>
             <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
-              <div class="pn-sub" style="font-size:11px">작성 일자</div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ author_date|default:'-' }}</div>
+              <div class="pn-sub" style="font-size:11px">작성일자</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center">{{ author_date|default:'-' }}</div>
             </div>
           </div>
           <div style="padding:6px;border-right:1px solid #d1d5db;display:flex;flex-direction:column;gap:6px;min-height:20mm">
@@ -57,11 +57,11 @@
           <div style="border-right:1px solid #d1d5db;background:#f8fafc;min-height:20mm;display:grid;grid-template-rows:1fr 1fr">
             <div style="padding:6px;display:flex;flex-direction:column">
               <div class="pn-sub" style="font-size:11px">점검자</div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px">{{ manager_name|default:'미지정' }}</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12px">{{ manager_name|default:'미지정' }}</div>
             </div>
             <div style="padding:6px;border-top:1px solid #d1d5db;display:flex;flex-direction:column">
               <div class="pn-sub" style="font-size:11px">점검 일자</div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:14px;text-align:center">{{ reviewer_date|default:'-' }}</div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;text-align:center">{{ reviewer_date|default:'-' }}</div>
             </div>
           </div>
           <div style="padding:6px;display:flex;flex-direction:column;gap:6px;min-height:20mm">
