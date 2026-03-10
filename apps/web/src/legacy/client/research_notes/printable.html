@@ -12,7 +12,7 @@
     .btn.ghost { background:#fff; color:#1f2937; border:1px solid #cbd5e1; }
     .sheet-wrap { padding:16px; }
     .sheet { background:#fff; width:210mm; min-height:297mm; max-width:100%; margin:0 auto; box-sizing:border-box; padding:12mm; border:1px solid #cbd5e1; border-radius:8px; display:flex; flex-direction:column; gap:10px; }
-    .title { border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin:0; }
+    .title { border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin:0; font-size:20px; font-weight:500; line-height:1.25; }
     .content { border:1px solid #e5e7eb; border-radius:8px; padding:8px; min-height:220mm; background:#fff; }
     .content iframe { width:100%; height:210mm; border:0; }
     .content img { max-width:100%; max-height:210mm; object-fit:contain; display:block; margin:0 auto; }
@@ -23,7 +23,7 @@
     .split > div { padding:6px; }
     .split > div + div { border-top:1px solid #d1d5db; }
     .label { font-size:11px; color:#64748b; }
-    .value { display:flex; align-items:center; justify-content:center; text-align:center; font-size:14px; min-height:22px; }
+    .value { display:flex; align-items:center; justify-content:center; text-align:center; font-size:12px; min-height:22px; }
     .sig { padding:6px; display:flex; flex-direction:column; gap:6px; }
     .sig img { height:12mm; }
     @media print {
@@ -61,7 +61,7 @@
             <div class="value">{{ file.author|default:'-' }}</div>
           </div>
           <div>
-            <div class="label">작성 일자</div>
+            <div class="label">작성일자</div>
             <div class="value">{{ author_date|default:'-' }}</div>
           </div>
         </div>

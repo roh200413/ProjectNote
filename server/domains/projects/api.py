@@ -480,9 +480,25 @@ def project_research_notes_print_page(request, project_id: str):
             return f"{start} ~ {end}"
         return start or end
 
+    selected_pairs = set()
+    for raw in request.GET.getlist("selected_file"):
+        token = str(raw or "").strip()
+        if ":" not in token:
+            continue
+        note_id, file_id = token.split(":", 1)
+        note_id = note_id.strip()
+        file_id = file_id.strip()
+        if note_id and file_id:
+            selected_pairs.add((note_id, file_id))
+
     printable_files = []
     for note in project_notes:
-        for file in research_note_repository.list_note_files(note["id"]):
+        note_id = str(note["id"])
+        for file in research_note_repository.list_note_files(note_id):
+            file_id = str(file.get("id") or "").strip()
+            if selected_pairs and (note_id, file_id) not in selected_pairs:
+                continue
+
             author_name = str(file.get("author") or "-")
             author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
             author_signature = signature_repository.read_signature(author_user.username) if author_user else {"signature_data_url": ""}
@@ -497,7 +513,7 @@ def project_research_notes_print_page(request, project_id: str):
                     "reviewer_date": datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
                     "author_signature_data_url": author_signature.get("signature_data_url", ""),
                     "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-                    "content_url": f"/frontend/research-notes/{note['id']}/files/{file['id']}/content",
+                    "content_url": f"/frontend/research-notes/{note_id}/files/{file['id']}/content",
                 }
             )
 
@@ -511,6 +527,7 @@ def project_research_notes_print_page(request, project_id: str):
                 "cover_data": cover_data,
                 "period_text": _period_text(),
                 "printable_files": printable_files,
+                "selected_query_string": request.GET.urlencode(),
             },
         ),
     )
