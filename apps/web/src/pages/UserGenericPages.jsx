@@ -636,7 +636,7 @@ export function ProjectResearchNotesPage() {
       setProject(found || null);
       const notes = await apiFetch('/api/v1/research-notes');
       const filtered = Array.isArray(notes)
-        ? notes.filter((n) => String(n.project_code || '') === String(found?.code || ''))
+        ? notes.filter((n) => String(n.project_id || '') === String(id))
         : [];
       setRows(filtered);
     } catch (e) {

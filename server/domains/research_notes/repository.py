@@ -46,6 +46,7 @@ class ResearchNoteRepository:
             "id": str(note.id),
             "title": note.title,
             "owner": note.owner,
+            "project_id": str(note.project_id) if note.project_id else "",
             "project_code": note.project_code,
             "period": note.period,
             "files": note.files,
