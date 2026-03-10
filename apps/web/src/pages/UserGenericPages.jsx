@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
@@ -742,56 +742,12 @@ export function ProjectResearchNotesPage() {
         </table>
       </section>
 
-      <section className="pn-card">
-        <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>업데이트 연구노트</h3>
-          <div className="pn-inline" style={{ margin: 0 }}>
-            <select value={outputFormat} onChange={(e) => setOutputFormat(e.target.value)}>
-              <option value="viewer">뷰어 포맷</option>
-              <option value="printable">출력 포맷</option>
-              <option value="cover">표지 포맷</option>
-              <option value="pdf">표준 PDF</option>
-            </select>
-            <button type="button" onClick={() => openNoteByFormat(selectedNote?.id)} disabled={!selectedNote}>선택 노트 열기</button>
-          </div>
-        </div>
-
-        <div className="pn-grid2" style={{ marginBottom: 10 }}>
-          <div><label className="pn-sub">제목(선택)</label><input value={uploadMeta.title} onChange={(e) => setUploadMeta((prev) => ({ ...prev, title: e.target.value }))} placeholder="업로드 파일명으로 자동 생성" /></div>
-          <div><label className="pn-sub">작성자(선택)</label><input value={uploadMeta.author} onChange={(e) => setUploadMeta((prev) => ({ ...prev, author: e.target.value }))} placeholder="로그인 사용자" /></div>
-          <div style={{ gridColumn: '1 / -1' }}><label className="pn-sub">요약(선택)</label><input value={uploadMeta.summary} onChange={(e) => setUploadMeta((prev) => ({ ...prev, summary: e.target.value }))} placeholder="업로드 시 연구노트 요약에 반영" /></div>
-        </div>
-
-        <input id="projectNoteUploadInput" type="file" accept=".pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => uploadProjectNoteFiles(e.target.files)} />
-        <div
-          className={`pn-note-dropzone ${dragActive ? 'drag' : ''}`}
-          onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
-          onDrop={(e) => { e.preventDefault(); setDragActive(false); uploadProjectNoteFiles(e.dataTransfer.files); }}
-        >
-          마우스로 드래그해서 연구파일(PDF/이미지)을 추가해주세요.
-          <div className="pn-sub" style={{ marginTop: 8 }}>지원 파일 유형: PDF, JPEG, JPG, PNG, SVG, TIFF, WEBP, HEIF, HEIC</div>
-          <div className="pn-inline" style={{ justifyContent: 'center', marginBottom: 0 }}>
-            <label className="pn-side-list" htmlFor="projectNoteUploadInput" style={{ cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? .6 : 1 }}>
-              {uploading ? '업로드 중...' : '파일 선택 업로드'}
-            </label>
-          </div>
-        </div>
-      </section>
     </UserLayout>
   );
 }
 export function ProjectResearchNotesPrintPage() { return <UserLayout title="프로젝트 연구노트 인쇄"><NotesTable endpoint="/api/v1/research-notes" /></UserLayout>; }
 function ResearchNoteWorkspace({ id, mode }) {
   const nav = useNavigate();
-  const [note, setNote] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [error, setError] = useState('');
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [previewError, setPreviewError] = useState('');
-  const [loading, setLoading] = useState(true);
 
   const modeTitle = mode === 'viewer'
     ? '연구노트 뷰어'
@@ -801,95 +757,34 @@ function ResearchNoteWorkspace({ id, mode }) {
         ? '연구노트 출력'
         : '연구노트 상세';
 
-  useEffect(() => {
-    let canceled = false;
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const [detail, fileRows] = await Promise.all([
-          apiFetch(`/api/v1/research-notes/${id}`),
-          apiFetch(`/api/v1/research-notes/${id}/files`)
-        ]);
-        if (canceled) return;
-        const list = Array.isArray(fileRows) ? fileRows : [];
-        setNote(detail);
-        setFiles(list);
-        setSelectedIndex(0);
-      } catch (e) {
-        if (!canceled) setError(e.message);
-      } finally {
-        if (!canceled) setLoading(false);
-      }
-    }
-    load();
-    return () => { canceled = true; };
-  }, [id]);
-
-  const selectedFile = files[selectedIndex] || null;
-  const canPrev = selectedIndex > 0;
-  const canNext = selectedIndex < files.length - 1;
-
-  useEffect(() => {
-    let canceled = false;
-    let objectUrl = '';
-
-    async function loadPreview() {
-      setPreviewError('');
-      setPreviewUrl('');
-      if (!selectedFile?.content_url) return;
-      try {
-        const res = await fetch(selectedFile.content_url, { credentials: 'include' });
-        if (!res.ok) throw new Error(`미리보기 로드 실패 (${res.status})`);
-        const blob = await res.blob();
-        if (canceled) return;
-        objectUrl = window.URL.createObjectURL(blob);
-        setPreviewUrl(objectUrl);
-      } catch (_e) {
-        if (!canceled) setPreviewError('브라우저 미리보기를 불러오지 못했습니다. 새 탭에서 열어주세요.');
-      }
-    }
-
-    loadPreview();
-    return () => {
-      canceled = true;
-      if (objectUrl) window.URL.revokeObjectURL(objectUrl);
-    };
-  }, [selectedFile?.id, selectedFile?.content_url]);
+  const modulePath = mode === 'viewer'
+    ? `/frontend/research-notes/${id}/viewer`
+    : mode === 'cover'
+      ? `/frontend/research-notes/${id}/cover`
+      : mode === 'printable'
+        ? `/frontend/research-notes/${id}/printable`
+        : `/frontend/research-notes/${id}`;
 
   return (
     <UserLayout title={modeTitle}>
-      <Loading loading={loading} />
-      <ApiError error={error} />
-
       <section className="pn-card">
         <div className="pn-inline" style={{ justifyContent: 'space-between', margin: 0, flexWrap: 'wrap' }}>
           <div>
-            <h3 style={{ marginBottom: 0 }}>{note?.title || `연구노트 #${id}`}</h3>
-            <p className="pn-sub" style={{ marginBottom: 0 }}>연구노트 뷰어</p>
+            <h3 style={{ marginBottom: 0 }}>{modeTitle}</h3>
+            <p className="pn-sub" style={{ marginBottom: 0 }}>기존 표지/연구노트 모듈 화면을 그대로 사용합니다.</p>
           </div>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
-            <button className="pn-btn-secondary" disabled={!canPrev} onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))} type="button">이전 연구노트</button>
-            <button disabled={!canNext} onClick={() => setSelectedIndex((i) => Math.min(files.length - 1, i + 1))} type="button">다음 연구노트</button>
           </div>
         </div>
       </section>
 
-      <section className="pn-card" style={{ marginTop: 12, padding: 12 }}>
-        <h4>연구노트 뷰어</h4>
-        {selectedFile ? (
-          <>
-            <div className="pn-inline" style={{ marginTop: 0 }}>
-              <a className="pn-side-list" href={selectedFile.content_url} rel="noreferrer" target="_blank">새 탭에서 열기</a>
-              {selectedFile.download_url && <a className="pn-side-list" href={selectedFile.download_url}>다운로드</a>}
-            </div>
-            {previewError && <p className="pn-sub">{previewError}</p>}
-            {previewUrl
-              ? <iframe src={previewUrl} style={{ width: '100%', minHeight: 620, border: '1px solid #e5e7eb', borderRadius: 8 }} title={`preview-${selectedFile.id}`} />
-              : !previewError && <p className="pn-sub">미리보기를 준비중입니다...</p>}
-          </>
-        ) : <p className="pn-sub">표시할 연구파일이 없습니다.</p>}
+      <section className="pn-card" style={{ marginTop: 12, padding: 0, overflow: 'hidden' }}>
+        <iframe
+          src={modulePath}
+          style={{ width: '100%', minHeight: 'calc(100vh - 230px)', border: 0, background: '#fff' }}
+          title={`research-note-module-${mode}-${id}`}
+        />
       </section>
     </UserLayout>
   );

@@ -210,6 +210,16 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
     }
 
 
+
+
+@require_GET
+def research_note_viewer_context_api(request, note_id: str):
+    try:
+        return JsonResponse(_build_research_note_viewer_context(note_id, request.GET.get("file")))
+    except ResearchNote.DoesNotExist as exc:
+        raise Http404("Research note not found") from exc
+
+
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
