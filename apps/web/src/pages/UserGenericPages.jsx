@@ -725,67 +725,12 @@ export function ProjectResearchNotesPage() {
         });
       }
 
-      const html2canvas = (await import('html2canvas')).default;
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.left = '-10000px';
-      iframe.style.top = '0';
-      iframe.style.width = '1200px';
-      iframe.style.height = '1000px';
-      iframe.style.opacity = '0';
-      iframe.src = `/frontend/projects/${id}/research-notes/print?${params.toString()}`;
-      document.body.appendChild(iframe);
-
-      await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('출력 화면 로딩이 지연되고 있습니다.')), 30000);
-        iframe.onload = () => {
-          window.clearTimeout(timer);
-          resolve();
-        };
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      const doc = iframe.contentDocument;
-      if (!doc) throw new Error('출력 화면 문서를 읽을 수 없습니다.');
-
-      const sheets = Array.from(doc.querySelectorAll('.sheet'));
-      if (sheets.length === 0) throw new Error('출력 가능한 페이지가 없습니다.');
-
-      const pageImages = [];
-      for (const sheet of sheets) {
-        const canvas = await html2canvas(sheet, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-        pageImages.push(canvas.toDataURL('image/png'));
-      }
-
-      document.body.removeChild(iframe);
-
-      const response = await fetch(`/api/v1/projects/${id}/research-notes/export-pdf`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-        body: JSON.stringify({ page_images: pageImages })
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.detail || `PDF 생성 실패 (${response.status})`);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `project_${id}_research_notes_snapshot.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      setMsg('웹 화면 그대로 PDF를 생성했습니다.');
+      const query = params.toString();
+      window.location.href = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
+      setMsg('표지 + 선택 연구노트 PDF를 생성합니다. 다운로드를 확인하세요.');
     } catch (e) {
       setError(e.message);
     } finally {
-      const stale = document.querySelector('iframe[style*="-10000px"]');
-      if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
       setExportingPdf(false);
     }
   }
