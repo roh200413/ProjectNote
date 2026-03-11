@@ -270,6 +270,20 @@ def project_management_api(request):
 
 
 @require_GET
+def project_detail_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    try:
+        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
+    except Project.DoesNotExist:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    return JsonResponse(project)
+
+
+@require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_management_page(request):

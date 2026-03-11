@@ -15,6 +15,7 @@ urlpatterns = [
     path("api/v1/frontend/bootstrap", api.frontend_bootstrap),
     path("api/v1/dashboard/summary", api.dashboard_summary),
     path("api/v1/projects", api.projects),
+    path("api/v1/projects/<str:project_id>", projects_api.project_detail_api),
     path("api/v1/project-management", api.project_management_api),
     path("api/v1/projects/<str:project_id>/update", projects_api.project_update_api),
     path("api/v1/projects/<str:project_id>/cover", projects_api.project_cover_update_api),
