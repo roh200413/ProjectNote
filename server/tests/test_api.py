@@ -25,7 +25,7 @@ from server.application.sqlalchemy_session import sqlalchemy_database_url
 from server.application import web_support
 from server.application.mock_data import seed_demo_data
 from server.domains.admin.models import Team, UserAccount
-from server.domains.projects.models import Project, ProjectMember
+from server.domains.projects.models import Project, ProjectMember, ProjectNoteCover
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
 pytestmark = pytest.mark.django_db
@@ -1728,3 +1728,55 @@ def test_project_research_note_upload_splits_pdf_pages() -> None:
     assert saved_files[0].name.endswith('_p001.pdf')
     assert saved_files[1].name.endswith('_p002.pdf')
 
+
+
+def test_project_create_auto_creates_cover_defaults() -> None:
+    reset_db()
+    team = Team.objects.create(name="커버팀", description="커버", join_code="313131")
+    owner = UserAccount.objects.create(
+        username="cover-owner",
+        display_name="커버소유자",
+        email="cover-owner@example.com",
+        password="pw",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+
+    created = ProjectService().create_project(
+        {
+            "name": "자동 표지 프로젝트",
+            "manager": owner.username,
+            "business_name": "자동사업",
+            "organization": team.name,
+            "company_id": str(team.id),
+            "code": "AUTO-COVER-01",
+            "description": "desc",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "status": "active",
+            "invited_members": "[]",
+        },
+        {"id": owner.id, "username": owner.username},
+    )
+
+    project = Project.objects.get(id=created["id"])
+    cover = ProjectNoteCover.objects.filter(project=project).first()
+    assert cover is not None
+    assert cover.title == project.name
+    assert cover.code == project.code
+    assert cover.manager == project.manager
+
+
+def test_research_note_update_persists_show_title_flag() -> None:
+    reset_db()
+    _, note_id = seed_workflow_data()
+    login(client)
+
+    on_resp = client.post(f"/api/v1/research-notes/{note_id}/update", {"title": "표시 ON", "show_title": "true"})
+    assert on_resp.status_code == 200
+    assert on_resp.json()["note"]["show_title"] is True
+
+    off_resp = client.post(f"/api/v1/research-notes/{note_id}/update", {"title": "표시 OFF", "show_title": "false"})
+    assert off_resp.status_code == 200
+    assert off_resp.json()["note"]["show_title"] is False

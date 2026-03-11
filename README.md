@@ -51,7 +51,7 @@ python manage.py runserver 0.0.0.0:8000
 - 관리자: 대시보드/팀/유저/테이블
 - 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
 
-기존 Django 템플릿 파일은 `server/templates`로 이동되어 백엔드 템플릿 렌더링을 유지합니다.
+레거시 Django 템플릿 렌더링은 제거되었고, 화면 라우팅은 React 앱 경로를 사용합니다.
 
 ### 레거시 Django HTML fallback on/off
 
@@ -71,3 +71,8 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 - `http proxy error ... ECONNREFUSED 127.0.0.1:8000`
   - 원인: Django 서버 미실행 또는 포트 불일치
   - 조치: `python manage.py runserver 0.0.0.0:8000` 실행 또는 `VITE_BACKEND_ORIGIN` 수정
+
+- `sqlite3.OperationalError: no such column: workflow_app_researchnote.show_title`
+  - 원인: 최신 마이그레이션(`0017_researchnote_show_title`) 미적용
+  - 조치: `python manage.py migrate` 실행 후 서버 재시작
+
