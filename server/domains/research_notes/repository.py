@@ -9,13 +9,15 @@ class ResearchNoteRepository:
         note = ResearchNote.objects.get(id=note_id)
         return self.note_to_dict(note)
 
-    def update_research_note(self, note_id: str, title: str | None, summary: str | None) -> dict:
+    def update_research_note(self, note_id: str, title: str | None, summary: str | None, show_title: bool | None = None) -> dict:
         note = ResearchNote.objects.get(id=note_id)
         if title:
             note.title = title
         if summary:
             note.summary = summary
-        note.save(update_fields=["title", "summary", "last_updated_at", "updated_at"])
+        if show_title is not None:
+            note.show_title = bool(show_title)
+        note.save(update_fields=["title", "summary", "show_title", "last_updated_at", "updated_at"])
         return self.note_to_dict(note)
 
     def list_note_files(self, note_id: str) -> list[dict]:
@@ -51,5 +53,6 @@ class ResearchNoteRepository:
             "files": note.files,
             "members": note.members,
             "summary": note.summary,
+            "show_title": bool(note.show_title),
             "last_updated_at": note.last_updated_at.isoformat() if note.last_updated_at else note.updated_at.isoformat(),
         }

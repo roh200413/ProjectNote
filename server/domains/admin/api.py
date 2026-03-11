@@ -1,17 +1,17 @@
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import admin_repository, admin_required_page, dashboard_counts, page_context, organization_user_stats
+from server.application.web_support import admin_repository, admin_required_page
 
 
 def _admin_navigation(current: str) -> list[dict[str, str]]:
     items = [
-        {"key": "dashboard", "title": "대시보드", "href": "/frontend/admin/dashboard"},
-        {"key": "users", "title": "사용자 관리", "href": "/frontend/admin/users"},
-        {"key": "teams", "title": "팀 관리", "href": "/frontend/admin/teams"},
-        {"key": "tables", "title": "테이블 관리", "href": "/frontend/admin/tables"},
+        {"key": "dashboard", "title": "대시보드", "href": "/admin/dashboard"},
+        {"key": "users", "title": "사용자 관리", "href": "/admin/users"},
+        {"key": "teams", "title": "팀 관리", "href": "/admin/teams"},
+        {"key": "tables", "title": "테이블 관리", "href": "/admin/tables"},
     ]
     for item in items:
         item["active"] = item["key"] == current
@@ -99,63 +99,32 @@ def admin_table_truncate_api(_request, table_name: str):
 @ensure_csrf_cookie
 @admin_required_page
 def admin_page(_request):
-    return redirect("/frontend/admin/dashboard")
+    return redirect("/admin/dashboard")
 
 
 @require_GET
 @ensure_csrf_cookie
 @admin_required_page
 def admin_dashboard_page(request):
-    return render(
-        request,
-        "admin/dashboard.html",
-        page_context(
-            request,
-            {
-                "summary": dashboard_counts(),
-                "organization_user_stats": organization_user_stats(),
-                "admin_nav_items": _admin_navigation("dashboard"),
-            },
-        ),
-    )
+    return redirect("/admin/dashboard")
+
 
 @require_GET
 @ensure_csrf_cookie
 @admin_required_page
 def admin_teams_page(request):
-    return render(
-        request,
-        "admin/teams.html",
-        page_context(request, {"teams": admin_repository.list_teams(), "admin_nav_items": _admin_navigation("teams")}),
-    )
+    return redirect("/admin/teams")
 
 
 @require_GET
 @ensure_csrf_cookie
 @admin_required_page
 def admin_users_page(request):
-    keyword = request.GET.get("q", "").strip()
-    return render(
-        request,
-        "admin/users.html",
-        page_context(
-            request,
-            {
-                "admin_accounts": admin_repository.list_all_users(keyword=keyword),
-                "teams": admin_repository.list_teams(),
-                "keyword": keyword,
-                "admin_nav_items": _admin_navigation("users"),
-            },
-        ),
-    )
+    return redirect("/admin/users")
 
 
 @require_GET
 @ensure_csrf_cookie
 @admin_required_page
 def admin_tables_page(request):
-    return render(
-        request,
-        "admin/tables.html",
-        page_context(request, {"tables": admin_repository.list_managed_tables(), "admin_nav_items": _admin_navigation("tables")}),
-    )
+    return redirect("/admin/tables")
