@@ -769,8 +769,9 @@ export function ProjectResearchNotesPage() {
       }
 
       const query = params.toString();
-      nav(`/projects/${id}/research-notes/print${query ? `?${query}` : ''}`);
-      setMsg('선택 연구노트 출력 페이지로 이동합니다. 화면에서 인쇄/PDF 저장을 진행하세요.');
+      const downloadUrl = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
+      window.location.href = downloadUrl;
+      setMsg('선택 연구노트 표지+출력 PDF를 생성합니다. 다운로드를 확인하세요.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1073,7 +1074,7 @@ function ResearchNoteWorkspace({ id, mode }) {
             )}
 
             {mode !== 'cover' && (
-              <div className="pn-grid pn-note-layout" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : 'minmax(0, 1fr) minmax(320px, 360px)', marginTop: 10 }}>
+              <div className="pn-grid pn-note-layout" style={{ display: 'grid', gridTemplateColumns: mode === 'printable' ? '1fr' : 'minmax(0, 1fr) minmax(320px, 360px)', marginTop: 10 }}>
                 <article className="pn-card" style={{ margin: 0 }}>
                   <div className="pn-note-paper-wrap">
                     <div className="pn-note-paper">
