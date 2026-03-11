@@ -668,6 +668,7 @@ export function ProjectResearchNotesPage() {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+  const [selectionMode, setSelectionMode] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const load = useCallback(async () => {
@@ -752,16 +753,30 @@ export function ProjectResearchNotesPage() {
   async function exportSelectedNotesWithCover() {
     setError('');
     setMsg('');
-    const targetNoteIds = selectedNoteIds.length ? selectedNoteIds : rows.map((n) => String(n.id));
-    if (targetNoteIds.length === 0) {
+
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedNoteIds([]);
+      setMsg('출력할 연구노트를 체크박스로 모두 선택한 뒤 버튼을 다시 눌러주세요.');
+      return;
+    }
+
+    const allNoteIds = rows.map((n) => String(n.id));
+    if (allNoteIds.length === 0) {
       setMsg('출력할 연구노트가 없습니다.');
+      return;
+    }
+
+    const allSelected = selectedNoteIds.length === allNoteIds.length;
+    if (!allSelected) {
+      setMsg('연구노트를 모두 선택해야 통합 PDF를 다운로드할 수 있습니다.');
       return;
     }
 
     setExportingPdf(true);
     try {
       const params = new URLSearchParams();
-      for (const noteId of targetNoteIds) {
+      for (const noteId of allNoteIds) {
         const fileRows = await apiFetch(`/api/v1/research-notes/${noteId}/files`);
         const files = Array.isArray(fileRows) ? fileRows : [];
         files.forEach((f) => {
@@ -772,7 +787,9 @@ export function ProjectResearchNotesPage() {
       const query = params.toString();
       const downloadUrl = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
       window.location.href = downloadUrl;
-      setMsg('선택 연구노트 표지+출력 PDF를 생성합니다. 다운로드를 확인하세요.');
+      setSelectionMode(false);
+      setSelectedNoteIds([]);
+      setMsg('표지 + 전체 연구노트 통합 PDF를 생성합니다. 다운로드를 확인하세요.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -818,15 +835,15 @@ export function ProjectResearchNotesPage() {
         <ApiError error={error} />
         {msg && <p className="pn-sub">{msg}</p>}
         <div className="pn-inline" style={{ justifyContent: 'space-between', marginTop: 0 }}>
-          <p className="pn-sub" style={{ margin: 0 }}>여러 연구노트를 선택해 표지+연구노트 통합 PDF로 출력할 수 있습니다.</p>
-          <button className="pn-btn-secondary" disabled={exportingPdf || rows.length === 0} onClick={exportSelectedNotesWithCover} type="button">{exportingPdf ? 'PDF 생성 중...' : '선택 연구노트 표지+출력'}</button>
+          <p className="pn-sub" style={{ margin: 0 }}>{selectionMode ? '체크박스로 전체 연구노트를 선택한 뒤 같은 버튼을 다시 누르면 통합 PDF를 다운로드합니다.' : '버튼을 누르면 선택 모드가 활성화됩니다.'}</p>
+          <button className="pn-btn-secondary" disabled={exportingPdf || rows.length === 0} onClick={exportSelectedNotesWithCover} type="button">{exportingPdf ? 'PDF 생성 중...' : selectionMode ? '표지+연구노트 통합 PDF 다운로드' : '연구노트 출력 선택 시작'}</button>
         </div>
         <table className="pn-table">
-          <thead><tr><th style={{ width: 42 }}><input checked={rows.length > 0 && selectedNoteIds.length === rows.length} onChange={(e) => toggleAllNotes(e.target.checked)} type="checkbox" /></th><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
+          <thead><tr><th style={{ width: 42 }}><input checked={selectionMode && rows.length > 0 && selectedNoteIds.length === rows.length} disabled={!selectionMode} onChange={(e) => toggleAllNotes(e.target.checked)} type="checkbox" /></th><th>제목</th><th>작성자</th><th>프로젝트 코드</th><th>기간</th><th>파일수</th><th>관리</th></tr></thead>
           <tbody>
             {rows.map((n) => (
               <tr key={n.id}>
-                <td><input checked={selectedNoteIds.includes(String(n.id))} onChange={(e) => toggleNoteSelection(n.id, e.target.checked)} type="checkbox" /></td>
+                <td><input checked={selectionMode && selectedNoteIds.includes(String(n.id))} disabled={!selectionMode} onChange={(e) => toggleNoteSelection(n.id, e.target.checked)} type="checkbox" /></td>
                 <td><Link className="pn-link" to={`/research-notes/${n.id}/viewer`}>{n.title}</Link></td>
                 <td>{n.owner}</td>
                 <td>{n.project_code}</td>
