@@ -1073,7 +1073,7 @@ function ResearchNoteWorkspace({ id, mode }) {
             )}
 
             {mode !== 'cover' && (
-              <div className="pn-grid" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : '1fr 340px', marginTop: 10 }}>
+              <div className="pn-grid pn-note-layout" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : 'minmax(0, 1fr) minmax(320px, 360px)', marginTop: 10 }}>
                 <article className="pn-card" style={{ margin: 0 }}>
                   <div className="pn-note-paper-wrap">
                     <div className="pn-note-paper">
@@ -1120,6 +1120,7 @@ function ResearchNoteWorkspace({ id, mode }) {
                       <div><label className="pn-sub">제목</label><input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
                       <div><label className="pn-sub">작성자</label><input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
                       <div><label className="pn-sub">작성일</label><input value={created} onChange={(e) => setCreated(e.target.value)} /></div>
+                      <div><label className="pn-sub">점검일자</label><input value={ctx?.reviewer_date || '-'} readOnly /></div>
                       <div><label className="pn-sub">메모</label><textarea rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} /></div>
                       <label className="pn-sub" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={showTitle} onChange={(e) => setShowTitle(e.target.checked)} /> 출력 제목 표시</label>
                       <button disabled={saving} onClick={saveMeta} type="button">{saving ? '저장 중...' : '저장'}</button>
