@@ -131,7 +131,9 @@ def research_note_folders_api(_request, note_id: str):
 @require_http_methods(["POST"])
 def research_note_update_api(request, note_id: str):
     try:
-        note = research_note_repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"))
+        show_title_raw = request.POST.get("show_title")
+        show_title = None if show_title_raw is None else str(show_title_raw).strip().lower() in {"1", "true", "on", "yes"}
+        note = research_note_repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"), show_title=show_title)
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
     return JsonResponse({"message": "연구노트가 업데이트되었습니다.", "note": note})
@@ -192,6 +194,7 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
         "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
         "author_date": selected_file.get("created", "-"),
         "reviewer_date": reviewer_date,
+        "show_title": bool(note.get("show_title", True)),
     }
 
 
@@ -310,6 +313,7 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
     author_name = str(selected_file.get("author") or "-")
     created_text = str(selected_file.get("created") or "-")
+    show_title = bool(note.get("show_title", True))
 
     author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
     manager_user = UserAccount.objects.filter(username=manager_raw).first() or UserAccount.objects.filter(display_name=manager_raw).first()
@@ -392,9 +396,10 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
         pdf.roundRect(layout["sheet_left"], layout["sheet_bottom"], layout["sheet_width"], layout["sheet_height"], 8, stroke=1, fill=0)
 
-        header_top = layout["sheet_bottom"] + layout["sheet_height"] - 28
-        _set_pdf_font(pdf, 13, bold=True)
-        pdf.drawString(layout["sheet_left"] + 16, header_top, str(note.get("title") or "연구노트"))
+        header_top = layout["sheet_bottom"] + layout["sheet_height"] - 24
+        if show_title:
+            _set_pdf_font(pdf, 10, bold=True)
+            pdf.drawString(layout["sheet_left"] + 16, header_top, str(note.get("title") or "연구노트"))
         pdf.line(layout["sheet_left"] + 16, header_top - 6, layout["sheet_left"] + layout["sheet_width"] - 16, header_top - 6)
 
         content_left = layout["sheet_left"] + 16
@@ -459,9 +464,10 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
         pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
 
-        header_top = sheet_bottom + sheet_height - 28
-        _set_pdf_font(pdf, 13, bold=True)
-        pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
+        header_top = sheet_bottom + sheet_height - 24
+        if show_title:
+            _set_pdf_font(pdf, 10, bold=True)
+            pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
         pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
         pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
 
