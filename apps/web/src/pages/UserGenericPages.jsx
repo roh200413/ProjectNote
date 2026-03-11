@@ -1075,11 +1075,41 @@ function ResearchNoteWorkspace({ id, mode }) {
             {mode !== 'cover' && (
               <div className="pn-grid" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : '1fr 340px', marginTop: 10 }}>
                 <article className="pn-card" style={{ margin: 0 }}>
-                  <h3 style={{ marginTop: 0 }}>{ctx?.note?.title || '-'}</h3>
-                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 360 }}>
-                    {isPdf && <PdfPreviewImage src={ctx.selected_file_url} alt={file?.name || 'note-file'} minHeight={500} />}
-                    {isImage && <img src={ctx.selected_file_url} alt={file?.name || 'note-file'} style={{ width: '100%', maxHeight: 620, objectFit: 'contain' }} />}
-                    {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
+                  <div className="pn-note-paper-wrap">
+                    <div className="pn-note-paper">
+                      <header className="pn-note-paper-header">
+                        {showTitle && <h4>{ctx?.note?.title || '-'}</h4>}
+                      </header>
+
+                      <section className="pn-note-paper-content">
+                        {isPdf && <PdfPreviewImage src={ctx.selected_file_url} alt={file?.name || 'note-file'} minHeight={560} />}
+                        {isImage && <img className="pn-note-paper-image" src={ctx.selected_file_url} alt={file?.name || 'note-file'} />}
+                        {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
+                      </section>
+
+                      <footer className="pn-note-paper-footer">
+                        <div>
+                          <span className="pn-sub">작성자</span>
+                          <strong>{author || '-'}</strong>
+                          <span className="pn-sub">작성일자</span>
+                          <span className="pn-sub">{created || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="pn-sub">사인</span>
+                          {ctx?.author_signature_data_url ? <img className="pn-a4-sign" src={ctx.author_signature_data_url} alt="author-sign" /> : <span className="pn-sub">사인 없음</span>}
+                        </div>
+                        <div>
+                          <span className="pn-sub">점검자</span>
+                          <strong>{ctx?.manager_name || '-'}</strong>
+                          <span className="pn-sub">점검 일자</span>
+                          <span className="pn-sub">{ctx?.reviewer_date || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="pn-sub">점검자 사인</span>
+                          {ctx?.manager_signature_data_url ? <img className="pn-a4-sign" src={ctx.manager_signature_data_url} alt="manager-sign" /> : <span className="pn-sub">사인 없음</span>}
+                        </div>
+                      </footer>
+                    </div>
                   </div>
                 </article>
 
