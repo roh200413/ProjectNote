@@ -8,7 +8,7 @@ from pathlib import Path
 from django.conf import settings
 from django.db import OperationalError, ProgrammingError
 from django.http import FileResponse, Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from pypdf import PdfReader, PdfWriter
@@ -29,7 +29,6 @@ from server.domains.research_notes.api import (
 from server.application.web_support import (
     json_uuid_validation_error,
     login_required_page,
-    page_context,
     effective_user_profile,
     project_repository,
     project_service,
@@ -274,264 +273,44 @@ def project_management_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def project_management_page(request):
-    profile = effective_user_profile(request) or {}
-    return render(request, "workflow/projects.html", page_context(request, {"projects": project_repository.visible_projects_for_user(profile)}))
+    return redirect("/projects")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_create_page(request):
-    profile = effective_user_profile(request) or {}
-    team_id = profile.get("team_id")
-    manager_options = _manager_options_for_team(team_id)
-    default_manager = profile.get("username", "")
-    return render(
-        request,
-        "workflow/project_create.html",
-        page_context(
-            request,
-            {
-                "user_groups": admin_repository.user_groups_for_selection(team_id),
-                "manager_options": manager_options,
-                "default_manager": default_manager,
-            },
-        ),
-    )
+    return redirect("/projects/create")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_detail_page(request, project_id: str):
-    profile = effective_user_profile(request) or {}
-    if not project_repository.can_view_project(project_id, profile):
-        raise Http404("Project not found")
-    try:
-        project_obj = Project.objects.get(id=project_id)
-        project = project_repository.project_to_dict(project_obj)
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    note_ids = project_repository.project_note_ids(project_id)
-    all_notes = research_note_repository.list_research_notes()
-    project_notes = [note for note in all_notes if note["id"] in note_ids]
-    selected_note = project_notes[0] if project_notes else None
-    selected_note_files = research_note_repository.list_note_files(selected_note["id"]) if selected_note else []
-    manager_options = _manager_options_for_team(profile.get("team_id"))
-    manager_display = next((item["display_name"] for item in manager_options if item["username"] == project.get("manager")), project.get("manager", "-"))
-    cover_data = _load_cover_data(project_obj, project, manager_display)
-    return render(
-        request,
-        "workflow/project_detail.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "project_notes": project_notes,
-                "researcher_groups": project_repository.project_researcher_groups(project_id),
-                "selected_note": selected_note,
-                "selected_note_files": selected_note_files,
-                "manager_options": manager_options,
-                "manager_display": manager_display,
-                "cover_data": cover_data,
-            },
-        ),
-    )
-
-
+    return redirect(f"/projects/{project_id}")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_researchers_page(request, project_id: str):
-    profile = effective_user_profile(request) or {}
-    if not project_repository.can_view_project(project_id, profile):
-        raise Http404("Project not found")
-    try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    researcher_groups = project_repository.project_researcher_groups(project_id)
-    existing_member_ids = {
-        member["id"]
-        for group in researcher_groups
-        for member in group.get("members", [])
-    }
-    raw_team_groups = admin_repository.user_groups_for_selection((effective_user_profile(request) or {}).get("team_id"))
-    filtered_team_groups = []
-    for group in raw_team_groups:
-        filtered_members = [
-            member
-            for member in group.get("members", [])
-            if member.get("id") not in existing_member_ids and not bool(member.get("is_owner", False))
-        ]
-        if filtered_members:
-            filtered_team_groups.append({**group, "members": filtered_members, "lead": filtered_members[0]["name"]})
-
-    return render(
-        request,
-        "workflow/project_researchers.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "researcher_groups": researcher_groups,
-                "team_user_groups": filtered_team_groups,
-                "can_manage_project_members": project_repository.can_manage_project_members(project_id, profile),
-            },
-        ),
-    )
-
+    return redirect(f"/projects/{project_id}/researchers")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_research_notes_page(request, project_id: str):
-    profile = effective_user_profile(request) or {}
-    if not project_repository.can_view_project(project_id, profile):
-        raise Http404("Project not found")
-    try:
-        project = project_repository.project_to_dict(Project.objects.get(id=project_id))
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    note_ids = project_repository.project_note_ids(project_id)
-    all_notes = research_note_repository.list_research_notes()
-    project_notes = [note for note in all_notes if note["id"] in note_ids]
-
-    file_rows = []
-    for note in project_notes:
-        for file in research_note_repository.list_note_files(note["id"]):
-            file_rows.append({
-                "note_title": note["title"],
-                "name": file["name"],
-                "format": file["format"],
-                "created": file["created"],
-                "author": file["author"],
-                "note_id": note["id"],
-                "file_id": file["id"],
-            })
-
-    author_options = []
-    seen_authors = set()
-    current_author = str(profile.get("name") or profile.get("username") or "").strip()
-    if current_author:
-        author_options.append(current_author)
-        seen_authors.add(current_author)
-    for group in project_repository.project_researcher_groups(project_id):
-        for member in group.get("members", []):
-            name = str(member.get("name") or "").strip()
-            if name and name not in seen_authors:
-                author_options.append(name)
-                seen_authors.add(name)
-
-    return render(
-        request,
-        "workflow/project_research_notes.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "project_notes": project_notes,
-                "project_files": file_rows,
-                "note_count": len(project_notes),
-                "file_count": len(file_rows),
-                "author_options": author_options,
-                "default_author": current_author,
-            },
-        ),
-    )
-
+    return redirect(f"/projects/{project_id}/research-notes")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_research_notes_print_page(request, project_id: str):
-    profile = effective_user_profile(request) or {}
-    if not project_repository.can_view_project(project_id, profile):
-        raise Http404("Project not found")
-
-    try:
-        project_obj = Project.objects.get(id=project_id)
-        project = project_repository.project_to_dict(project_obj)
-    except Project.DoesNotExist as exc:
-        raise Http404("Project not found") from exc
-
-    note_ids = project_repository.project_note_ids(project_id)
-    all_notes = research_note_repository.list_research_notes()
-    project_notes = [note for note in all_notes if note["id"] in note_ids]
-
-    manager_display = project.get("manager", "-")
-    manager_user = UserAccount.objects.filter(username=manager_display).first() or UserAccount.objects.filter(display_name=manager_display).first()
-    manager_signature = signature_repository.read_signature(manager_user.username) if manager_user else {"signature_data_url": ""}
-
-    cover_data = _load_cover_data(project_obj, project, manager_display)
-
-    def _period_text() -> str:
-        if not cover_data.get("show_period"):
-            return ""
-        start = str(cover_data.get("start_date") or "").strip()
-        end = str(cover_data.get("end_date") or "").strip()
-        if start and end:
-            return f"{start} ~ {end}"
-        return start or end
-
-    selected_pairs = set()
-    for raw in request.GET.getlist("selected_file"):
-        token = str(raw or "").strip()
-        if ":" not in token:
-            continue
-        note_id, file_id = token.split(":", 1)
-        note_id = note_id.strip()
-        file_id = file_id.strip()
-        if note_id and file_id:
-            selected_pairs.add((note_id, file_id))
-
-    printable_files = []
-    for note in project_notes:
-        note_id = str(note["id"])
-        for file in research_note_repository.list_note_files(note_id):
-            file_id = str(file.get("id") or "").strip()
-            if selected_pairs and (note_id, file_id) not in selected_pairs:
-                continue
-
-            author_name = str(file.get("author") or "-")
-            author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
-            author_signature = signature_repository.read_signature(author_user.username) if author_user else {"signature_data_url": ""}
-            printable_files.append(
-                {
-                    "note_title": note["title"],
-                    "name": file["name"],
-                    "format": file["format"],
-                    "created": file.get("created", "-"),
-                    "author": author_name,
-                    "manager_name": manager_user.display_name if manager_user else manager_display,
-                    "reviewer_date": datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
-                    "author_signature_data_url": author_signature.get("signature_data_url", ""),
-                    "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-                    "content_url": f"/frontend/research-notes/{note_id}/files/{file['id']}/content",
-                }
-            )
-
-    return render(
-        request,
-        "workflow/project_research_notes_print.html",
-        page_context(
-            request,
-            {
-                "project": project,
-                "cover_data": cover_data,
-                "period_text": _period_text(),
-                "printable_files": printable_files,
-                "selected_query_string": request.GET.urlencode(),
-            },
-        ),
-    )
+    selected = request.GET.urlencode()
+    query = f"?{selected}" if selected else ""
+    return redirect(f"/projects/{project_id}/research-notes/print{query}")
 
 
 @require_http_methods(["GET", "POST"])
@@ -963,17 +742,4 @@ def dashboard_summary(_request):
 @ensure_csrf_cookie
 @login_required_page
 def workflow_home_page(request):
-    cards = [
-        {"title": "프로젝트 생성", "href": "/frontend/projects/create", "description": "신규 프로젝트를 생성합니다."},
-        {"title": "프로젝트 관리", "href": "/frontend/projects", "description": "생성된 프로젝트 목록/상세를 관리합니다."},
-        {"title": "연구자 관리", "href": "/frontend/researchers", "description": "연구자 등록 및 소속/역할 정보를 관리합니다."},
-        {"title": "데이터 업데이트", "href": "/frontend/data-updates", "description": "데이터 업데이트 이력을 기록합니다."},
-    ]
-    projects = project_repository.list_projects()
-    current_name = request.session.get("user_profile", {}).get("name", "")
-    managed_projects = [project for project in projects if project.get("manager") == current_name]
-    return render(
-        request,
-        "workflow/home.html",
-        page_context(request, {"cards": cards, "managed_projects": managed_projects}),
-    )
+    return redirect("/")
