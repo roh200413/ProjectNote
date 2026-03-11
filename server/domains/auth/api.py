@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model, login, logout
+from django.db import OperationalError, ProgrammingError
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -57,9 +58,9 @@ def login_page(request):
         user_profile = effective_user_profile(request)
         if user_profile:
             if user_profile.get("is_super_admin"):
-                return redirect("/frontend/admin/dashboard")
-            return redirect("/frontend/workflows")
-        return render(request, "auth/login.html", {"error": "", "next": request.GET.get("next", "")})
+                return redirect("/admin/dashboard")
+            return redirect("/")
+        return redirect("/auth/login")
 
     username = request.POST.get("username", "").strip()
     password = request.POST.get("password", "")
@@ -70,42 +71,22 @@ def login_page(request):
         if super_admin_user:
             user = {**super_admin_user, "is_super_admin": True}
     if not user:
-        return render(
-            request,
-            "auth/login.html",
-            {"error": "아이디 또는 비밀번호가 올바르지 않습니다.", "next": next_url},
-            status=401,
-        )
+        return JsonResponse({"detail": "아이디 또는 비밀번호가 올바르지 않습니다."}, status=401)
 
     if not user.get("is_super_admin") and user.get("team") in {None, "-", ""}:
         if bool(user.get("requested_team_name")) and not bool(user.get("is_approved", False)):
-            return render(
-                request,
-                "auth/login.html",
-                {"error": "관리자 승인 대기 중입니다.", "next": next_url},
-                status=403,
-            )
-        return render(
-            request,
-            "auth/login.html",
-            {"error": "관리자 팀 할당 및 승인이 되지 않았습니다.", "next": next_url},
-            status=403,
-        )
+            return JsonResponse({"detail": "관리자 승인 대기 중입니다."}, status=403)
+        return JsonResponse({"detail": "관리자 팀 할당 및 승인이 되지 않았습니다."}, status=403)
     if not user.get("is_super_admin") and not bool(user.get("is_approved", False)):
-        return render(
-            request,
-            "auth/login.html",
-            {"error": "관리자 승인 대기 중입니다.", "next": next_url},
-            status=403,
-        )
+        return JsonResponse({"detail": "관리자 승인 대기 중입니다."}, status=403)
 
     save_login_session(request, username, user)
     _sync_and_login_django_user(request, username, password, user.get("email", ""), bool(user.get("is_super_admin", False)))
     if next_url.startswith("/"):
         return redirect(next_url)
     if user.get("is_super_admin"):
-        return redirect("/frontend/admin/dashboard")
-    return redirect("/frontend/workflows")
+        return redirect("/admin/dashboard")
+    return redirect("/")
 
 
 @require_http_methods(["GET", "POST"])
@@ -113,41 +94,36 @@ def login_page(request):
 def admin_login_page(request):
     if request.method == "GET":
         if (effective_user_profile(request) or {}).get("is_super_admin") or request.user.is_staff or request.user.is_superuser:
-            return redirect("/frontend/admin/dashboard")
-        return render(request, "auth/admin_login.html", {"error": "", "next": request.GET.get("next", "")})
+            return redirect("/admin/dashboard")
+        return redirect("/auth/admin-login")
 
     username = request.POST.get("username", "").strip()
     password = request.POST.get("password", "")
     next_url = request.POST.get("next", "")
     user = authenticate_super_admin(username, password)
     if not user:
-        return render(
-            request,
-            "auth/admin_login.html",
-            {"error": "슈퍼 어드민 계정으로만 로그인할 수 있습니다.", "next": next_url},
-            status=401,
-        )
+        return JsonResponse({"detail": "슈퍼 어드민 계정으로만 로그인할 수 있습니다."}, status=401)
 
     save_login_session(request, username, user)
     _sync_and_login_django_user(request, username, password, user.get("email", ""), bool(user.get("is_super_admin", False)))
-    if next_url.startswith("/frontend/admin"):
+    if next_url.startswith("/admin"):
         return redirect(next_url)
-    return redirect("/frontend/admin/dashboard")
+    return redirect("/admin/dashboard")
 
 
 @require_GET
 @ensure_csrf_cookie
 def signup_page(request):
     if effective_user_profile(request):
-        return redirect("/frontend/workflows")
-    return render(request, "auth/signup.html", {"next": request.GET.get("next", "")})
+        return redirect("/")
+    return redirect("/auth/signup")
 
 
 @require_GET
 def logout_page(request):
     logout(request)
     request.session.pop("user_profile", None)
-    return redirect("/login")
+    return redirect("/auth/login")
 
 
 @require_http_methods(["POST"])
@@ -173,6 +149,13 @@ def signup_api(request):
         )
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
+    except (OperationalError, ProgrammingError):
+        return JsonResponse(
+            {
+                "detail": "데이터베이스 스키마가 준비되지 않았습니다. `python manage.py migrate` 실행 후 서버를 재시작하세요."
+            },
+            status=503,
+        )
 
     return JsonResponse(registered, status=201)
 
