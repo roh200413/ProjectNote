@@ -2,11 +2,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import effective_user_profile, login_required_page, page_context, signature_repository
+from server.application.web_support import effective_user_profile, login_required_page, signature_repository
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
 
@@ -40,29 +40,21 @@ def signature_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def final_download_page(request):
-    return render(
-        request,
-        "workflow/final_download.html",
-        page_context(request, {"report_name": "projectnote-final-report.pdf"}),
-    )
+    return redirect("/final-download")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    username = request.session.get("user_profile", {}).get("username", "")
-    return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature(username)}))
+    return redirect("/signatures")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def my_page(request):
-    profile = request.session.get("user_profile", {}).copy()
-    username = profile.get("username", "")
-    profile["signature"] = signature_repository.read_signature(username).get("signature_data_url", "") if username else ""
-    return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
+    return redirect("/my-page")
 
 
 @require_http_methods(["POST"])
