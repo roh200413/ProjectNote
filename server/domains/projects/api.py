@@ -305,6 +305,22 @@ def project_research_notes_page(request, project_id: str):
 
 
 @require_GET
+def project_research_notes_api(request, project_id: str):
+    profile = effective_user_profile(request) or {}
+    if not project_repository.can_view_project(project_id, profile):
+        return JsonResponse({"detail": "권한이 없습니다."}, status=403)
+
+    try:
+        Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"detail": "프로젝트를 찾을 수 없습니다."}, status=404)
+
+    note_ids = set(project_repository.project_note_ids(project_id))
+    notes = [note for note in research_note_repository.list_research_notes() if note["id"] in note_ids]
+    return JsonResponse(notes, safe=False)
+
+
+@require_GET
 @ensure_csrf_cookie
 @login_required_page
 def project_research_notes_print_page(request, project_id: str):
