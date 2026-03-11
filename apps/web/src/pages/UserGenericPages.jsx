@@ -967,6 +967,7 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [author, setAuthor] = useState('');
   const [created, setCreated] = useState('');
   const [summary, setSummary] = useState('');
+  const [showTitle, setShowTitle] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -985,6 +986,7 @@ function ResearchNoteWorkspace({ id, mode }) {
       setSelectedFileId(selected);
       setTitle(res?.note?.title || '');
       setSummary(res?.note?.summary || '');
+      setShowTitle(Boolean(res?.note?.show_title ?? true));
       setAuthor(res?.file?.author || '');
       setCreated(res?.file?.created || '');
     } catch (e) {
@@ -1008,7 +1010,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         apiFetch(`/api/v1/research-notes/${ctx.note.id}/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-          body: formEncoded({ title, summary })
+          body: formEncoded({ title, summary, show_title: showTitle ? 'true' : 'false' })
         }),
         apiFetch(`/api/v1/research-notes/${ctx.note.id}/files/${ctx.file.id}/update`, {
           method: 'POST',
@@ -1089,6 +1091,7 @@ function ResearchNoteWorkspace({ id, mode }) {
                       <div><label className="pn-sub">작성자</label><input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
                       <div><label className="pn-sub">작성일</label><input value={created} onChange={(e) => setCreated(e.target.value)} /></div>
                       <div><label className="pn-sub">메모</label><textarea rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} /></div>
+                      <label className="pn-sub" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={showTitle} onChange={(e) => setShowTitle(e.target.checked)} /> 출력 제목 표시</label>
                       <button disabled={saving} onClick={saveMeta} type="button">{saving ? '저장 중...' : '저장'}</button>
                     </div>
                   </article>

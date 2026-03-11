@@ -15,6 +15,7 @@ class ResearchNote(TimestampedModel):
     files = models.PositiveIntegerField(default=0)
     members = models.PositiveIntegerField(default=0)
     summary = models.TextField(blank=True, default="")
+    show_title = models.BooleanField(default=True)
     last_updated_at = models.DateTimeField(auto_now=True)
 
 
