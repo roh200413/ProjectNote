@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
 import { saveSelectedProject } from '../utils/projectContext';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 function ApiError({ error }) {
   if (!error) return null;
@@ -12,6 +16,45 @@ function ApiError({ error }) {
 function Loading({ loading }) {
   if (!loading) return null;
   return <p className="pn-sub">불러오는 중...</p>;
+}
+
+function PdfPreviewImage({ src, alt, minHeight = 420 }) {
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    const canvas = document.createElement('canvas');
+
+    async function renderPdfPreview() {
+      setError('');
+      setPreviewUrl('');
+      if (!src) return;
+      try {
+        const loadingTask = getDocument(src);
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        if (mounted) setPreviewUrl(canvas.toDataURL('image/png'));
+        pdf.destroy();
+      } catch (e) {
+        if (mounted) setError(e?.message || 'PDF 미리보기를 불러오지 못했습니다.');
+      }
+    }
+
+    renderPdfPreview();
+    return () => {
+      mounted = false;
+    };
+  }, [src]);
+
+  if (error) return <p className="pn-sub">{error}</p>;
+  if (!previewUrl) return <p className="pn-sub">PDF 미리보기를 생성 중입니다...</p>;
+
+  return <img alt={alt} src={previewUrl} style={{ width: '100%', maxHeight: 620, minHeight, objectFit: 'contain', border: '1px solid #e5e7eb' }} />;
 }
 
 export function HomePage() {
@@ -877,7 +920,7 @@ export function ProjectResearchNotesPrintPage() {
           <div style={{ display: 'grid', gap: 14 }}>
             <article style={{ border: '1px solid #d1d5db', borderRadius: 10, padding: 14, background: '#fff' }}>
               <h3 style={{ marginTop: 0 }}>프로젝트 정보</h3>
-              {isPdfCover && <embed src={coverImage} type="application/pdf" style={{ width: '100%', minHeight: 420, border: '1px solid #e5e7eb' }} />}
+              {isPdfCover && <PdfPreviewImage src={coverImage} alt="cover-pdf-preview" minHeight={420} />}
               {isImageCover && <img alt="cover" src={coverImage} style={{ width: '100%', maxHeight: 420, objectFit: 'contain', border: '1px solid #e5e7eb' }} />}
               {!isPdfCover && (
                 <table className="pn-table" style={{ marginTop: 10 }}>
@@ -901,7 +944,7 @@ export function ProjectResearchNotesPrintPage() {
                 <article key={`${file.note_title}-${file.id}`} style={{ border: '1px solid #d1d5db', borderRadius: 10, padding: 14, background: '#fff' }}>
                   <h3 style={{ marginTop: 0 }}>[{file.note_title}] {file.name}</h3>
                   <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 240 }}>
-                    {isPdf && <iframe src={`${file.content_url}#page=1`} style={{ width: '100%', minHeight: 420, border: 0 }} title={String(file.id)} />}
+                    {isPdf && <PdfPreviewImage src={file.content_url} alt={file.name || String(file.id)} minHeight={420} />}
                     {isImage && <img alt={file.name} src={file.content_url} style={{ width: '100%', maxHeight: 420, objectFit: 'contain' }} />}
                     {!isPdf && !isImage && <p className="pn-sub">해당 형식({fmt || '-'})은 미리보기를 지원하지 않습니다.</p>}
                   </div>
@@ -1032,7 +1075,7 @@ function ResearchNoteWorkspace({ id, mode }) {
                 <article className="pn-card" style={{ margin: 0 }}>
                   <h3 style={{ marginTop: 0 }}>{ctx?.note?.title || '-'}</h3>
                   <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 360 }}>
-                    {isPdf && <iframe src={`${ctx.selected_file_url}#page=1`} style={{ width: '100%', minHeight: 500, border: 0 }} title={String(file?.id || 'file')} />}
+                    {isPdf && <PdfPreviewImage src={ctx.selected_file_url} alt={file?.name || 'note-file'} minHeight={500} />}
                     {isImage && <img src={ctx.selected_file_url} alt={file?.name || 'note-file'} style={{ width: '100%', maxHeight: 620, objectFit: 'contain' }} />}
                     {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
                   </div>
