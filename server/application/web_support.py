@@ -120,10 +120,10 @@ def login_required_page(view_func):
 
         if not request.user.is_authenticated and not user_profile:
             next_url = request.get_full_path()
-            return redirect(f"/login?next={next_url}")
+            return redirect(f"/auth/login?next={next_url}")
 
         if (user_profile and user_profile.get("is_super_admin")) or request.user.is_staff or request.user.is_superuser:
-            return redirect("/frontend/admin/dashboard")
+            return redirect("/admin/dashboard")
         return view_func(request, *args, **kwargs)
 
     return _wrapped
@@ -135,12 +135,12 @@ def admin_required_page(view_func):
         user_profile = effective_user_profile(request)
         if not user_profile and not request.user.is_authenticated:
             next_url = request.get_full_path()
-            return redirect(f"/admin/login?next={next_url}")
+            return redirect(f"/auth/admin-login?next={next_url}")
 
         is_super_admin = bool((user_profile or {}).get("is_super_admin", False)) or request.user.is_staff or request.user.is_superuser
         if not is_super_admin:
             next_url = request.get_full_path()
-            return redirect(f"/admin/login?next={next_url}")
+            return redirect(f"/auth/admin-login?next={next_url}")
         return view_func(request, *args, **kwargs)
 
     return _wrapped
