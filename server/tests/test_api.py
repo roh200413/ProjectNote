@@ -137,6 +137,30 @@ def test_signup_stores_hashed_password() -> None:
 
 
 
+def test_signup_api_returns_service_unavailable_when_db_schema_missing(monkeypatch) -> None:
+    reset_db()
+
+    def _raise_schema_error(**_kwargs):
+        from django.db import OperationalError
+
+        raise OperationalError("no such table: workflow_app_useraccount")
+
+    monkeypatch.setattr(web_support.admin_repository, "register_user", _raise_schema_error)
+
+    response = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "schema-user",
+            "display_name": "스키마유저",
+            "email": "schema-user@example.com",
+            "password": "secret123",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 503
+    assert "python manage.py migrate" in response.json()["detail"]
+
 
 def test_first_approved_user_becomes_owner() -> None:
     reset_db()

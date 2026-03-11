@@ -76,3 +76,7 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
   - 원인: 최신 마이그레이션(`0017_researchnote_show_title`) 미적용
   - 조치: `python manage.py migrate` 실행 후 서버 재시작
 
+- `sqlite3.OperationalError: no such table: workflow_app_useraccount`
+  - 원인: 초기 마이그레이션 미적용(또는 DB 파일 초기화 후 미마이그레이션)
+  - 조치: `python manage.py migrate` 실행 후 서버 재시작
+

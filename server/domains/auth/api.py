@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from django.contrib.auth import get_user_model, login, logout
+from django.db import OperationalError, ProgrammingError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -148,6 +149,13 @@ def signup_api(request):
         )
     except ValueError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
+    except (OperationalError, ProgrammingError):
+        return JsonResponse(
+            {
+                "detail": "데이터베이스 스키마가 준비되지 않았습니다. `python manage.py migrate` 실행 후 서버를 재시작하세요."
+            },
+            status=503,
+        )
 
     return JsonResponse(registered, status=201)
 
