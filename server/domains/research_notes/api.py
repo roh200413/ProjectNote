@@ -470,15 +470,18 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
                     pass
 
             if reader.pages:
-                page = reader.pages[0]
-                src_w = float(page.mediabox.width)
-                src_h = float(page.mediabox.height)
-                if src_w > 0 and src_h > 0:
-                    layout = _sheet_layout()
-                    content_left = layout["sheet_left"] + 16
-                    content_bottom = layout["content_bottom"]
-                    content_width = layout["sheet_width"] - 32
-                    content_height = layout["content_top"] - layout["content_bottom"]
+                layout = _sheet_layout()
+                content_left = layout["sheet_left"] + 16
+                content_bottom = layout["content_bottom"]
+                content_width = layout["sheet_width"] - 32
+                content_height = layout["content_top"] - layout["content_bottom"]
+                overlay_page = _build_sheet_overlay_pdf().pages[0]
+
+                for page in reader.pages:
+                    src_w = float(page.mediabox.width)
+                    src_h = float(page.mediabox.height)
+                    if src_w <= 0 or src_h <= 0:
+                        continue
 
                     scale = min(content_width / src_w, content_height / src_h)
                     tx = content_left + (content_width - (src_w * scale)) / 2
@@ -486,7 +489,7 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
                     rebuilt = PageObject.create_blank_page(width=pw, height=ph)
                     rebuilt.merge_transformed_page(page, Transformation().scale(scale, scale).translate(tx, ty))
-                    rebuilt.merge_page(_build_sheet_overlay_pdf().pages[0])
+                    rebuilt.merge_page(overlay_page)
                     writer.add_page(rebuilt)
     else:
         page_buffer = BytesIO()
