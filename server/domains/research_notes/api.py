@@ -1,4 +1,5 @@
 import base64
+import json
 import mimetypes
 from datetime import datetime
 from io import BytesIO
@@ -257,7 +258,7 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
     return FileResponse(source.open("rb"), as_attachment=as_attachment, filename=safe_name, content_type=content_type)
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 @ensure_csrf_cookie
 @login_required_page
 def research_note_viewer_export_pdf_api(request, note_id: str):
@@ -265,12 +266,59 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
     if not files:
         raise Http404("Research note file not found")
 
-    requested_file = request.GET.get("file")
+    requested_file = request.GET.get("file") or request.POST.get("file")
     selected_file = files[0]
     if requested_file:
         matched = next((item for item in files if item["id"] == requested_file), None)
         if matched:
             selected_file = matched
+
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            return JsonResponse({"detail": "잘못된 요청 형식입니다."}, status=400)
+
+        page_images = payload.get("page_images", [])
+        if not isinstance(page_images, list) or not page_images:
+            return JsonResponse({"detail": "내보낼 페이지 이미지가 없습니다."}, status=400)
+
+        writer = PdfWriter()
+        for image_data in page_images:
+            raw = str(image_data or "")
+            if not raw.startswith("data:image") or "," not in raw:
+                continue
+            try:
+                encoded = raw.split(",", 1)[1]
+                reader = ImageReader(BytesIO(base64.b64decode(encoded)))
+            except Exception:
+                continue
+
+            try:
+                iw, ih = reader.getSize()
+                iw = float(iw)
+                ih = float(ih)
+            except Exception:
+                continue
+            if iw <= 0 or ih <= 0:
+                continue
+
+            page_buffer = BytesIO()
+            pdf = canvas.Canvas(page_buffer, pagesize=(iw, ih))
+            pdf.drawImage(reader, 0, 0, width=iw, height=ih, preserveAspectRatio=False)
+            pdf.showPage()
+            pdf.save()
+            page_buffer.seek(0)
+            writer.append(PdfReader(page_buffer, strict=False))
+
+        if not writer.pages:
+            return JsonResponse({"detail": "유효한 페이지 이미지가 없습니다."}, status=400)
+
+        output = BytesIO()
+        writer.write(output)
+        output.seek(0)
+        filename = f"research_note_{note_id}_{Path(str(selected_file.get('name') or 'research_note')).stem}_viewer_snapshot.pdf"
+        return FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
 
     file_id = str(selected_file["id"])
     pdf_bytes = _read_research_note_pdf_cache(note_id, file_id)

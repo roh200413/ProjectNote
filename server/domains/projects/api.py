@@ -375,11 +375,19 @@ def project_research_notes_export_pdf_api(request, project_id: str):
             except Exception:
                 continue
 
+            try:
+                iw, ih = reader.getSize()
+                iw = float(iw)
+                ih = float(ih)
+            except Exception:
+                continue
+            if iw <= 0 or ih <= 0:
+                continue
+
             page_buffer = BytesIO()
-            pdf = canvas.Canvas(page_buffer, pagesize=A4)
-            pw, ph = A4
-            # 화면 그대로 A4로 맞춰 삽입
-            pdf.drawImage(reader, 0, 0, width=pw, height=ph, preserveAspectRatio=False)
+            pdf = canvas.Canvas(page_buffer, pagesize=(iw, ih))
+            # 화면 캡처 비율을 그대로 유지해 삽입
+            pdf.drawImage(reader, 0, 0, width=iw, height=ih, preserveAspectRatio=False)
             pdf.showPage()
             pdf.save()
             page_buffer.seek(0)

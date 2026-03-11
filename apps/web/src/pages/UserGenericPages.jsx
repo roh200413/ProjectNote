@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
 import { saveSelectedProject } from '../utils/projectContext';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import html2canvas from 'html2canvas';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
@@ -973,6 +974,8 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
+  const [exportingViewerPdf, setExportingViewerPdf] = useState(false);
+  const paperRef = useRef(null);
 
   const modeTitle = mode === 'viewer' ? '연구노트 뷰어' : mode === 'cover' ? '연구노트 표지' : mode === 'printable' ? '연구노트 출력' : '연구노트 상세';
 
@@ -1028,6 +1031,54 @@ function ResearchNoteWorkspace({ id, mode }) {
     }
   }
 
+  async function exportViewerAsSeenPdf() {
+    if (!ctx?.note?.id || !file?.id || !paperRef.current) return;
+    setExportingViewerPdf(true);
+    setError('');
+    try {
+      const canvas = await html2canvas(paperRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+      });
+      const imageData = canvas.toDataURL('image/png');
+      const response = await fetch(`/api/v1/research-notes/${ctx.note.id}/viewer-export-pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ file: String(file.id), page_images: [imageData] }),
+      });
+
+      if (!response.ok) {
+        let detail = `요청 실패 (${response.status})`;
+        try {
+          const body = await response.json();
+          if (body?.detail) detail = String(body.detail);
+        } catch {
+          // no-op
+        }
+        throw new Error(detail);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `research_note_${ctx.note.id}_viewer_snapshot.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e?.message || 'PDF 저장에 실패했습니다.');
+    } finally {
+      setExportingViewerPdf(false);
+    }
+  }
+
   const file = ctx?.file;
   const fileFmt = String(file?.format || '').toLowerCase();
   const isPdf = fileFmt === 'pdf';
@@ -1040,7 +1091,7 @@ function ResearchNoteWorkspace({ id, mode }) {
           <h3 style={{ margin: 0 }}>{modeTitle}</h3>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
-            {ctx?.note?.id && file?.id && <button onClick={() => window.open(`/api/v1/research-notes/${ctx.note.id}/viewer-export-pdf?file=${file.id}`, '_self')} type="button">PDF 저장</button>}
+            {ctx?.note?.id && file?.id && <button disabled={exportingViewerPdf} onClick={exportViewerAsSeenPdf} type="button">{exportingViewerPdf ? 'PDF 생성 중...' : 'PDF 저장'}</button>}
             {mode === 'printable' && <button onClick={() => window.print()} type="button">인쇄</button>}
           </div>
         </div>
@@ -1077,7 +1128,7 @@ function ResearchNoteWorkspace({ id, mode }) {
               <div className="pn-grid pn-note-layout" style={{ display: 'grid', gridTemplateColumns: mode === 'printable' ? '1fr' : 'minmax(0, 1fr) minmax(320px, 360px)', marginTop: 10 }}>
                 <article className="pn-card" style={{ margin: 0 }}>
                   <div className="pn-note-paper-wrap">
-                    <div className="pn-note-paper">
+                    <div className="pn-note-paper" ref={paperRef}>
                       <header className="pn-note-paper-header">
                         {showTitle && <h4>{ctx?.note?.title || '-'}</h4>}
                       </header>
