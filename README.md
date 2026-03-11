@@ -71,3 +71,8 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 - `http proxy error ... ECONNREFUSED 127.0.0.1:8000`
   - 원인: Django 서버 미실행 또는 포트 불일치
   - 조치: `python manage.py runserver 0.0.0.0:8000` 실행 또는 `VITE_BACKEND_ORIGIN` 수정
+
+- `sqlite3.OperationalError: no such column: workflow_app_researchnote.show_title`
+  - 원인: 최신 마이그레이션(`0017_researchnote_show_title`) 미적용
+  - 조치: `python manage.py migrate` 실행 후 서버 재시작
+
