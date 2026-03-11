@@ -349,7 +349,7 @@ export function ProjectDetailPage() {
             <summary>표지 설정</summary>
             {coverMsg && <p className="pn-sub">{coverMsg}</p>}
             <div className="pn-cover-layout">
-              <form className="pn-grid2" onSubmit={saveCover}>
+              <form className="pn-grid2 pn-cover-form" onSubmit={saveCover}>
                 <div><label className="pn-sub">제목</label><input value={coverForm.title || ''} onChange={(e) => setCoverForm({ ...coverForm, title: e.target.value })} /></div>
                 <div><label className="pn-sub">과제 번호</label><input value={coverForm.code || ''} onChange={(e) => setCoverForm({ ...coverForm, code: e.target.value })} /></div>
                 <div><label className="pn-sub">사업명</label><input value={coverForm.business_name || ''} onChange={(e) => setCoverForm({ ...coverForm, business_name: e.target.value })} /></div>
