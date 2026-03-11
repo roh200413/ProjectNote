@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from pypdf import PageObject, PdfReader, PdfWriter, Transformation
@@ -18,7 +18,7 @@ from reportlab.pdfgen import canvas
 
 from .models import ResearchNote
 from server.domains.admin.models import UserAccount
-from server.application.web_support import login_required_page, page_context, research_note_repository, signature_repository
+from server.application.web_support import login_required_page, research_note_repository, signature_repository
 
 
 def _setup_korean_font() -> str | None:
@@ -141,29 +141,14 @@ def research_note_update_api(request, note_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_notes_page(request):
-    return render(request, "research_notes/list.html", page_context(request, {"notes": research_note_repository.list_research_notes()}))
+    return redirect("/research-notes")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_detail_page(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-    return render(
-        request,
-        "research_notes/detail.html",
-        page_context(
-            request,
-            {
-                "note": note,
-                "files": research_note_repository.list_note_files(note_id),
-                "folders": research_note_repository.list_note_folders(note_id),
-            },
-        ),
-    )
+    return redirect(f"/research-notes/{note_id}")
 
 
 def _build_research_note_viewer_context(note_id: str, requested_file: str | None = None) -> dict:
@@ -224,58 +209,25 @@ def research_note_viewer_context_api(request, note_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_note_cover_page(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
-    project = note_obj.project if note_obj else None
-
-    manager_raw = project.manager if project else ""
-    manager_user = UserAccount.objects.filter(username=manager_raw).first()
-    if not manager_user:
-        manager_user = UserAccount.objects.filter(display_name=manager_raw).first()
-
-    manager_name = manager_user.display_name if manager_user else (manager_raw or "-")
-
-    context_data = {
-        "note": note,
-        "project": {
-            "id": str(project.id) if project else "",
-            "name": project.name if project else "-",
-            "code": note.get("project_code") or (project.code if project else "-"),
-            "organization": project.organization if project else "-",
-            "manager": manager_name,
-            "business_name": getattr(project, "business_name", "") if project else "",
-        },
-        "period": note.get("period") or "-",
-    }
-    return render(request, "research_notes/cover.html", page_context(request, context_data))
+    return redirect(f"/research-notes/{note_id}/cover")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_viewer_page(request, note_id: str):
-    try:
-        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    return render(request, "research_notes/viewer.html", page_context(request, context_data))
+    file_id = (request.GET.get("file") or "").strip()
+    query = f"?file={file_id}" if file_id else ""
+    return redirect(f"/research-notes/{note_id}/viewer{query}")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_printable_page(request, note_id: str):
-    try:
-        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    return render(request, "research_notes/printable.html", page_context(request, context_data))
+    file_id = (request.GET.get("file") or "").strip()
+    query = f"?file={file_id}" if file_id else ""
+    return redirect(f"/research-notes/{note_id}/printable{query}")
 
 
 @require_GET

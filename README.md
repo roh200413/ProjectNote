@@ -51,7 +51,7 @@ python manage.py runserver 0.0.0.0:8000
 - 관리자: 대시보드/팀/유저/테이블
 - 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
 
-기존 Django 템플릿 파일은 `server/templates`로 이동되어 백엔드 템플릿 렌더링을 유지합니다.
+레거시 Django 템플릿 렌더링은 제거되었고, 화면 라우팅은 React 앱 경로를 사용합니다.
 
 ### 레거시 Django HTML fallback on/off
 
