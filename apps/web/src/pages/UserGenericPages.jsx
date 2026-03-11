@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import UserLayout from '../components/UserLayout';
 import { apiFetch, formEncoded, getCookie } from '../utils/http';
 import { saveSelectedProject } from '../utils/projectContext';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import html2canvas from 'html2canvas';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
@@ -349,7 +350,7 @@ export function ProjectDetailPage() {
             <summary>표지 설정</summary>
             {coverMsg && <p className="pn-sub">{coverMsg}</p>}
             <div className="pn-cover-layout">
-              <form className="pn-grid2" onSubmit={saveCover}>
+              <form className="pn-grid2 pn-cover-form" onSubmit={saveCover}>
                 <div><label className="pn-sub">제목</label><input value={coverForm.title || ''} onChange={(e) => setCoverForm({ ...coverForm, title: e.target.value })} /></div>
                 <div><label className="pn-sub">과제 번호</label><input value={coverForm.code || ''} onChange={(e) => setCoverForm({ ...coverForm, code: e.target.value })} /></div>
                 <div><label className="pn-sub">사업명</label><input value={coverForm.business_name || ''} onChange={(e) => setCoverForm({ ...coverForm, business_name: e.target.value })} /></div>
@@ -769,8 +770,9 @@ export function ProjectResearchNotesPage() {
       }
 
       const query = params.toString();
-      nav(`/projects/${id}/research-notes/print${query ? `?${query}` : ''}`);
-      setMsg('선택 연구노트 출력 페이지로 이동합니다. 화면에서 인쇄/PDF 저장을 진행하세요.');
+      const downloadUrl = `/api/v1/projects/${id}/research-notes/export-pdf${query ? `?${query}` : ''}`;
+      window.location.href = downloadUrl;
+      setMsg('선택 연구노트 표지+출력 PDF를 생성합니다. 다운로드를 확인하세요.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -967,10 +969,13 @@ function ResearchNoteWorkspace({ id, mode }) {
   const [author, setAuthor] = useState('');
   const [created, setCreated] = useState('');
   const [summary, setSummary] = useState('');
+  const [showTitle, setShowTitle] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
+  const [exportingViewerPdf, setExportingViewerPdf] = useState(false);
+  const paperRef = useRef(null);
 
   const modeTitle = mode === 'viewer' ? '연구노트 뷰어' : mode === 'cover' ? '연구노트 표지' : mode === 'printable' ? '연구노트 출력' : '연구노트 상세';
 
@@ -985,6 +990,7 @@ function ResearchNoteWorkspace({ id, mode }) {
       setSelectedFileId(selected);
       setTitle(res?.note?.title || '');
       setSummary(res?.note?.summary || '');
+      setShowTitle(Boolean(res?.note?.show_title ?? true));
       setAuthor(res?.file?.author || '');
       setCreated(res?.file?.created || '');
     } catch (e) {
@@ -1008,7 +1014,7 @@ function ResearchNoteWorkspace({ id, mode }) {
         apiFetch(`/api/v1/research-notes/${ctx.note.id}/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-          body: formEncoded({ title, summary })
+          body: formEncoded({ title, summary, show_title: showTitle ? 'true' : 'false' })
         }),
         apiFetch(`/api/v1/research-notes/${ctx.note.id}/files/${ctx.file.id}/update`, {
           method: 'POST',
@@ -1025,6 +1031,54 @@ function ResearchNoteWorkspace({ id, mode }) {
     }
   }
 
+  async function exportViewerAsSeenPdf() {
+    if (!ctx?.note?.id || !file?.id || !paperRef.current) return;
+    setExportingViewerPdf(true);
+    setError('');
+    try {
+      const canvas = await html2canvas(paperRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+      });
+      const imageData = canvas.toDataURL('image/png');
+      const response = await fetch(`/api/v1/research-notes/${ctx.note.id}/viewer-export-pdf`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ file: String(file.id), page_images: [imageData] }),
+      });
+
+      if (!response.ok) {
+        let detail = `요청 실패 (${response.status})`;
+        try {
+          const body = await response.json();
+          if (body?.detail) detail = String(body.detail);
+        } catch {
+          // no-op
+        }
+        throw new Error(detail);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `research_note_${ctx.note.id}_viewer_snapshot.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e?.message || 'PDF 저장에 실패했습니다.');
+    } finally {
+      setExportingViewerPdf(false);
+    }
+  }
+
   const file = ctx?.file;
   const fileFmt = String(file?.format || '').toLowerCase();
   const isPdf = fileFmt === 'pdf';
@@ -1037,7 +1091,7 @@ function ResearchNoteWorkspace({ id, mode }) {
           <h3 style={{ margin: 0 }}>{modeTitle}</h3>
           <div className="pn-inline" style={{ margin: 0 }}>
             <button className="pn-btn-secondary" onClick={() => nav(-1)} type="button">돌아가기</button>
-            {ctx?.note?.id && file?.id && <button onClick={() => window.open(`/api/v1/research-notes/${ctx.note.id}/viewer-export-pdf?file=${file.id}`, '_self')} type="button">PDF 저장</button>}
+            {ctx?.note?.id && file?.id && <button disabled={exportingViewerPdf} onClick={exportViewerAsSeenPdf} type="button">{exportingViewerPdf ? 'PDF 생성 중...' : 'PDF 저장'}</button>}
             {mode === 'printable' && <button onClick={() => window.print()} type="button">인쇄</button>}
           </div>
         </div>
@@ -1071,13 +1125,43 @@ function ResearchNoteWorkspace({ id, mode }) {
             )}
 
             {mode !== 'cover' && (
-              <div className="pn-grid" style={{ gridTemplateColumns: mode === 'printable' ? '1fr' : '1fr 340px', marginTop: 10 }}>
+              <div className="pn-grid pn-note-layout" style={{ display: 'grid', gridTemplateColumns: mode === 'printable' ? '1fr' : 'minmax(0, 1fr) minmax(320px, 360px)', marginTop: 10 }}>
                 <article className="pn-card" style={{ margin: 0 }}>
-                  <h3 style={{ marginTop: 0 }}>{ctx?.note?.title || '-'}</h3>
-                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 8, minHeight: 360 }}>
-                    {isPdf && <PdfPreviewImage src={ctx.selected_file_url} alt={file?.name || 'note-file'} minHeight={500} />}
-                    {isImage && <img src={ctx.selected_file_url} alt={file?.name || 'note-file'} style={{ width: '100%', maxHeight: 620, objectFit: 'contain' }} />}
-                    {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
+                  <div className="pn-note-paper-wrap" ref={paperRef}>
+                    <div className="pn-note-paper">
+                      <header className="pn-note-paper-header">
+                        {showTitle && <h4>{ctx?.note?.title || '-'}</h4>}
+                      </header>
+
+                      <section className="pn-note-paper-content">
+                        {isPdf && <PdfPreviewImage src={ctx.selected_file_url} alt={file?.name || 'note-file'} minHeight={560} />}
+                        {isImage && <img className="pn-note-paper-image" src={ctx.selected_file_url} alt={file?.name || 'note-file'} />}
+                        {!isPdf && !isImage && <p className="pn-sub">해당 파일 형식은 미리보기를 지원하지 않습니다.</p>}
+                      </section>
+
+                      <footer className="pn-note-paper-footer">
+                        <div>
+                          <span className="pn-sub">작성자</span>
+                          <strong>{author || '-'}</strong>
+                          <span className="pn-sub">작성일자</span>
+                          <span className="pn-sub">{created || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="pn-sub">사인</span>
+                          {ctx?.author_signature_data_url ? <img className="pn-a4-sign" src={ctx.author_signature_data_url} alt="author-sign" /> : <span className="pn-sub">사인 없음</span>}
+                        </div>
+                        <div>
+                          <span className="pn-sub">점검자</span>
+                          <strong>{ctx?.manager_name || '-'}</strong>
+                          <span className="pn-sub">점검 일자</span>
+                          <span className="pn-sub">{ctx?.reviewer_date || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="pn-sub">점검자 사인</span>
+                          {ctx?.manager_signature_data_url ? <img className="pn-a4-sign" src={ctx.manager_signature_data_url} alt="manager-sign" /> : <span className="pn-sub">사인 없음</span>}
+                        </div>
+                      </footer>
+                    </div>
                   </div>
                 </article>
 
@@ -1088,7 +1172,9 @@ function ResearchNoteWorkspace({ id, mode }) {
                       <div><label className="pn-sub">제목</label><input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
                       <div><label className="pn-sub">작성자</label><input value={author} onChange={(e) => setAuthor(e.target.value)} /></div>
                       <div><label className="pn-sub">작성일</label><input value={created} onChange={(e) => setCreated(e.target.value)} /></div>
+                      <div><label className="pn-sub">점검일자</label><input value={ctx?.reviewer_date || '-'} readOnly /></div>
                       <div><label className="pn-sub">메모</label><textarea rows={5} value={summary} onChange={(e) => setSummary(e.target.value)} /></div>
+                      <label className="pn-sub" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" checked={showTitle} onChange={(e) => setShowTitle(e.target.checked)} /> 출력 제목 표시</label>
                       <button disabled={saving} onClick={saveMeta} type="button">{saving ? '저장 중...' : '저장'}</button>
                     </div>
                   </article>
