@@ -8,6 +8,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
+from django.db import OperationalError, ProgrammingError
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
@@ -48,6 +49,10 @@ def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
     pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
 
 
+
+
+def _schema_not_ready_response() -> JsonResponse:
+    return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. `python manage.py migrate`를 실행하세요."}, status=503)
 
 
 def _build_storage_key(filename: str) -> str:
@@ -110,7 +115,10 @@ def research_note_files_api(_request, note_id: str):
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
-    files = research_note_repository.list_note_files(note_id)
+    try:
+        files = research_note_repository.list_note_files(note_id)
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
     payload = [
         {
             **item,
@@ -217,6 +225,8 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
 def research_note_viewer_context_api(request, note_id: str):
     try:
         return JsonResponse(_build_research_note_viewer_context(note_id, request.GET.get("file")))
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
@@ -607,15 +617,18 @@ def research_note_file_upload_api(request, note_id: str):
         for chunk in upload.chunks():
             destination.write(chunk)
 
-    file_obj = ResearchNoteFile.objects.create(
-        note=note_obj,
-        name=safe_name,
-        original_name=safe_name,
-        storage_key=storage_key,
-        author=author_name,
-        format=extension,
-        created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
-    )
+    try:
+        file_obj = ResearchNoteFile.objects.create(
+            note=note_obj,
+            name=safe_name,
+            original_name=safe_name,
+            storage_key=storage_key,
+            author=author_name,
+            format=extension,
+            created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
+        )
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
 
     ResearchNoteFolder.objects.get_or_create(note=note_obj, name=folder_relpath(note_folder))
     note_obj.files = note_obj.note_files.count()

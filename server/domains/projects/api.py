@@ -45,6 +45,14 @@ from server.application.web_support import (
 def _build_storage_key(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
+
+
+def _create_research_note_file_safely(**kwargs):
+    try:
+        return ResearchNoteFile.objects.create(**kwargs)
+    except (OperationalError, ProgrammingError):
+        return None
+
 def _manager_options_for_team(team_id: int | None) -> list[dict]:
     users = UserAccount.objects.filter(is_approved=True, role__in=[UserAccount.Role.OWNER, UserAccount.Role.ADMIN])
     if team_id is not None:
@@ -559,7 +567,7 @@ def project_upload_research_note_api(request, project_id: str):
                     final_page_path = note_pages_dir / page_storage_key
                     if final_page_path != page_path:
                         page_path.replace(final_page_path)
-                    ResearchNoteFile.objects.create(
+                    page_obj = _create_research_note_file_safely(
                         note=note,
                         name=page_name,
                         original_name=page_name,
@@ -568,6 +576,8 @@ def project_upload_research_note_api(request, project_id: str):
                         format="pdf",
                         created=created_text,
                     )
+                    if page_obj is None:
+                        return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. `python manage.py migrate`를 실행하세요."}, status=503)
                     created_count += 1
                 split_success = len(reader.pages) > 0
             except Exception:
@@ -580,7 +590,7 @@ def project_upload_research_note_api(request, project_id: str):
             fallback_path = (note_pdf_dir if extension == "pdf" else note_image_dir) / storage_key
             with fallback_path.open("wb") as destination:
                 destination.write(pdf_bytes)
-            file_obj = ResearchNoteFile.objects.create(
+            file_obj = _create_research_note_file_safely(
                 note=note,
                 name=safe_name,
                 original_name=safe_name,
@@ -589,6 +599,8 @@ def project_upload_research_note_api(request, project_id: str):
                 format=extension,
                 created=created_text,
             )
+            if file_obj is None:
+                return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. `python manage.py migrate`를 실행하세요."}, status=503)
             try:
                 file_pdf_bytes = build_research_note_file_pdf(str(note.id), str(file_obj.id))
                 _write_research_note_pdf_cache(str(note.id), str(file_obj.id), file_pdf_bytes)
@@ -602,7 +614,7 @@ def project_upload_research_note_api(request, project_id: str):
         with target_path.open("wb") as destination:
             for chunk in upload.chunks():
                 destination.write(chunk)
-        file_obj = ResearchNoteFile.objects.create(
+        file_obj = _create_research_note_file_safely(
             note=note,
             name=safe_name,
             original_name=safe_name,
@@ -611,6 +623,8 @@ def project_upload_research_note_api(request, project_id: str):
             format=extension,
             created=created_text,
         )
+        if file_obj is None:
+            return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. `python manage.py migrate`를 실행하세요."}, status=503)
         try:
             file_pdf_bytes = build_research_note_file_pdf(str(note.id), str(file_obj.id))
             _write_research_note_pdf_cache(str(note.id), str(file_obj.id), file_pdf_bytes)
