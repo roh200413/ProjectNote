@@ -4,7 +4,7 @@ from datetime import datetime
 from server.domains.research_notes.models import ResearchNote
 from server.domains.admin.models import Team, UserAccount
 
-from .models import Project, ProjectMember
+from .models import Project, ProjectMember, ProjectNoteCover
 
 from .entities import CreateProjectCommand, InvitedMemberCommand
 
@@ -80,7 +80,7 @@ class ProjectRepository:
         end_date = datetime.strptime(command.end_date, "%Y-%m-%d").date() if command.end_date else None
         company = Team.objects.filter(id=command.company_id).first() if command.company_id else None
         organization = company.name if company else command.organization
-        return Project.objects.create(
+        project = Project.objects.create(
             name=command.name,
             manager=command.manager,
             business_name=command.business_name,
@@ -92,6 +92,19 @@ class ProjectRepository:
             end_date=end_date,
             status=command.status or Project.Status.DRAFT,
         )
+        ProjectNoteCover.objects.get_or_create(
+            project=project,
+            defaults={
+                "title": project.name,
+                "code": project.code,
+                "business_name": project.business_name,
+                "organization": project.organization,
+                "manager": project.manager,
+                "start_date": project.start_date,
+                "end_date": project.end_date,
+            },
+        )
+        return project
 
 
     def create_project_members(self, project: Project, invited: list[InvitedMemberCommand]) -> None:
