@@ -40,6 +40,11 @@ from server.application.web_support import (
 )
 
 
+
+
+def _build_storage_key(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
 def _manager_options_for_team(team_id: int | None) -> list[dict]:
     users = UserAccount.objects.filter(is_approved=True, role__in=[UserAccount.Role.OWNER, UserAccount.Role.ADMIN])
     if team_id is not None:
@@ -550,9 +555,15 @@ def project_upload_research_note_api(request, project_id: str):
                     writer.add_page(page)
                     with page_path.open("wb") as destination:
                         writer.write(destination)
+                    page_storage_key = _build_storage_key(page_name)
+                    final_page_path = note_pages_dir / page_storage_key
+                    if final_page_path != page_path:
+                        page_path.replace(final_page_path)
                     ResearchNoteFile.objects.create(
                         note=note,
                         name=page_name,
+                        original_name=page_name,
+                        storage_key=page_storage_key,
                         author=author,
                         format="pdf",
                         created=created_text,
@@ -565,30 +576,46 @@ def project_upload_research_note_api(request, project_id: str):
             if split_success:
                 continue
 
-            fallback_path = (note_pdf_dir if extension == "pdf" else note_image_dir) / safe_name
+            storage_key = _build_storage_key(safe_name)
+            fallback_path = (note_pdf_dir if extension == "pdf" else note_image_dir) / storage_key
             with fallback_path.open("wb") as destination:
                 destination.write(pdf_bytes)
-            ResearchNoteFile.objects.create(
+            file_obj = ResearchNoteFile.objects.create(
                 note=note,
                 name=safe_name,
+                original_name=safe_name,
+                storage_key=storage_key,
                 author=author,
                 format=extension,
                 created=created_text,
             )
+            try:
+                file_pdf_bytes = build_research_note_file_pdf(str(note.id), str(file_obj.id))
+                _write_research_note_pdf_cache(str(note.id), str(file_obj.id), file_pdf_bytes)
+            except Exception:
+                pass
             created_count += 1
             continue
 
-        target_path = note_image_dir / safe_name
+        storage_key = _build_storage_key(safe_name)
+        target_path = note_image_dir / storage_key
         with target_path.open("wb") as destination:
             for chunk in upload.chunks():
                 destination.write(chunk)
-        ResearchNoteFile.objects.create(
+        file_obj = ResearchNoteFile.objects.create(
             note=note,
             name=safe_name,
+            original_name=safe_name,
+            storage_key=storage_key,
             author=author,
             format=extension,
             created=created_text,
         )
+        try:
+            file_pdf_bytes = build_research_note_file_pdf(str(note.id), str(file_obj.id))
+            _write_research_note_pdf_cache(str(note.id), str(file_obj.id), file_pdf_bytes)
+        except Exception:
+            pass
         created_count += 1
 
     note.files = created_count

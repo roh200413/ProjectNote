@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import uuid
 from pathlib import Path
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -10,6 +11,11 @@ from server.domains.research_notes.models import ResearchNote, ResearchNoteFile,
 from server.domains.research_notes.storage_paths import source_pdf_dir, source_images_dir, folder_relpath
 
 
+
+
+def _build_storage_key(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
 @require_GET
 def final_download_api(_request):
     payload = {
@@ -101,7 +107,8 @@ def upload_my_research_note(request):
     extension_guess = Path(safe_name).suffix.lstrip('.').lower()
     note_folder = source_pdf_dir(note) if extension_guess == 'pdf' else source_images_dir(note)
     note_folder.mkdir(parents=True, exist_ok=True)
-    target_path = note_folder / safe_name
+    storage_key = _build_storage_key(safe_name)
+    target_path = note_folder / storage_key
     with target_path.open("wb") as destination:
         for chunk in upload.chunks():
             destination.write(chunk)
@@ -111,6 +118,8 @@ def upload_my_research_note(request):
     ResearchNoteFile.objects.create(
         note=note,
         name=safe_name,
+        original_name=safe_name,
+        storage_key=storage_key,
         author=owner_name,
         format=extension,
         created=created_text,

@@ -1,6 +1,7 @@
 import base64
 import json
 import mimetypes
+import uuid
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -47,6 +48,15 @@ def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
     pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
 
 
+
+
+def _build_storage_key(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
+
+
+def _materialized_filename(file_row: dict) -> str:
+    return Path(str(file_row.get("storage_key") or file_row.get("name") or "")).name
 def _research_note_pdf_cache_path(note_id: str, file_id: str) -> Path:
     note = ResearchNote.objects.select_related("project").get(id=note_id)
     return result_dir(note) / f"viewer_export_{file_id}.pdf"
@@ -246,12 +256,13 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
         raise Http404("Research note file not found") from exc
 
     safe_name = Path(note_file["name"]).name
+    stored_name = _materialized_filename(note_file)
     candidates = []
     for folder in research_note_repository.list_note_folders(note_id):
         base = Path(folder)
         if not base.is_absolute():
             base = storage_root() / base
-        candidates.append(base / safe_name)
+        candidates.append(base / stored_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -351,12 +362,13 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
     selected_file = next((item for item in files if item["id"] == file_id), files[0])
 
     safe_name = Path(selected_file["name"]).name
+    stored_name = _materialized_filename(selected_file)
     candidates = []
     for folder in research_note_repository.list_note_folders(note_id):
         base = Path(folder)
         if not base.is_absolute():
             base = storage_root() / base
-        candidates.append(base / safe_name)
+        candidates.append(base / stored_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -589,7 +601,8 @@ def research_note_file_upload_api(request, note_id: str):
         note_folder = source_pdf_dir(note_obj) if extension == "pdf" else source_images_dir(note_obj)
 
     note_folder.mkdir(parents=True, exist_ok=True)
-    target_path = note_folder / safe_name
+    storage_key = _build_storage_key(safe_name)
+    target_path = note_folder / storage_key
     with target_path.open("wb") as destination:
         for chunk in upload.chunks():
             destination.write(chunk)
@@ -597,6 +610,8 @@ def research_note_file_upload_api(request, note_id: str):
     file_obj = ResearchNoteFile.objects.create(
         note=note_obj,
         name=safe_name,
+        original_name=safe_name,
+        storage_key=storage_key,
         author=author_name,
         format=extension,
         created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
@@ -605,6 +620,12 @@ def research_note_file_upload_api(request, note_id: str):
     ResearchNoteFolder.objects.get_or_create(note=note_obj, name=folder_relpath(note_folder))
     note_obj.files = note_obj.note_files.count()
     note_obj.save(update_fields=["files", "last_updated_at", "updated_at"])
+
+    try:
+        pdf_bytes = build_research_note_file_pdf(note_id, str(file_obj.id))
+        _write_research_note_pdf_cache(note_id, str(file_obj.id), pdf_bytes)
+    except Exception:
+        pass
 
     payload = {
         "id": str(file_obj.id),
@@ -629,4 +650,9 @@ def research_note_file_update_api(request, note_id: str, file_id: str):
     except Exception as exc:
         raise Http404("Research note file not found") from exc
     _invalidate_research_note_pdf_cache(note_id, file_id)
+    try:
+        pdf_bytes = build_research_note_file_pdf(note_id, file_id)
+        _write_research_note_pdf_cache(note_id, file_id, pdf_bytes)
+    except Exception:
+        pass
     return JsonResponse({"message": "파일 정보가 업데이트되었습니다.", "file": updated})

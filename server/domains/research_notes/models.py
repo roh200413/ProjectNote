@@ -22,6 +22,8 @@ class ResearchNote(TimestampedModel):
 class ResearchNoteFile(TimestampedModel):
     note = models.ForeignKey(ResearchNote, on_delete=models.CASCADE, related_name="note_files")
     name = models.CharField(max_length=255)
+    original_name = models.CharField(max_length=255, blank=True, default="")
+    storage_key = models.CharField(max_length=255, blank=True, default="")
     author = models.CharField(max_length=100)
     format = models.CharField(max_length=20)
     created = models.CharField(max_length=100)

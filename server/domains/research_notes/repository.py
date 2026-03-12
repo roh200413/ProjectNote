@@ -76,7 +76,7 @@ class ResearchNoteRepository:
 
     def list_note_files(self, note_id: str) -> list[dict]:
         return [
-            {"id": str(f.id), "name": f.name, "author": f.author, "format": f.format, "created": f.created}
+            {"id": str(f.id), "name": (f.original_name or f.name), "original_name": (f.original_name or f.name), "storage_key": (f.storage_key or f.name), "author": f.author, "format": f.format, "created": f.created}
             for f in ResearchNoteFile.objects.filter(note_id=note_id).order_by("id")
         ]
 
@@ -85,7 +85,7 @@ class ResearchNoteRepository:
 
     def get_note_file(self, note_id: str, file_id: str) -> dict:
         file = ResearchNoteFile.objects.get(id=file_id, note_id=note_id)
-        return {"id": str(file.id), "name": file.name, "author": file.author, "format": file.format, "created": file.created}
+        return {"id": str(file.id), "name": (file.original_name or file.name), "original_name": (file.original_name or file.name), "storage_key": (file.storage_key or file.name), "author": file.author, "format": file.format, "created": file.created}
 
     def update_note_file(self, note_id: str, file_id: str, author: str | None, created: str | None) -> dict:
         file = ResearchNoteFile.objects.get(id=file_id, note_id=note_id)
@@ -94,7 +94,7 @@ class ResearchNoteRepository:
         if created is not None:
             file.created = created.strip() or file.created
         file.save(update_fields=["author", "created", "updated_at"])
-        return {"id": str(file.id), "name": file.name, "author": file.author, "format": file.format, "created": file.created}
+        return {"id": str(file.id), "name": (file.original_name or file.name), "original_name": (file.original_name or file.name), "storage_key": (file.storage_key or file.name), "author": file.author, "format": file.format, "created": file.created}
 
     @staticmethod
     def note_to_dict(note: ResearchNote) -> dict:
