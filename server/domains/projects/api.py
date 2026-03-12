@@ -578,7 +578,7 @@ def project_upload_research_note_api(request, project_id: str):
             created_count += 1
             continue
 
-        target_path = note_folder / safe_name
+        target_path = note_image_dir / safe_name
         with target_path.open("wb") as destination:
             for chunk in upload.chunks():
                 destination.write(chunk)
