@@ -1,15 +1,21 @@
 from datetime import datetime, timezone
+import uuid
 from pathlib import Path
-from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from server.application.web_support import effective_user_profile, login_required_page, page_context, signature_repository
+from server.application.web_support import effective_user_profile, login_required_page, signature_repository
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.research_notes.storage_paths import source_pdf_dir, source_images_dir, folder_relpath
 
 
+
+
+def _build_storage_key(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
 @require_GET
 def final_download_api(_request):
     payload = {
@@ -40,29 +46,21 @@ def signature_api(request):
 @ensure_csrf_cookie
 @login_required_page
 def final_download_page(request):
-    return render(
-        request,
-        "workflow/final_download.html",
-        page_context(request, {"report_name": "projectnote-final-report.pdf"}),
-    )
+    return redirect("/final-download")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def signature_page(request):
-    username = request.session.get("user_profile", {}).get("username", "")
-    return render(request, "workflow/signatures.html", page_context(request, {"signature": signature_repository.read_signature(username)}))
+    return redirect("/signatures")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def my_page(request):
-    profile = request.session.get("user_profile", {}).copy()
-    username = profile.get("username", "")
-    profile["signature"] = signature_repository.read_signature(username).get("signature_data_url", "") if username else ""
-    return render(request, "workflow/my_page.html", page_context(request, {"profile": profile}))
+    return redirect("/my-page")
 
 
 @require_http_methods(["POST"])
@@ -96,7 +94,6 @@ def upload_my_research_note(request):
         return JsonResponse({"message": "유효한 파일명이 필요합니다."}, status=400)
 
     owner_name = str(profile.get("name", username)).strip() or username
-    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
     note = ResearchNote.objects.create(
         title=safe_name,
         owner=owner_name,
@@ -107,9 +104,11 @@ def upload_my_research_note(request):
         summary=f"업로드 파일: {safe_name}",
     )
 
-    note_folder = storage_root / username / str(note.id)
+    extension_guess = Path(safe_name).suffix.lstrip('.').lower()
+    note_folder = source_pdf_dir(note) if extension_guess == 'pdf' else source_images_dir(note)
     note_folder.mkdir(parents=True, exist_ok=True)
-    target_path = note_folder / safe_name
+    storage_key = _build_storage_key(safe_name)
+    target_path = note_folder / storage_key
     with target_path.open("wb") as destination:
         for chunk in upload.chunks():
             destination.write(chunk)
@@ -119,11 +118,13 @@ def upload_my_research_note(request):
     ResearchNoteFile.objects.create(
         note=note,
         name=safe_name,
+        original_name=safe_name,
+        storage_key=storage_key,
         author=owner_name,
         format=extension,
         created=created_text,
     )
-    ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
+    ResearchNoteFolder.objects.create(note=note, name=folder_relpath(note_folder))
 
     return JsonResponse(
         {

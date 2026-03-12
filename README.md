@@ -16,6 +16,33 @@ ProjectNote를 **모노레포 구조**로 정리했습니다.
 └─ server/          # Django 백엔드
 ```
 
+## 연구노트 스토리지 표준 경로 (Phase 0)
+
+스토리지 기준 루트(`RESEARCH_NOTES_STORAGE_ROOT`) 아래 경로를 표준으로 사용합니다.
+
+```text
+storage/
+ └─ {org_id}/
+     └─ {project_id}/
+         ├─ covers/
+         └─ notebooks/
+             └─ {notebook_id}/
+                 ├─ source/
+                 │   ├─ pdf/
+                 │   └─ images/
+                 ├─ derived/
+                 │   ├─ pages/
+                 │   └─ assets/
+                 └─ result/
+```
+
+- `org_id = team_id or "unknown-org"`
+- `project_id = note.project_id or "_personal"`
+- `notebook_id = note.id`
+- 원본 PDF는 `source/pdf`, 원본 이미지는 `source/images`
+- PDF 페이지 분해본은 `derived/pages`, 렌더 자산은 `derived/assets`
+- 최종 산출물(PDF export 등)은 `result`
+
 ## 실행 방법
 
 ### 1) React 프론트엔드
@@ -51,7 +78,7 @@ python manage.py runserver 0.0.0.0:8000
 - 관리자: 대시보드/팀/유저/테이블
 - 관리자(`\/auth\/admin-login`, `\/admin\/*`)는 React 네이티브 화면으로 동작하며 Django API와 세션 인증으로 통신합니다.
 
-기존 Django 템플릿 파일은 `server/templates`로 이동되어 백엔드 템플릿 렌더링을 유지합니다.
+레거시 Django 템플릿 렌더링은 제거되었고, 화면 라우팅은 React 앱 경로를 사용합니다.
 
 ### 레거시 Django HTML fallback on/off
 
@@ -66,8 +93,37 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 
 - dev 서버 재시작 후 반영됩니다.
 
+### 연구노트 스토리지 마이그레이션 실행
+
+기존 파일을 새 표준 경로로 옮길 때 아래 명령을 사용하세요.
+
+```bash
+# 사전 점검(dry-run)
+python manage.py migrate_research_note_storage
+
+# 실제 반영(복사)
+python manage.py migrate_research_note_storage --apply
+
+# 실제 반영(이동)
+python manage.py migrate_research_note_storage --apply --move
+```
+
+- 기본은 dry-run입니다.
+- `--verify-hash-samples N`으로 복사 모드에서 일부 파일 해시 검증을 수행할 수 있습니다.
+- `--archive-legacy`는 `--apply --move`와 함께 사용해 구 폴더를 `_archive/legacy_research_notes/`로 이동합니다.
+- `--fail-on-missing`을 주면 누락 파일이 있을 때 비정상 종료 코드로 종료합니다.
+
 ### 자주 발생하는 오류
 
 - `http proxy error ... ECONNREFUSED 127.0.0.1:8000`
   - 원인: Django 서버 미실행 또는 포트 불일치
   - 조치: `python manage.py runserver 0.0.0.0:8000` 실행 또는 `VITE_BACKEND_ORIGIN` 수정
+
+- `sqlite3.OperationalError: no such column: workflow_app_researchnote.show_title`
+  - 원인: 최신 마이그레이션(`0017_researchnote_show_title`) 미적용
+  - 조치: `python manage.py migrate` 실행 후 서버 재시작
+
+- `sqlite3.OperationalError: no such table: workflow_app_useraccount`
+  - 원인: 초기 마이그레이션 미적용(또는 DB 파일 초기화 후 미마이그레이션)
+  - 조치: `python manage.py migrate` 실행 후 서버 재시작
+
