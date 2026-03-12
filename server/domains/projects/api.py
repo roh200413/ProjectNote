@@ -21,6 +21,7 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from .models import Project, ProjectMember, ProjectNoteCover
 from server.domains.admin.models import UserAccount
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.research_notes.storage_paths import cover_root, source_pdf_dir, source_images_dir, derived_pages_dir, folder_relpath, storage_root
 from server.domains.research_notes.api import (
     build_research_note_file_pdf,
     _read_research_note_pdf_cache,
@@ -142,7 +143,10 @@ def _decode_data_url(data_url: str):
 
 
 def _project_cover_pdf_cache_path(project_id: str) -> Path:
-    return Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / "_pdf_cache" / "project_covers" / f"{project_id}.pdf"
+    project_obj = Project.objects.filter(id=project_id).first()
+    if not project_obj:
+        return storage_root() / "unknown-org" / str(project_id) / "covers" / "cover_export.pdf"
+    return cover_root(project_obj) / "cover_export.pdf"
 
 
 def _read_project_cover_pdf_cache(project_id: str) -> bytes | None:
@@ -518,11 +522,15 @@ def project_upload_research_note_api(request, project_id: str):
         summary=summary,
     )
 
-    username = str(profile.get("username") or "anonymous").strip() or "anonymous"
-    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-    note_folder = storage_root / username / str(note.id)
-    note_folder.mkdir(parents=True, exist_ok=True)
-    ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
+    note_pdf_dir = source_pdf_dir(note)
+    note_image_dir = source_images_dir(note)
+    note_pages_dir = derived_pages_dir(note)
+    note_pdf_dir.mkdir(parents=True, exist_ok=True)
+    note_image_dir.mkdir(parents=True, exist_ok=True)
+    note_pages_dir.mkdir(parents=True, exist_ok=True)
+    ResearchNoteFolder.objects.create(note=note, name=folder_relpath(note_pdf_dir))
+    ResearchNoteFolder.objects.get_or_create(note=note, name=folder_relpath(note_image_dir))
+    ResearchNoteFolder.objects.get_or_create(note=note, name=folder_relpath(note_pages_dir))
 
     created_count = 0
     for upload in uploads:
@@ -537,7 +545,7 @@ def project_upload_research_note_api(request, project_id: str):
                 reader = PdfReader(BytesIO(pdf_bytes))
                 for page_index, page in enumerate(reader.pages, start=1):
                     page_name = f"{stem}_p{page_index:03d}.pdf"
-                    page_path = note_folder / page_name
+                    page_path = note_pages_dir / page_name
                     writer = PdfWriter()
                     writer.add_page(page)
                     with page_path.open("wb") as destination:
@@ -557,7 +565,7 @@ def project_upload_research_note_api(request, project_id: str):
             if split_success:
                 continue
 
-            fallback_path = note_folder / safe_name
+            fallback_path = (note_pdf_dir if extension == "pdf" else note_image_dir) / safe_name
             with fallback_path.open("wb") as destination:
                 destination.write(pdf_bytes)
             ResearchNoteFile.objects.create(

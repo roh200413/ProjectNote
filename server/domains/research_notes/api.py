@@ -18,6 +18,7 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
 from .models import ResearchNote
+from .storage_paths import source_pdf_dir, source_images_dir, result_dir, storage_root, folder_relpath
 from server.domains.admin.models import UserAccount
 from server.application.web_support import login_required_page, research_note_repository, signature_repository
 
@@ -47,7 +48,8 @@ def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
 
 
 def _research_note_pdf_cache_path(note_id: str, file_id: str) -> Path:
-    return Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / "_pdf_cache" / str(note_id) / f"{file_id}.pdf"
+    note = ResearchNote.objects.select_related("project").get(id=note_id)
+    return result_dir(note) / f"viewer_export_{file_id}.pdf"
 
 
 def _read_research_note_pdf_cache(note_id: str, file_id: str) -> bytes | None:
@@ -244,10 +246,12 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
         raise Http404("Research note file not found") from exc
 
     safe_name = Path(note_file["name"]).name
-    candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
-    if not candidates:
-        storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-        candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
+    candidates = []
+    for folder in research_note_repository.list_note_folders(note_id):
+        base = Path(folder)
+        if not base.is_absolute():
+            base = storage_root() / base
+        candidates.append(base / safe_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -347,10 +351,12 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
     selected_file = next((item for item in files if item["id"] == file_id), files[0])
 
     safe_name = Path(selected_file["name"]).name
-    candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
-    if not candidates:
-        storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-        candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
+    candidates = []
+    for folder in research_note_repository.list_note_folders(note_id):
+        base = Path(folder)
+        if not base.is_absolute():
+            base = storage_root() / base
+        candidates.append(base / safe_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -573,14 +579,14 @@ def research_note_file_upload_api(request, note_id: str):
         return JsonResponse({"detail": "PDF 또는 이미지 파일만 업로드할 수 있습니다."}, status=400)
 
     profile = effective_user_profile(request) or {}
-    username = str(profile.get("username") or "anonymous").strip() or "anonymous"
-    author_name = str(profile.get("name") or username).strip() or username
+    author_name = str(profile.get("name") or profile.get("username") or "anonymous").strip() or "anonymous"
 
     existing_folders = research_note_repository.list_note_folders(note_id)
     if existing_folders:
-        note_folder = Path(existing_folders[0])
+        existing_folder = Path(existing_folders[0])
+        note_folder = existing_folder if existing_folder.is_absolute() else storage_root() / existing_folder
     else:
-        note_folder = Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / username / str(note_id)
+        note_folder = source_pdf_dir(note_obj) if extension == "pdf" else source_images_dir(note_obj)
 
     note_folder.mkdir(parents=True, exist_ok=True)
     target_path = note_folder / safe_name
@@ -596,7 +602,7 @@ def research_note_file_upload_api(request, note_id: str):
         created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
     )
 
-    ResearchNoteFolder.objects.get_or_create(note=note_obj, name=str(note_folder))
+    ResearchNoteFolder.objects.get_or_create(note=note_obj, name=folder_relpath(note_folder))
     note_obj.files = note_obj.note_files.count()
     note_obj.save(update_fields=["files", "last_updated_at", "updated_at"])
 

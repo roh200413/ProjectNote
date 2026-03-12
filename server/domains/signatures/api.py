@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from django.conf import settings
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -8,6 +7,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from server.application.web_support import effective_user_profile, login_required_page, signature_repository
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
+from server.domains.research_notes.storage_paths import source_pdf_dir, source_images_dir, folder_relpath
 
 
 @require_GET
@@ -88,7 +88,6 @@ def upload_my_research_note(request):
         return JsonResponse({"message": "유효한 파일명이 필요합니다."}, status=400)
 
     owner_name = str(profile.get("name", username)).strip() or username
-    storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
     note = ResearchNote.objects.create(
         title=safe_name,
         owner=owner_name,
@@ -99,7 +98,8 @@ def upload_my_research_note(request):
         summary=f"업로드 파일: {safe_name}",
     )
 
-    note_folder = storage_root / username / str(note.id)
+    extension_guess = Path(safe_name).suffix.lstrip('.').lower()
+    note_folder = source_pdf_dir(note) if extension_guess == 'pdf' else source_images_dir(note)
     note_folder.mkdir(parents=True, exist_ok=True)
     target_path = note_folder / safe_name
     with target_path.open("wb") as destination:
@@ -115,7 +115,7 @@ def upload_my_research_note(request):
         format=extension,
         created=created_text,
     )
-    ResearchNoteFolder.objects.create(note=note, name=str(note_folder))
+    ResearchNoteFolder.objects.create(note=note, name=folder_relpath(note_folder))
 
     return JsonResponse(
         {

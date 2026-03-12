@@ -1253,7 +1253,7 @@ def test_my_page_research_note_upload_creates_note_and_file() -> None:
             saved_path = Path(body['file_path'])
             assert saved_path.exists()
             assert saved_path.read_bytes() == b'hello research note'
-            assert note_id in str(saved_path.parent)
+            assert f"notebooks/{note_id}/source" in str(saved_path).replace("\\", "/")
 
             note = ResearchNote.objects.get(id=note_id)
             assert note.title == 'upload-note.txt'

@@ -16,6 +16,33 @@ ProjectNote를 **모노레포 구조**로 정리했습니다.
 └─ server/          # Django 백엔드
 ```
 
+## 연구노트 스토리지 표준 경로 (Phase 0)
+
+스토리지 기준 루트(`RESEARCH_NOTES_STORAGE_ROOT`) 아래 경로를 표준으로 사용합니다.
+
+```text
+storage/
+ └─ {org_id}/
+     └─ {project_id}/
+         ├─ covers/
+         └─ notebooks/
+             └─ {notebook_id}/
+                 ├─ source/
+                 │   ├─ pdf/
+                 │   └─ images/
+                 ├─ derived/
+                 │   ├─ pages/
+                 │   └─ assets/
+                 └─ result/
+```
+
+- `org_id = team_id or "unknown-org"`
+- `project_id = note.project_id or "_personal"`
+- `notebook_id = note.id`
+- 원본 PDF는 `source/pdf`, 원본 이미지는 `source/images`
+- PDF 페이지 분해본은 `derived/pages`, 렌더 자산은 `derived/assets`
+- 최종 산출물(PDF export 등)은 `result`
+
 ## 실행 방법
 
 ### 1) React 프론트엔드
@@ -65,6 +92,26 @@ echo "VITE_ENABLE_LEGACY_PAGES=true" > apps/web/.env.local
 ```
 
 - dev 서버 재시작 후 반영됩니다.
+
+### 연구노트 스토리지 마이그레이션 실행
+
+기존 파일을 새 표준 경로로 옮길 때 아래 명령을 사용하세요.
+
+```bash
+# 사전 점검(dry-run)
+python manage.py migrate_research_note_storage
+
+# 실제 반영(복사)
+python manage.py migrate_research_note_storage --apply
+
+# 실제 반영(이동)
+python manage.py migrate_research_note_storage --apply --move
+```
+
+- 기본은 dry-run입니다.
+- `--verify-hash-samples N`으로 복사 모드에서 일부 파일 해시 검증을 수행할 수 있습니다.
+- `--archive-legacy`는 `--apply --move`와 함께 사용해 구 폴더를 `_archive/legacy_research_notes/`로 이동합니다.
+- `--fail-on-missing`을 주면 누락 파일이 있을 때 비정상 종료 코드로 종료합니다.
 
 ### 자주 발생하는 오류
 
