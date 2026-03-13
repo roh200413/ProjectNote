@@ -177,23 +177,27 @@ def research_note_detail_page(request, note_id: str):
 def _build_research_note_viewer_context(note_id: str, requested_file: str | None = None) -> dict:
     note = research_note_repository.get_research_note(note_id)
     files = research_note_repository.list_note_files(note_id)
-    if not files:
-        raise Http404("Research note file not found")
 
-    selected_file = files[0]
+    selected_file = files[0] if files else None
     if requested_file:
         matched = next((item for item in files if item["id"] == requested_file), None)
         if matched:
             selected_file = matched
 
-    selected_file_url = f"/frontend/research-notes/{note_id}/files/{selected_file['id']}/content"
+    selected_file_url = (
+        f"/frontend/research-notes/{note_id}/files/{selected_file['id']}/content"
+        if selected_file
+        else ""
+    )
 
     note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
     manager_raw = (note_obj.project.manager if note_obj and note_obj.project else "") if note_obj else ""
 
-    author_user = UserAccount.objects.filter(username=selected_file.get("author", "")).first()
-    if not author_user:
-        author_user = UserAccount.objects.filter(display_name=selected_file.get("author", "")).first()
+    author_user = None
+    if selected_file:
+        author_user = UserAccount.objects.filter(username=selected_file.get("author", "")).first()
+        if not author_user:
+            author_user = UserAccount.objects.filter(display_name=selected_file.get("author", "")).first()
 
     manager_user = UserAccount.objects.filter(username=manager_raw).first()
     if not manager_user:
@@ -213,7 +217,7 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
         "manager_name": manager_user.display_name if manager_user else manager_raw,
         "author_signature_data_url": author_signature.get("signature_data_url", ""),
         "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-        "author_date": selected_file.get("created", "-"),
+        "author_date": selected_file.get("created", "-") if selected_file else "-",
         "reviewer_date": reviewer_date,
         "show_title": bool(note.get("show_title", True)),
     }

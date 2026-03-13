@@ -1804,3 +1804,44 @@ def test_research_note_update_persists_show_title_flag() -> None:
     off_resp = client.post(f"/api/v1/research-notes/{note_id}/update", {"title": "표시 OFF", "show_title": "false"})
     assert off_resp.status_code == 200
     assert off_resp.json()["note"]["show_title"] is False
+
+
+def test_research_note_viewer_context_returns_empty_selection_without_files() -> None:
+    reset_db()
+    team, _ = Team.objects.get_or_create(name="컨텍스트팀", defaults={"description": "desc", "join_code": "555555"})
+    owner = UserAccount.objects.create(
+        username="viewer-owner",
+        display_name="뷰어소유자",
+        email="viewer-owner@example.com",
+        password="pw",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(
+        name="빈 파일 프로젝트",
+        manager=owner.username,
+        organization=team.name,
+        code="EMPTY-CTX-01",
+        status="active",
+    )
+    note = ResearchNote.objects.create(
+        project=project,
+        title="파일 없는 노트",
+        owner=owner.username,
+        project_code=project.code,
+        period="2026.01.01 ~ 2026.12.31",
+        files=0,
+        members=1,
+        summary="",
+    )
+
+    login(client)
+    response = client.get(f"/api/v1/research-notes/{note.id}/viewer-context")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["files"] == []
+    assert body["selected_file"] is None
+    assert body["file"] is None
+    assert body["selected_file_url"] == ""
