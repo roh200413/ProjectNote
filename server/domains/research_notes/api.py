@@ -1,12 +1,15 @@
 import base64
+import json
 import mimetypes
+import uuid
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
-from django.shortcuts import render
+from django.db import OperationalError, ProgrammingError
+from django.shortcuts import redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from pypdf import PageObject, PdfReader, PdfWriter, Transformation
@@ -17,8 +20,9 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
 
 from .models import ResearchNote
+from .storage_paths import source_pdf_dir, source_images_dir, result_dir, storage_root, folder_relpath
 from server.domains.admin.models import UserAccount
-from server.application.web_support import login_required_page, page_context, research_note_repository, signature_repository
+from server.application.web_support import login_required_page, research_note_repository, signature_repository
 
 
 def _setup_korean_font() -> str | None:
@@ -45,8 +49,22 @@ def _set_pdf_font(pdf, size: int, bold: bool = False) -> None:
     pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
 
 
+
+
+def _schema_not_ready_response() -> JsonResponse:
+    return JsonResponse({"detail": "DB 스키마가 최신이 아닙니다. `python manage.py migrate`를 실행하세요."}, status=503)
+
+
+def _build_storage_key(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return f"{uuid.uuid4().hex}{suffix}" if suffix else uuid.uuid4().hex
+
+
+def _materialized_filename(file_row: dict) -> str:
+    return Path(str(file_row.get("storage_key") or file_row.get("name") or "")).name
 def _research_note_pdf_cache_path(note_id: str, file_id: str) -> Path:
-    return Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / "_pdf_cache" / str(note_id) / f"{file_id}.pdf"
+    note = ResearchNote.objects.select_related("project").get(id=note_id)
+    return result_dir(note) / f"viewer_export_{file_id}.pdf"
 
 
 def _read_research_note_pdf_cache(note_id: str, file_id: str) -> bytes | None:
@@ -97,7 +115,10 @@ def research_note_files_api(_request, note_id: str):
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
-    files = research_note_repository.list_note_files(note_id)
+    try:
+        files = research_note_repository.list_note_files(note_id)
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
     payload = [
         {
             **item,
@@ -131,7 +152,9 @@ def research_note_folders_api(_request, note_id: str):
 @require_http_methods(["POST"])
 def research_note_update_api(request, note_id: str):
     try:
-        note = research_note_repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"))
+        show_title_raw = request.POST.get("show_title")
+        show_title = None if show_title_raw is None else str(show_title_raw).strip().lower() in {"1", "true", "on", "yes"}
+        note = research_note_repository.update_research_note(note_id, request.POST.get("title"), request.POST.get("summary"), show_title=show_title)
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
     return JsonResponse({"message": "연구노트가 업데이트되었습니다.", "note": note})
@@ -141,51 +164,40 @@ def research_note_update_api(request, note_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_notes_page(request):
-    return render(request, "research_notes/list.html", page_context(request, {"notes": research_note_repository.list_research_notes()}))
+    return redirect("/research-notes")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_detail_page(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-    return render(
-        request,
-        "research_notes/detail.html",
-        page_context(
-            request,
-            {
-                "note": note,
-                "files": research_note_repository.list_note_files(note_id),
-                "folders": research_note_repository.list_note_folders(note_id),
-            },
-        ),
-    )
+    return redirect(f"/research-notes/{note_id}")
 
 
 def _build_research_note_viewer_context(note_id: str, requested_file: str | None = None) -> dict:
     note = research_note_repository.get_research_note(note_id)
     files = research_note_repository.list_note_files(note_id)
-    if not files:
-        raise Http404("Research note file not found")
 
-    selected_file = files[0]
+    selected_file = files[0] if files else None
     if requested_file:
         matched = next((item for item in files if item["id"] == requested_file), None)
         if matched:
             selected_file = matched
 
-    selected_file_url = f"/frontend/research-notes/{note_id}/files/{selected_file['id']}/content"
+    selected_file_url = (
+        f"/frontend/research-notes/{note_id}/files/{selected_file['id']}/content"
+        if selected_file
+        else ""
+    )
 
     note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
     manager_raw = (note_obj.project.manager if note_obj and note_obj.project else "") if note_obj else ""
 
-    author_user = UserAccount.objects.filter(username=selected_file.get("author", "")).first()
-    if not author_user:
-        author_user = UserAccount.objects.filter(display_name=selected_file.get("author", "")).first()
+    author_user = None
+    if selected_file:
+        author_user = UserAccount.objects.filter(username=selected_file.get("author", "")).first()
+        if not author_user:
+            author_user = UserAccount.objects.filter(display_name=selected_file.get("author", "")).first()
 
     manager_user = UserAccount.objects.filter(username=manager_raw).first()
     if not manager_user:
@@ -205,8 +217,9 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
         "manager_name": manager_user.display_name if manager_user else manager_raw,
         "author_signature_data_url": author_signature.get("signature_data_url", ""),
         "manager_signature_data_url": manager_signature.get("signature_data_url", ""),
-        "author_date": selected_file.get("created", "-"),
+        "author_date": selected_file.get("created", "-") if selected_file else "-",
         "reviewer_date": reviewer_date,
+        "show_title": bool(note.get("show_title", True)),
     }
 
 
@@ -216,6 +229,8 @@ def _build_research_note_viewer_context(note_id: str, requested_file: str | None
 def research_note_viewer_context_api(request, note_id: str):
     try:
         return JsonResponse(_build_research_note_viewer_context(note_id, request.GET.get("file")))
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
     except ResearchNote.DoesNotExist as exc:
         raise Http404("Research note not found") from exc
 
@@ -224,58 +239,25 @@ def research_note_viewer_context_api(request, note_id: str):
 @ensure_csrf_cookie
 @login_required_page
 def research_note_cover_page(request, note_id: str):
-    try:
-        note = research_note_repository.get_research_note(note_id)
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    note_obj = ResearchNote.objects.select_related("project").filter(id=note_id).first()
-    project = note_obj.project if note_obj else None
-
-    manager_raw = project.manager if project else ""
-    manager_user = UserAccount.objects.filter(username=manager_raw).first()
-    if not manager_user:
-        manager_user = UserAccount.objects.filter(display_name=manager_raw).first()
-
-    manager_name = manager_user.display_name if manager_user else (manager_raw or "-")
-
-    context_data = {
-        "note": note,
-        "project": {
-            "id": str(project.id) if project else "",
-            "name": project.name if project else "-",
-            "code": note.get("project_code") or (project.code if project else "-"),
-            "organization": project.organization if project else "-",
-            "manager": manager_name,
-            "business_name": getattr(project, "business_name", "") if project else "",
-        },
-        "period": note.get("period") or "-",
-    }
-    return render(request, "research_notes/cover.html", page_context(request, context_data))
+    return redirect(f"/research-notes/{note_id}/cover")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_viewer_page(request, note_id: str):
-    try:
-        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    return render(request, "research_notes/viewer.html", page_context(request, context_data))
+    file_id = (request.GET.get("file") or "").strip()
+    query = f"?file={file_id}" if file_id else ""
+    return redirect(f"/research-notes/{note_id}/viewer{query}")
 
 
 @require_GET
 @ensure_csrf_cookie
 @login_required_page
 def research_note_printable_page(request, note_id: str):
-    try:
-        context_data = _build_research_note_viewer_context(note_id, request.GET.get("file"))
-    except ResearchNote.DoesNotExist as exc:
-        raise Http404("Research note not found") from exc
-
-    return render(request, "research_notes/printable.html", page_context(request, context_data))
+    file_id = (request.GET.get("file") or "").strip()
+    query = f"?file={file_id}" if file_id else ""
+    return redirect(f"/research-notes/{note_id}/printable{query}")
 
 
 @require_GET
@@ -288,10 +270,13 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
         raise Http404("Research note file not found") from exc
 
     safe_name = Path(note_file["name"]).name
-    candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
-    if not candidates:
-        storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-        candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
+    stored_name = _materialized_filename(note_file)
+    candidates = []
+    for folder in research_note_repository.list_note_folders(note_id):
+        base = Path(folder)
+        if not base.is_absolute():
+            base = storage_root() / base
+        candidates.append(base / stored_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -302,7 +287,7 @@ def research_note_file_content_page(request, note_id: str, file_id: str):
     return FileResponse(source.open("rb"), as_attachment=as_attachment, filename=safe_name, content_type=content_type)
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 @ensure_csrf_cookie
 @login_required_page
 def research_note_viewer_export_pdf_api(request, note_id: str):
@@ -310,12 +295,59 @@ def research_note_viewer_export_pdf_api(request, note_id: str):
     if not files:
         raise Http404("Research note file not found")
 
-    requested_file = request.GET.get("file")
+    requested_file = request.GET.get("file") or request.POST.get("file")
     selected_file = files[0]
     if requested_file:
         matched = next((item for item in files if item["id"] == requested_file), None)
         if matched:
             selected_file = matched
+
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            return JsonResponse({"detail": "잘못된 요청 형식입니다."}, status=400)
+
+        page_images = payload.get("page_images", [])
+        if not isinstance(page_images, list) or not page_images:
+            return JsonResponse({"detail": "내보낼 페이지 이미지가 없습니다."}, status=400)
+
+        writer = PdfWriter()
+        for image_data in page_images:
+            raw = str(image_data or "")
+            if not raw.startswith("data:image") or "," not in raw:
+                continue
+            try:
+                encoded = raw.split(",", 1)[1]
+                reader = ImageReader(BytesIO(base64.b64decode(encoded)))
+            except Exception:
+                continue
+
+            try:
+                iw, ih = reader.getSize()
+                iw = float(iw)
+                ih = float(ih)
+            except Exception:
+                continue
+            if iw <= 0 or ih <= 0:
+                continue
+
+            page_buffer = BytesIO()
+            pdf = canvas.Canvas(page_buffer, pagesize=(iw, ih))
+            pdf.drawImage(reader, 0, 0, width=iw, height=ih, preserveAspectRatio=False)
+            pdf.showPage()
+            pdf.save()
+            page_buffer.seek(0)
+            writer.append(PdfReader(page_buffer, strict=False))
+
+        if not writer.pages:
+            return JsonResponse({"detail": "유효한 페이지 이미지가 없습니다."}, status=400)
+
+        output = BytesIO()
+        writer.write(output)
+        output.seek(0)
+        filename = f"research_note_{note_id}_{Path(str(selected_file.get('name') or 'research_note')).stem}_viewer_snapshot.pdf"
+        return FileResponse(output, as_attachment=True, filename=filename, content_type="application/pdf")
 
     file_id = str(selected_file["id"])
     pdf_bytes = _read_research_note_pdf_cache(note_id, file_id)
@@ -344,10 +376,13 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
     selected_file = next((item for item in files if item["id"] == file_id), files[0])
 
     safe_name = Path(selected_file["name"]).name
-    candidates = [Path(folder) / safe_name for folder in research_note_repository.list_note_folders(note_id)]
-    if not candidates:
-        storage_root = Path(settings.RESEARCH_NOTES_STORAGE_ROOT)
-        candidates = list(storage_root.glob(f"*/{note_id}/{safe_name}"))
+    stored_name = _materialized_filename(selected_file)
+    candidates = []
+    for folder in research_note_repository.list_note_folders(note_id):
+        base = Path(folder)
+        if not base.is_absolute():
+            base = storage_root() / base
+        candidates.append(base / stored_name)
 
     source = next((c for c in candidates if c.exists() and c.is_file()), None)
     if not source:
@@ -358,6 +393,7 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
     author_name = str(selected_file.get("author") or "-")
     created_text = str(selected_file.get("created") or "-")
+    show_title = bool(note.get("show_title", True))
 
     author_user = UserAccount.objects.filter(username=author_name).first() or UserAccount.objects.filter(display_name=author_name).first()
     manager_user = UserAccount.objects.filter(username=manager_raw).first() or UserAccount.objects.filter(display_name=manager_raw).first()
@@ -440,9 +476,10 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
         pdf.roundRect(layout["sheet_left"], layout["sheet_bottom"], layout["sheet_width"], layout["sheet_height"], 8, stroke=1, fill=0)
 
-        header_top = layout["sheet_bottom"] + layout["sheet_height"] - 28
-        _set_pdf_font(pdf, 13, bold=True)
-        pdf.drawString(layout["sheet_left"] + 16, header_top, str(note.get("title") or "연구노트"))
+        header_top = layout["sheet_bottom"] + layout["sheet_height"] - 24
+        if show_title:
+            _set_pdf_font(pdf, 10, bold=True)
+            pdf.drawString(layout["sheet_left"] + 16, header_top, str(note.get("title") or "연구노트"))
         pdf.line(layout["sheet_left"] + 16, header_top - 6, layout["sheet_left"] + layout["sheet_width"] - 16, header_top - 6)
 
         content_left = layout["sheet_left"] + 16
@@ -470,15 +507,18 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
                     pass
 
             if reader.pages:
-                page = reader.pages[0]
-                src_w = float(page.mediabox.width)
-                src_h = float(page.mediabox.height)
-                if src_w > 0 and src_h > 0:
-                    layout = _sheet_layout()
-                    content_left = layout["sheet_left"] + 16
-                    content_bottom = layout["content_bottom"]
-                    content_width = layout["sheet_width"] - 32
-                    content_height = layout["content_top"] - layout["content_bottom"]
+                layout = _sheet_layout()
+                content_left = layout["sheet_left"] + 16
+                content_bottom = layout["content_bottom"]
+                content_width = layout["sheet_width"] - 32
+                content_height = layout["content_top"] - layout["content_bottom"]
+                overlay_page = _build_sheet_overlay_pdf().pages[0]
+
+                for page in reader.pages:
+                    src_w = float(page.mediabox.width)
+                    src_h = float(page.mediabox.height)
+                    if src_w <= 0 or src_h <= 0:
+                        continue
 
                     scale = min(content_width / src_w, content_height / src_h)
                     tx = content_left + (content_width - (src_w * scale)) / 2
@@ -486,7 +526,7 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
                     rebuilt = PageObject.create_blank_page(width=pw, height=ph)
                     rebuilt.merge_transformed_page(page, Transformation().scale(scale, scale).translate(tx, ty))
-                    rebuilt.merge_page(_build_sheet_overlay_pdf().pages[0])
+                    rebuilt.merge_page(overlay_page)
                     writer.add_page(rebuilt)
     else:
         page_buffer = BytesIO()
@@ -504,9 +544,10 @@ def build_research_note_file_pdf(note_id: str, file_id: str) -> bytes:
 
         pdf.roundRect(sheet_left, sheet_bottom, sheet_width, sheet_height, 8, stroke=1, fill=0)
 
-        header_top = sheet_bottom + sheet_height - 28
-        _set_pdf_font(pdf, 13, bold=True)
-        pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
+        header_top = sheet_bottom + sheet_height - 24
+        if show_title:
+            _set_pdf_font(pdf, 10, bold=True)
+            pdf.drawString(sheet_left + 16, header_top, str(note.get("title") or "연구노트"))
         pdf.line(sheet_left + 16, header_top - 6, sheet_left + sheet_width - 16, header_top - 6)
         pdf.roundRect(content_left, content_bottom, content_width, content_height, 4, stroke=1, fill=0)
 
@@ -564,32 +605,44 @@ def research_note_file_upload_api(request, note_id: str):
         return JsonResponse({"detail": "PDF 또는 이미지 파일만 업로드할 수 있습니다."}, status=400)
 
     profile = effective_user_profile(request) or {}
-    username = str(profile.get("username") or "anonymous").strip() or "anonymous"
-    author_name = str(profile.get("name") or username).strip() or username
+    author_name = str(profile.get("name") or profile.get("username") or "anonymous").strip() or "anonymous"
 
     existing_folders = research_note_repository.list_note_folders(note_id)
     if existing_folders:
-        note_folder = Path(existing_folders[0])
+        existing_folder = Path(existing_folders[0])
+        note_folder = existing_folder if existing_folder.is_absolute() else storage_root() / existing_folder
     else:
-        note_folder = Path(settings.RESEARCH_NOTES_STORAGE_ROOT) / username / str(note_id)
+        note_folder = source_pdf_dir(note_obj) if extension == "pdf" else source_images_dir(note_obj)
 
     note_folder.mkdir(parents=True, exist_ok=True)
-    target_path = note_folder / safe_name
+    storage_key = _build_storage_key(safe_name)
+    target_path = note_folder / storage_key
     with target_path.open("wb") as destination:
         for chunk in upload.chunks():
             destination.write(chunk)
 
-    file_obj = ResearchNoteFile.objects.create(
-        note=note_obj,
-        name=safe_name,
-        author=author_name,
-        format=extension,
-        created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
-    )
+    try:
+        file_obj = ResearchNoteFile.objects.create(
+            note=note_obj,
+            name=safe_name,
+            original_name=safe_name,
+            storage_key=storage_key,
+            author=author_name,
+            format=extension,
+            created=datetime.now().strftime("%Y.%m.%d / %I:%M %p"),
+        )
+    except (OperationalError, ProgrammingError):
+        return _schema_not_ready_response()
 
-    ResearchNoteFolder.objects.get_or_create(note=note_obj, name=str(note_folder))
+    ResearchNoteFolder.objects.get_or_create(note=note_obj, name=folder_relpath(note_folder))
     note_obj.files = note_obj.note_files.count()
     note_obj.save(update_fields=["files", "last_updated_at", "updated_at"])
+
+    try:
+        pdf_bytes = build_research_note_file_pdf(note_id, str(file_obj.id))
+        _write_research_note_pdf_cache(note_id, str(file_obj.id), pdf_bytes)
+    except Exception:
+        pass
 
     payload = {
         "id": str(file_obj.id),
@@ -614,4 +667,9 @@ def research_note_file_update_api(request, note_id: str, file_id: str):
     except Exception as exc:
         raise Http404("Research note file not found") from exc
     _invalidate_research_note_pdf_cache(note_id, file_id)
+    try:
+        pdf_bytes = build_research_note_file_pdf(note_id, file_id)
+        _write_research_note_pdf_cache(note_id, file_id, pdf_bytes)
+    except Exception:
+        pass
     return JsonResponse({"message": "파일 정보가 업데이트되었습니다.", "file": updated})

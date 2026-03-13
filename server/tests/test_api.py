@@ -25,7 +25,7 @@ from server.application.sqlalchemy_session import sqlalchemy_database_url
 from server.application import web_support
 from server.application.mock_data import seed_demo_data
 from server.domains.admin.models import Team, UserAccount
-from server.domains.projects.models import Project, ProjectMember
+from server.domains.projects.models import Project, ProjectMember, ProjectNoteCover
 from server.domains.research_notes.models import ResearchNote, ResearchNoteFile, ResearchNoteFolder
 
 pytestmark = pytest.mark.django_db
@@ -136,6 +136,30 @@ def test_signup_stores_hashed_password() -> None:
     assert check_password("secret123", created.password)
 
 
+
+def test_signup_api_returns_service_unavailable_when_db_schema_missing(monkeypatch) -> None:
+    reset_db()
+
+    def _raise_schema_error(**_kwargs):
+        from django.db import OperationalError
+
+        raise OperationalError("no such table: workflow_app_useraccount")
+
+    monkeypatch.setattr(web_support.admin_repository, "register_user", _raise_schema_error)
+
+    response = client.post(
+        "/api/v1/auth/signup",
+        {
+            "username": "schema-user",
+            "display_name": "스키마유저",
+            "email": "schema-user@example.com",
+            "password": "secret123",
+            "role": "member",
+        },
+    )
+
+    assert response.status_code == 503
+    assert "python manage.py migrate" in response.json()["detail"]
 
 
 def test_first_approved_user_becomes_owner() -> None:
@@ -1229,7 +1253,7 @@ def test_my_page_research_note_upload_creates_note_and_file() -> None:
             saved_path = Path(body['file_path'])
             assert saved_path.exists()
             assert saved_path.read_bytes() == b'hello research note'
-            assert note_id in str(saved_path.parent)
+            assert f"notebooks/{note_id}/source" in str(saved_path).replace("\\", "/")
 
             note = ResearchNote.objects.get(id=note_id)
             assert note.title == 'upload-note.txt'
@@ -1728,3 +1752,96 @@ def test_project_research_note_upload_splits_pdf_pages() -> None:
     assert saved_files[0].name.endswith('_p001.pdf')
     assert saved_files[1].name.endswith('_p002.pdf')
 
+
+
+def test_project_create_auto_creates_cover_defaults() -> None:
+    reset_db()
+    team = Team.objects.create(name="커버팀", description="커버", join_code="313131")
+    owner = UserAccount.objects.create(
+        username="cover-owner",
+        display_name="커버소유자",
+        email="cover-owner@example.com",
+        password="pw",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+
+    created = ProjectService().create_project(
+        {
+            "name": "자동 표지 프로젝트",
+            "manager": owner.username,
+            "business_name": "자동사업",
+            "organization": team.name,
+            "company_id": str(team.id),
+            "code": "AUTO-COVER-01",
+            "description": "desc",
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "status": "active",
+            "invited_members": "[]",
+        },
+        {"id": owner.id, "username": owner.username},
+    )
+
+    project = Project.objects.get(id=created["id"])
+    cover = ProjectNoteCover.objects.filter(project=project).first()
+    assert cover is not None
+    assert cover.title == project.name
+    assert cover.code == project.code
+    assert cover.manager == project.manager
+
+
+def test_research_note_update_persists_show_title_flag() -> None:
+    reset_db()
+    _, note_id = seed_workflow_data()
+    login(client)
+
+    on_resp = client.post(f"/api/v1/research-notes/{note_id}/update", {"title": "표시 ON", "show_title": "true"})
+    assert on_resp.status_code == 200
+    assert on_resp.json()["note"]["show_title"] is True
+
+    off_resp = client.post(f"/api/v1/research-notes/{note_id}/update", {"title": "표시 OFF", "show_title": "false"})
+    assert off_resp.status_code == 200
+    assert off_resp.json()["note"]["show_title"] is False
+
+
+def test_research_note_viewer_context_returns_empty_selection_without_files() -> None:
+    reset_db()
+    team, _ = Team.objects.get_or_create(name="컨텍스트팀", defaults={"description": "desc", "join_code": "555555"})
+    owner = UserAccount.objects.create(
+        username="viewer-owner",
+        display_name="뷰어소유자",
+        email="viewer-owner@example.com",
+        password="pw",
+        role=UserAccount.Role.OWNER,
+        team=team,
+        is_approved=True,
+    )
+    project = Project.objects.create(
+        name="빈 파일 프로젝트",
+        manager=owner.username,
+        organization=team.name,
+        code="EMPTY-CTX-01",
+        status="active",
+    )
+    note = ResearchNote.objects.create(
+        project=project,
+        title="파일 없는 노트",
+        owner=owner.username,
+        project_code=project.code,
+        period="2026.01.01 ~ 2026.12.31",
+        files=0,
+        members=1,
+        summary="",
+    )
+
+    login(client)
+    response = client.get(f"/api/v1/research-notes/{note.id}/viewer-context")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["files"] == []
+    assert body["selected_file"] is None
+    assert body["file"] is None
+    assert body["selected_file_url"] == ""
